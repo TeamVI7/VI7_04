@@ -35,9 +35,17 @@ public class PlayerMovement : MonoBehaviour
     public float      playerHeight  = 2f;
     public LayerMask  whatIsGround;
 
+    [Header("Vaulting")]
+    public LayerMask  whatIsWall;
+    public float      vaultCheckDistance = 1.2f;
+    public float      vaultCheckHeight   = 0.9f;
+    public float      vaultHeight        = 1.3f;
+    public float      vaultDuration      = 0.24f;
+    public float      vaultClearRadius   = 0.5f;
+    public float      vaultClearHeight   = 1.1f;
+
     [Header("Slope Handling")]
     public float maxSlopeAngle = 40f;
-
     [Header("Grapple FOV")]
     public PlayerCam cam;
     public float grappleFov = 95f;
@@ -57,6 +65,8 @@ public class PlayerMovement : MonoBehaviour
     [HideInInspector] public bool sliding;
     [HideInInspector] public bool wallrunning;
     [HideInInspector] public bool climbing;
+    [HideInInspector] public bool wallSliding;
+    [HideInInspector] public bool vaulting;
     [HideInInspector] public bool dashing;
     [HideInInspector] public bool swinging;
     [HideInInspector] public bool activeGrapple;   // mid-arc grapple launch
@@ -75,8 +85,10 @@ public class PlayerMovement : MonoBehaviour
         dashing,
         grappling,
         swinging,
+        vaulting,
         wallrunning,
         climbing,
+        wallSliding,
         sliding,
         crouching,
         sprinting,
@@ -99,6 +111,10 @@ public class PlayerMovement : MonoBehaviour
     private float      horizontalInput;
     private float      verticalInput;
     private Vector3    moveDirection;
+
+    private Vector3    vaultStartPos;
+    private Vector3    vaultEndPos;
+    private float      vaultTimer;
 
     private RaycastHit slopeHit;
     private bool       exitingSlope;
@@ -126,6 +142,7 @@ public class PlayerMovement : MonoBehaviour
         grounded = Physics.Raycast(transform.position, Vector3.down,
                                    playerHeight * 0.5f + 0.2f, whatIsGround);
         ReadInput();
+        TryVault();
         StateHandler();
         SpeedControl();
 
@@ -145,7 +162,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        MovePlayer();
+        if (vaulting)
+            VaultMovement();
+        else
+            MovePlayer();
     }
 
     // -------------------------------------------------------------------------
@@ -220,6 +240,13 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Wallrunning
+        else if (vaulting)
+        {
+            state            = MovementState.vaulting;
+            desiredMoveSpeed = sprintSpeed;
+        }
+
+        // Wallrunning
         else if (wallrunning)
         {
             state            = MovementState.wallrunning;
@@ -231,6 +258,13 @@ public class PlayerMovement : MonoBehaviour
         {
             state            = MovementState.climbing;
             desiredMoveSpeed = climbSpeed;
+        }
+
+        // Wall sliding
+        else if (wallSliding)
+        {
+            state            = MovementState.wallSliding;
+            desiredMoveSpeed = slideSpeed;
         }
 
         // Sliding
@@ -326,7 +360,7 @@ public class PlayerMovement : MonoBehaviour
     private void MovePlayer()
     {
         // these states handle their own velocity
-        if (freeze || activeGrapple || swinging || dashing) return;
+        if (freeze || activeGrapple || swinging || dashing || vaulting || wallrunning || climbing || wallSliding) return;
 
         moveDirection = orientation.forward * verticalInput
                       + orientation.right   * horizontalInput;
@@ -385,6 +419,50 @@ public class PlayerMovement : MonoBehaviour
         exitingSlope = true;
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
+    }
+
+    private void TryVault()
+    {
+        if (vaulting || !grounded || activeGrapple || sliding || wallrunning || climbing || dashing || freeze)
+            return;
+
+        if (verticalInput <= 0f)
+            return;
+
+        LayerMask obstacleMask = whatIsWall.value == 0 ? whatIsGround : whatIsWall;
+        Vector3 origin = transform.position + Vector3.up * vaultCheckHeight;
+        if (!Physics.Raycast(origin, orientation.forward, out RaycastHit hit, vaultCheckDistance, obstacleMask))
+            return;
+
+        Vector3 clearanceOrigin = hit.point + Vector3.up * vaultClearHeight + orientation.forward * 0.2f;
+        if (Physics.CheckSphere(clearanceOrigin, vaultClearRadius, obstacleMask))
+            return;
+
+        StartVault(hit.point);
+    }
+
+    private void StartVault(Vector3 hitPoint)
+    {
+        vaulting = true;
+        vaultTimer = 0f;
+        vaultStartPos = transform.position;
+        vaultEndPos = hitPoint + orientation.forward * (vaultCheckDistance * 0.75f) + Vector3.up * vaultHeight;
+        rb.linearVelocity = Vector3.zero;
+        rb.useGravity = false;
+    }
+
+    private void VaultMovement()
+    {
+        vaultTimer += Time.deltaTime;
+        float t = Mathf.Clamp01(vaultTimer / vaultDuration);
+        Vector3 nextPos = Vector3.Lerp(vaultStartPos, vaultEndPos, t);
+        rb.MovePosition(nextPos);
+
+        if (t >= 1f)
+        {
+            vaulting = false;
+            rb.useGravity = true;
+        }
     }
 
     private void ResetJump()
