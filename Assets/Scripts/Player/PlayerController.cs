@@ -26,30 +26,30 @@ namespace OutOfBullet.Player
         //  MOVEMENT
         // ════════════════════════════════════════════════════════
         [Header("Movement")]
-        public float walkSpeed   = 7f;
+        public float walkSpeed = 7f;
         public float sprintSpeed = 10f;
-        public float groundDrag  = 5f;
+        public float groundDrag = 5f;
         public float speedIncreaseMultiplier = 1.5f;
         public float slopeIncreaseMultiplier = 2.5f;
 
         [Header("Jump")]
-        public float jumpForce     = 12f;
-        public float jumpCooldown  = 0.25f;
+        public float jumpForce = 12f;
+        public float jumpCooldown = 0.25f;
         public float airMultiplier = 0.4f;
 
         [Header("Crouch")]
-        public float crouchSpeed  = 3f;
+        public float crouchSpeed = 3f;
         public float crouchYScale = 0.5f;
 
         [Header("Ground Check")]
-        public float     playerHeight;
+        public float playerHeight;
         public LayerMask whatIsGround;
 
         [Header("Slope")]
         public float maxSlopeAngle = 40f;
 
         [Header("Keybinds")]
-        public KeyCode jumpKey   = KeyCode.Space;
+        public KeyCode jumpKey = KeyCode.Space;
         public KeyCode sprintKey = KeyCode.LeftShift;
         public KeyCode crouchKey = KeyCode.LeftControl;
 
@@ -57,54 +57,54 @@ namespace OutOfBullet.Player
         //  SLIDING
         // ════════════════════════════════════════════════════════
         [Header("Slide")]
-        public float slideSpeed    = 14f;
-        public float slideForce    = 400f;
-        public float maxSlideTime  = 0.75f;
-        public float slideYScale   = 0.5f;
-        public KeyCode slideKey    = KeyCode.LeftControl;
+        public float slideSpeed = 14f;
+        public float slideForce = 400f;
+        public float maxSlideTime = 0.75f;
+        public float slideYScale = 0.5f;
+        public KeyCode slideKey = KeyCode.LeftControl;
 
         // ════════════════════════════════════════════════════════
         //  CLIMBING
         // ════════════════════════════════════════════════════════
         [Header("Climb")]
-        public float     climbSpeed            = 3f;
-        public float     maxClimbTime          = 0.75f;
-        public float     climbJumpUpForce      = 10f;
-        public float     climbJumpBackForce    = 10f;
-        public int       climbJumps            = 1;
-        public float     detectionLength       = 0.7f;
-        public float     sphereCastRadius      = 0.5f;
-        public float     maxWallLookAngle      = 30f;
-        public float     minWallNormalAngle    = 5f;
-        public float     exitWallTime          = 0.2f;
+        public float climbSpeed = 3f;
+        public float maxClimbTime = 0.75f;
+        public float climbJumpUpForce = 10f;
+        public float climbJumpBackForce = 10f;
+        public int climbJumps = 1;
+        public float detectionLength = 0.7f;
+        public float sphereCastRadius = 0.5f;
+        public float maxWallLookAngle = 30f;
+        public float minWallNormalAngle = 5f;
+        public float exitWallTime = 0.2f;
         public LayerMask whatIsWall;
 
         // ════════════════════════════════════════════════════════
         //  DASH
         // ════════════════════════════════════════════════════════
         [Header("Dash")]
-        public float   dashForce       = 22f;
-        public float   iFrameDuration  = 0.15f;
-        public int     maxDashCharges  = 3;
-        public float   chargeRegenTime = 4f;
-        public KeyCode dashKey         = KeyCode.Mouse2;
+        public float dashForce = 22f;
+        public float iFrameDuration = 0.15f;
+        public int maxDashCharges = 3;
+        public float chargeRegenTime = 4f;
+        public KeyCode dashKey = KeyCode.Mouse2;
 
         // ── Dash public state (read by HUD / PlayerHealth) ───────
-        public int   DashCharges   { get; private set; }
-        public bool  IsInvincible  { get; private set; }
+        public int DashCharges { get; private set; }
+        public bool IsInvincible { get; private set; }
         public float DashRegenProgress { get; private set; }
 
         // ════════════════════════════════════════════════════════
         //  PUBLIC STATE  (read by enemies, grapple, HUD)
         // ════════════════════════════════════════════════════════
-        public bool    grounded   { get; private set; }
-        public bool    sliding    { get; private set; }
-        public bool    climbing   { get; private set; }
-        public Vector3 Velocity   => Rb.linearVelocity;
-        public float   Speed      => Rb.linearVelocity.magnitude;
-        public bool    IsGrounded => grounded;
+        public bool grounded { get; private set; }
+        public bool sliding { get; private set; }
+        public bool climbing { get; private set; }
+        public Vector3 Velocity => Rb.linearVelocity;
+        public float Speed => Rb.linearVelocity.magnitude;
+        public bool IsGrounded => grounded;
 
-        public bool    GrappleActive   { get; private set; }
+        public bool GrappleActive { get; private set; }
         public Vector3 GrappleVelocity;
 
         // ── Movement state enum ──────────────────────────────────
@@ -116,31 +116,31 @@ namespace OutOfBullet.Player
         // ════════════════════════════════════════════════════════
 
         // -- Movement --
-        private float   _moveSpeed, _desiredMoveSpeed, _lastDesiredMoveSpeed;
-        private float   _h, _v;
-        private bool    _readyToJump = true;
-        private bool    _exitingSlope;
+        private float _moveSpeed, _desiredMoveSpeed, _lastDesiredMoveSpeed;
+        private float _h, _v;
+        private bool _readyToJump = true;
+        private bool _exitingSlope;
         private Vector3 _moveDir;
         private RaycastHit _slopeHit;
-        private float   _startYScale;
+        private float _startYScale;
 
         // -- Slide --
         private float _slideTimer;
 
         // -- Climb --
-        private bool      _isClimbing;
-        private float     _climbTimer;
-        private float     _wallLookAngle;
-        private bool      _wallFront;
+        private bool _isClimbing;
+        private float _climbTimer;
+        private float _wallLookAngle;
+        private bool _wallFront;
         private RaycastHit _frontWallHit;
-        private Transform  _lastWall;
-        private Vector3    _lastWallNormal;
-        private bool       _exitingWall;
-        private float      _exitWallTimer;
-        private int        _climbJumpsLeft;
+        private Transform _lastWall;
+        private Vector3 _lastWallNormal;
+        private bool _exitingWall;
+        private float _exitWallTimer;
+        private int _climbJumpsLeft;
 
         // -- Dash --
-        private bool      _dashRegenRunning;
+        private bool _dashRegenRunning;
         private Coroutine _iFrameCoroutine;
 
         // -- Health ref for i-frames --
@@ -153,11 +153,14 @@ namespace OutOfBullet.Player
         {
             Rb = GetComponent<Rigidbody>();
             Rb.freezeRotation = true;
-            _health       = GetComponent<PlayerHealth>();
-            _startYScale  = playerObj ? playerObj.localScale.y : 1f;
-            DashCharges   = maxDashCharges;
+            _health = GetComponent<PlayerHealth>();
+            _startYScale = playerObj ? playerObj.localScale.y : 1f;
+            DashCharges = maxDashCharges;
         }
 
+        [Header("Attack Settings")]
+        [SerializeField] private float attackRange = 3f; // Khoảng cách có thể đánh tới Enemy
+        [SerializeField] private LayerMask enemyMask;    // Layer của Enemy để tránh đánh nhầm đất đá
         private void Update()
         {
             if (GrappleActive) return;
@@ -173,6 +176,31 @@ namespace OutOfBullet.Player
             if (_isClimbing && !_exitingWall) ClimbingMovement();
 
             Rb.linearDamping = (grounded && !_isClimbing) ? groundDrag : 0f;
+
+            if (Input.GetKeyDown(KeyCode.H))
+            {
+                TryHitEnemy();
+            }
+        }
+
+        private void TryHitEnemy()
+        {
+            // Điểm phát tia từ chính giữa camera (tâm màn hình FPS) hoặc từ tâm Player
+            Vector3 raycastOrigin = transform.position;
+            Vector3 dir = transform.forward; // Hướng nhìn thẳng phía trước của Player
+
+            // Vẽ tia Debug màu xanh dương trong Scene để dễ quan sát tầm đánh
+            Debug.DrawRay(raycastOrigin, dir * attackRange, Color.blue, 0.3f);
+
+            if (Physics.Raycast(raycastOrigin, dir, out RaycastHit hit, attackRange, enemyMask))
+            {
+                // Tìm component EnemyHealth trên đối tượng vừa bị đánh trúng
+                var enemyHealth = hit.collider.GetComponentInParent<OutOfBullet.Enemy.EnemyHealth>();
+                if (enemyHealth != null)
+                {
+                    enemyHealth.TakeDamage(10f); // Mỗi lần hit mất 10 máu
+                }
+            }
         }
 
         private void FixedUpdate()
@@ -194,7 +222,7 @@ namespace OutOfBullet.Player
             EventBus.Publish(new PlayerVelocityChangedEvent
             {
                 Velocity = Rb.linearVelocity,
-                Speed    = Speed
+                Speed = Speed
             });
         }
 
@@ -352,7 +380,7 @@ namespace OutOfBullet.Player
         private void Jump()
         {
             _exitingSlope = true;
-            Rb.linearVelocity   = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
+            Rb.linearVelocity = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
             Rb.AddForce(transform.up * jumpForce, ForceMode.Impulse);
         }
 
@@ -422,7 +450,7 @@ namespace OutOfBullet.Player
 
             if ((_wallFront && newWall) || grounded)
             {
-                _climbTimer     = maxClimbTime;
+                _climbTimer = maxClimbTime;
                 _climbJumpsLeft = climbJumps;
             }
         }
@@ -454,8 +482,8 @@ namespace OutOfBullet.Player
         private void StartClimbing()
         {
             _isClimbing = true;
-            climbing    = true;
-            _lastWall       = _frontWallHit.transform;
+            climbing = true;
+            _lastWall = _frontWallHit.transform;
             _lastWallNormal = _frontWallHit.normal;
         }
 
@@ -467,16 +495,16 @@ namespace OutOfBullet.Player
         private void StopClimbing()
         {
             _isClimbing = false;
-            climbing    = false;
+            climbing = false;
         }
 
         private void ClimbJump()
         {
-            _exitingWall    = true;
-            _exitWallTimer  = exitWallTime;
-            Vector3 force   = transform.up * climbJumpUpForce
+            _exitingWall = true;
+            _exitWallTimer = exitWallTime;
+            Vector3 force = transform.up * climbJumpUpForce
                             + _frontWallHit.normal * climbJumpBackForce;
-            Rb.linearVelocity     = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
+            Rb.linearVelocity = new Vector3(Rb.linearVelocity.x, 0f, Rb.linearVelocity.z);
             Rb.AddForce(force, ForceMode.Impulse);
             _climbJumpsLeft--;
         }
@@ -499,7 +527,7 @@ namespace OutOfBullet.Player
             EventBus.Publish(new PlayerDashUsedEvent
             {
                 ChargesRemaining = DashCharges,
-                MaxCharges       = maxDashCharges
+                MaxCharges = maxDashCharges
             });
         }
 
@@ -529,7 +557,7 @@ namespace OutOfBullet.Player
                 EventBus.Publish(new PlayerDashChargeRestoredEvent
                 {
                     ChargesRemaining = DashCharges,
-                    MaxCharges       = maxDashCharges
+                    MaxCharges = maxDashCharges
                 });
             }
             _dashRegenRunning = false;
@@ -541,8 +569,8 @@ namespace OutOfBullet.Player
             float v = Input.GetAxisRaw("Vertical");
             Transform cam = Camera.main.transform;
             Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
-            Vector3 right   = Vector3.ProjectOnPlane(cam.right,   Vector3.up).normalized;
-            Vector3 dir     = forward * v + right * h;
+            Vector3 right = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+            Vector3 dir = forward * v + right * h;
             return dir.sqrMagnitude > 0.01f ? dir.normalized : forward;
         }
 
@@ -552,7 +580,7 @@ namespace OutOfBullet.Player
         public void StartGrapple()
         {
             GrappleVelocity = Rb.linearVelocity;
-            GrappleActive   = true;
+            GrappleActive = true;
         }
 
         public void EndGrapple()

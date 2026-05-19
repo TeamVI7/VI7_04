@@ -30,15 +30,18 @@ namespace OutOfBullet.Enemy
         private float        _fireTimer;
 
         // ── Unity ────────────────────────────────────────────────
+
         protected override void Awake()
         {
-            base.Awake();
+            // FIX: Set Tier and MaxHP BEFORE base.Awake() so CurrentHP
+            // is initialised to the correct value (1f), not the Inspector default (100f).
             Tier  = EnemyTier.Fodder;
-            MaxHP = 1f;  // Fodder dies to anything (GDD §5.1)
+            MaxHP = 1f;     // Fodder dies to anything (GDD §5.1)
+            base.Awake();   // CurrentHP = MaxHP = 1 ✓
 
-            _nav = GetComponent<NavMeshAgent>();
-            _nav.speed      = MoveSpeed;
-            _nav.enabled    = false;    // enabled on Aggro
+            _nav         = GetComponent<NavMeshAgent>();
+            _nav.speed   = MoveSpeed;
+            _nav.enabled = false;   // Enabled on Aggro via OnStateEntered
         }
 
         private void Start()
@@ -69,23 +72,37 @@ namespace OutOfBullet.Enemy
         }
 
         private void TryFire(float dist)
+{
+    if (dist > FireRange) return;
+
+    _fireTimer += Time.deltaTime;
+    if (_fireTimer < 1f / FireRate) return;
+    _fireTimer = 0f;
+
+    // 1. Tính hướng bắn thẳng từ tâm Enemy sang tâm Player (bỏ cộng up 1f để tránh lệch pivot)
+    Vector3 spread = Random.insideUnitSphere * 0.05f;
+    Vector3 dir = (_player.position - transform.position).normalized + spread;
+
+    // 2. Điểm phát tia: Đẩy điểm phát đạn ra phía trước mặt Enemy 0.6 mét (để thoát khỏi Collider của chính nó)
+    Vector3 raycastOrigin = transform.position + transform.forward * 0.6f;
+
+    // Đính kèm Raycast vào Debug để cậu có thể nhìn thấy tia đạn trong Scene khi Play
+    Debug.DrawRay(raycastOrigin, dir * FireRange, Color.red, 0.5f);
+
+    // 3. Thực hiện quét tia Raycast
+    if (Physics.Raycast(raycastOrigin, dir, out RaycastHit hit, FireRange, PlayerMask))
+    {
+        // Debug xem thực sự tia đạn đã chạm vào cái gì
+        Debug.Log($"[Enemy Weapon] Hit object: {hit.collider.name} trên Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
+
+        var health = hit.collider.GetComponentInParent<OutOfBullet.Player.PlayerHealth>();
+        if (health != null)
         {
-            if (dist > FireRange) return;
-
-            _fireTimer += Time.deltaTime;
-            if (_fireTimer < 1f / FireRate) return;
-            _fireTimer = 0f;
-
-            // Simple hitscan toward player with small random spread
-            Vector3 spread = Random.insideUnitSphere * 0.05f;
-            Vector3 dir    = (_player.position + Vector3.up * 1f - transform.position).normalized + spread;
-
-            if (Physics.Raycast(transform.position + Vector3.up * 1f, dir, out RaycastHit hit, FireRange, PlayerMask))
-            {
-                var health = hit.collider.GetComponentInParent<OutOfBullet.Player.PlayerHealth>();
-                health?.TakeDamage(10f);  // Fodder bullet damage — tune per GDD testing
-            }
+            health.TakeDamage(10f);
+            GameManager.Instance?.DebugLog($"[Combat] Enemy hit Player! Sát thương: 10. Máu còn: {health.CurrentHP}");
         }
+    }
+}
 
         private void FacePlayer()
         {
@@ -99,9 +116,17 @@ namespace OutOfBullet.Enemy
 
         protected override void OnStateEntered(EnemyState newState)
         {
-            _nav.enabled = (newState == EnemyState.Aggro);
-            if (newState == EnemyState.Ragdoll)
-                _nav.enabled = false;
+            switch (newState)
+            {
+                case EnemyState.Aggro:
+                    _nav.enabled = true;
+                    break;
+
+                case EnemyState.Staggered:
+                case EnemyState.Ragdoll:
+                    _nav.enabled = false;
+                    break;
+            }
         }
     }
 }
@@ -143,13 +168,16 @@ namespace OutOfBullet.Enemy
         private bool         _postStaggerBoosted;
 
         // ── Unity ────────────────────────────────────────────────
+
         protected override void Awake()
         {
-            base.Awake();
-            Tier    = EnemyTier.Heavy;
-            MaxHP   = 200f;   // Tuning target — placeholder
+            // FIX: Set Tier and MaxHP BEFORE base.Awake() so CurrentHP
+            // is initialised to the correct value (200f), not the Inspector default (100f).
+            Tier  = EnemyTier.Heavy;
+            MaxHP = 200f;   // Tuning target — placeholder
+            base.Awake();   // CurrentHP = MaxHP = 200 ✓
 
-            _nav = GetComponent<NavMeshAgent>();
+            _nav         = GetComponent<NavMeshAgent>();
             _nav.speed   = MoveSpeed;
             _nav.enabled = false;
         }

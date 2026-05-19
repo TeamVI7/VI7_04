@@ -78,9 +78,14 @@ namespace OutOfBullet.Enemy
         protected RagdollController _ragdoll;
 
         // ── Unity ────────────────────────────────────────────────
+
+        /// <summary>
+        /// FIX: Subclasses MUST set Tier and MaxHP BEFORE calling base.Awake()
+        /// so that CurrentHP is initialised with the correct MaxHP value.
+        /// </summary>
         protected virtual void Awake()
         {
-            CurrentHP = MaxHP;
+            CurrentHP = MaxHP;          // Safe: subclass has already overridden MaxHP
             _ragdoll  = GetComponent<RagdollController>();
         }
 
