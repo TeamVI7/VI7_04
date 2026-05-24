@@ -9,7 +9,6 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Movement")]
     public float walkSpeed       = 7f;
-    public float sprintSpeed     = 12f;
     public float crouchSpeed     = 3.5f;
     public float slideSpeed      = 14f;
     public float wallrunSpeed    = 12f;
@@ -52,7 +51,6 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Keybinds")]
     public KeyCode jumpKey   = KeyCode.Space;
-    public KeyCode sprintKey = KeyCode.LeftShift;
     public KeyCode crouchKey = KeyCode.LeftControl;
 
     [Header("References")]
@@ -91,8 +89,8 @@ public class PlayerMovement : MonoBehaviour
         wallSliding,
         sliding,
         crouching,
-        sprinting,
         walking,
+        standing,
         air
     }
 
@@ -117,6 +115,7 @@ public class PlayerMovement : MonoBehaviour
     private float      vaultTimer;
 
     private RaycastHit slopeHit;
+    private RaycastHit groundHit;
     private bool       exitingSlope;
     private bool       readyToJump = true;
 
@@ -140,7 +139,9 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         grounded = Physics.Raycast(transform.position, Vector3.down,
-                                   playerHeight * 0.5f + 0.2f, whatIsGround);
+                                   out groundHit, playerHeight * 0.5f + 0.2f, whatIsGround)
+                && Vector3.Angle(groundHit.normal, Vector3.up) <= maxSlopeAngle;
+
         ReadInput();
         TryVault();
         StateHandler();
@@ -150,7 +151,6 @@ public class PlayerMovement : MonoBehaviour
         if (!activeGrapple)
         {
             bool onGround = state == MovementState.walking
-                         || state == MovementState.sprinting
                          || state == MovementState.crouching;
             rb.linearDamping = onGround ? groundDrag : 0f;
         }
@@ -229,7 +229,7 @@ public class PlayerMovement : MonoBehaviour
         else if (activeGrapple)
         {
             state            = MovementState.grappling;
-            desiredMoveSpeed = sprintSpeed;
+            desiredMoveSpeed = walkSpeed;
         }
 
         // Swinging
@@ -243,7 +243,7 @@ public class PlayerMovement : MonoBehaviour
         else if (vaulting)
         {
             state            = MovementState.vaulting;
-            desiredMoveSpeed = sprintSpeed;
+            desiredMoveSpeed = walkSpeed;
         }
 
         // Wallrunning
@@ -271,9 +271,7 @@ public class PlayerMovement : MonoBehaviour
         else if (sliding)
         {
             state = MovementState.sliding;
-            desiredMoveSpeed = (OnSlope() && rb.linearVelocity.y < 0.1f)
-                             ? slideSpeed
-                             : sprintSpeed;
+            desiredMoveSpeed = slideSpeed;
         }
 
         // Crouching
@@ -283,11 +281,11 @@ public class PlayerMovement : MonoBehaviour
             desiredMoveSpeed = crouchSpeed;
         }
 
-        // Sprinting
-        else if (grounded && Input.GetKey(sprintKey))
+        // Standing
+        else if (grounded && horizontalInput == 0f && verticalInput == 0f)
         {
-            state            = MovementState.sprinting;
-            desiredMoveSpeed = sprintSpeed;
+            state            = MovementState.standing;
+            desiredMoveSpeed = 0f;
         }
 
         // Walking
@@ -301,7 +299,7 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             state            = MovementState.air;
-            desiredMoveSpeed = (desiredMoveSpeed < sprintSpeed) ? walkSpeed : sprintSpeed;
+            desiredMoveSpeed = walkSpeed;
         }
 
         // Speed lerp — keep momentum after dash, use slope-aware lerp otherwise
