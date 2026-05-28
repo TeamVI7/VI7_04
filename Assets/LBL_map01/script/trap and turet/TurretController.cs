@@ -8,16 +8,17 @@ public class TurretController : MonoBehaviour
 
     [Header("Detection")]
     public float detectionRange = 20f;
-    public float fieldOfView = 120f;          // góc nhìn (độ)
-    public LayerMask obstacleMask;             // layer tường/vật cản
+    public float fieldOfView = 120f;
+    public LayerMask obstacleMask;
 
     [Header("Rotation")]
-    public Transform turretHead;              // phần xoay của turret
+    public Transform turretHead;
     public float rotationSpeed = 5f;
-    public float returnSpeed = 2f;            // tốc độ quay về góc mặc định
-    public Vector3 defaultDirection = Vector3.forward;
+    public float returnSpeed = 2f;
 
-    // State machine
+    // Không cần public defaultDirection nữa
+    private Quaternion defaultRotation; // ✅ Lưu rotation lúc Start
+
     private enum TurretState { Idle, Aiming, Firing }
     private TurretState state = TurretState.Idle;
 
@@ -29,12 +30,14 @@ public class TurretController : MonoBehaviour
 
     void Start()
     {
-        // Tìm player theo tag
         GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
         if (playerObj != null)
             player = playerObj.transform;
         else
             Debug.LogWarning("TurretController: Không tìm thấy GameObject với tag 'Player'!");
+
+        // ✅ Lưu lại rotation của nòng súng lúc bắt đầu game
+        defaultRotation = turretHead.rotation;
     }
 
     void Update()
@@ -66,25 +69,26 @@ public class TurretController : MonoBehaviour
         }
     }
 
-    // ── Detection ─────────────────────────────────────────────────────────────
-
     bool IsPlayerDetected()
-    {
-        float dist = Vector3.Distance(transform.position, player.position);
-        if (dist > detectionRange) return false;
+{
+    float dist = Vector3.Distance(turretHead.position, player.position);
+    
+    Debug.Log($"[Turret] TurretPos: {turretHead.position} | PlayerPos: {player.position} | Dist: {dist:F1}");
+    
+    if (dist > detectionRange) return false;
 
-        Vector3 dirToPlayer = (player.position - transform.position).normalized;
-        float angle = Vector3.Angle(transform.forward, dirToPlayer);
-        if (angle > fieldOfView * 0.5f) return false;
+    Vector3 dirToPlayer = (player.position - turretHead.position).normalized;
+    float angle = Vector3.Angle(turretHead.forward, dirToPlayer);
+    Debug.Log($"[Turret] Góc: {angle:F1} / FOV: {fieldOfView * 0.5f}");
+    if (angle > fieldOfView * 0.5f) return false;
 
-        // Kiểm tra line-of-sight (có vật cản không)
-        if (Physics.Linecast(FirePoint.transform.position, player.position, obstacleMask))
-            return false;
+    bool blocked = Physics.Linecast(FirePoint.transform.position, player.position, obstacleMask);
+    Debug.Log($"[Turret] Bị chặn: {blocked}");
+    if (blocked) return false;
 
-        return true;
-    }
-
-    // ── Rotation ──────────────────────────────────────────────────────────────
+    Debug.Log("[Turret] ✅ Phát hiện player!");
+    return true;
+}
 
     void AimAtPlayer()
     {
@@ -98,9 +102,9 @@ public class TurretController : MonoBehaviour
 
     void ReturnToDefault()
     {
-        Quaternion targetRot = Quaternion.LookRotation(defaultDirection);
+        // ✅ Quay về đúng rotation lúc đặt trong scene
         turretHead.rotation = Quaternion.Slerp(
-            turretHead.rotation, targetRot,
+            turretHead.rotation, defaultRotation,
             Time.deltaTime * returnSpeed
         );
     }
@@ -108,20 +112,16 @@ public class TurretController : MonoBehaviour
     bool IsAimingAtPlayer()
     {
         Vector3 dir = (player.position - turretHead.position).normalized;
-        return Vector3.Dot(turretHead.forward, dir) > 0.98f; // ~cos(11°)
+        return Vector3.Dot(turretHead.forward, dir) > 0.98f;
     }
-
-    // ── State Transitions ─────────────────────────────────────────────────────
 
     void TransitionTo(TurretState newState)
     {
-        // Exit current state
         if (state == TurretState.Firing)
             StopFiring();
 
         state = newState;
 
-        // Enter new state
         if (state == TurretState.Firing)
             StartFiring();
     }
@@ -152,18 +152,16 @@ public class TurretController : MonoBehaviour
         laserScript2  = null;
     }
 
-    // ── Debug Gizmos ──────────────────────────────────────────────────────────
-
     void OnDrawGizmosSelected()
     {
-        // Vòng tròn detection range
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, detectionRange);
 
-        // Hình nón field-of-view
         Gizmos.color = new Color(1f, 0.5f, 0f, 0.3f);
-        Vector3 leftBound  = Quaternion.Euler(0, -fieldOfView * 0.5f, 0) * transform.forward * detectionRange;
-        Vector3 rightBound = Quaternion.Euler(0,  fieldOfView * 0.5f, 0) * transform.forward * detectionRange;
+        // ✅ Dùng turretHead.forward cho gizmo cũng khớp với detection
+        Vector3 forward = turretHead != null ? turretHead.forward : transform.forward;
+        Vector3 leftBound  = Quaternion.Euler(0, -fieldOfView * 0.5f, 0) * forward * detectionRange;
+        Vector3 rightBound = Quaternion.Euler(0,  fieldOfView * 0.5f, 0) * forward * detectionRange;
         Gizmos.DrawLine(transform.position, transform.position + leftBound);
         Gizmos.DrawLine(transform.position, transform.position + rightBound);
     }

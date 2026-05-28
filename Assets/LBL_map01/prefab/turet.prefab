@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 8376063586916632354}
   - component: {fileID: 248637727618032551}
   - component: {fileID: 3657681283565341138}
-  - component: {fileID: 1287704820994700017}
+  - component: {fileID: 2255365572321399978}
   m_Layer: 0
   m_Name: turet
   m_TagString: Untagged
@@ -213,7 +213,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &1287704820994700017
+--- !u!114 &2255365572321399978
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -225,18 +225,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 15a424178f49a95428219d04b59da4c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TurretController
-  FirePoint: {fileID: 789464913549756470}
-  LaserPrefabs:
-  - {fileID: 1962479828434100, guid: b478a3c4c8ae3bb42a5785ab95bcf6d3, type: 3}
+  FirePoint: {fileID: 0}
+  LaserPrefabs: []
   detectionRange: 20
   fieldOfView: 120
   obstacleMask:
     serializedVersion: 2
     m_Bits: 0
-  turretHead: {fileID: 8376063586916632354}
+  turretHead: {fileID: 0}
   rotationSpeed: 5
   returnSpeed: 2
-  defaultDirection: {x: 0, y: 0, z: 1}
 --- !u!1 &7573504096206059121
 GameObject:
   m_ObjectHideFlags: 0
