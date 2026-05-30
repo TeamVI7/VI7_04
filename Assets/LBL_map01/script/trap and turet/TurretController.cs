@@ -73,20 +73,20 @@ public class TurretController : MonoBehaviour
 {
     float dist = Vector3.Distance(turretHead.position, player.position);
     
-    Debug.Log($"[Turret] TurretPos: {turretHead.position} | PlayerPos: {player.position} | Dist: {dist:F1}");
+  //  Debug.Log($"[Turret] TurretPos: {turretHead.position} | PlayerPos: {player.position} | Dist: {dist:F1}");
     
     if (dist > detectionRange) return false;
 
     Vector3 dirToPlayer = (player.position - turretHead.position).normalized;
     float angle = Vector3.Angle(turretHead.forward, dirToPlayer);
-    Debug.Log($"[Turret] Góc: {angle:F1} / FOV: {fieldOfView * 0.5f}");
+   // Debug.Log($"[Turret] Góc: {angle:F1} / FOV: {fieldOfView * 0.5f}");
     if (angle > fieldOfView * 0.5f) return false;
 
     bool blocked = Physics.Linecast(FirePoint.transform.position, player.position, obstacleMask);
-    Debug.Log($"[Turret] Bị chặn: {blocked}");
+  //  Debug.Log($"[Turret] Bị chặn: {blocked}");
     if (blocked) return false;
 
-    Debug.Log("[Turret] ✅ Phát hiện player!");
+   // Debug.Log("[Turret] ✅ Phát hiện player!");
     return true;
 }
 
