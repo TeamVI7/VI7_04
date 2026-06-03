@@ -6,8 +6,8 @@ public class ElevatorController : MonoBehaviour
     public enum State { Idle, OpeningDoor, WaitingForGo, ClosingDoor, ClosingDoor_Timeout, OpeningDoor_ThenGo, Moving }
 
     [Header("Tầng - chỉ cần nhập số Y")]
-    public float groundFloorY = 0f;       // Y của tầng trên
-    public float undergroundFloorY = -5f; // Y của tầng dưới
+    public float groundFloorY = 0f;
+    public float undergroundFloorY = -5f;
 
     [Header("Cửa")]
     public ElevatorDoor doorLeft;
@@ -30,9 +30,10 @@ public class ElevatorController : MonoBehaviour
     private float waitTimer = 0f;
     private Transform player;
 
+    private bool playerInsideElevator = false;
+
     void Start()
     {
-        // Snap thẳng về Y đúng, giữ nguyên X Z
         SetFloorY(groundFloorY);
 
         GameObject p = GameObject.FindWithTag("Player");
@@ -42,6 +43,18 @@ public class ElevatorController : MonoBehaviour
         if (hintOutsideUI) hintOutsideUI.SetActive(false);
     }
 
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+            playerInsideElevator = true;
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player"))
+            playerInsideElevator = false;
+    }
+
     void Update()
     {
         UpdateHints();
@@ -49,6 +62,7 @@ public class ElevatorController : MonoBehaviour
         switch (state)
         {
             case State.Idle:
+                // Bấm F mở cửa, không cần điều kiện gì thêm
                 if (Input.GetKeyDown(callKey))
                 {
                     OpenDoors();
@@ -65,7 +79,8 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.WaitingForGo:
-                if (Input.GetKeyDown(goKey))
+                // Chỉ cho bấm G khi player đang TRONG cabin
+                if (Input.GetKeyDown(goKey) && playerInsideElevator)
                 {
                     targetFloor = (currentFloor == Floor.Ground)
                         ? Floor.Underground
@@ -79,7 +94,7 @@ public class ElevatorController : MonoBehaviour
                 waitTimer -= Time.deltaTime;
                 if (waitTimer <= 0f)
                 {
-                    if (!IsPlayerInsideElevator())
+                    if (!playerInsideElevator)
                     {
                         CloseDoors();
                         state = State.ClosingDoor_Timeout;
@@ -92,7 +107,7 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.ClosingDoor_Timeout:
-                if (Input.GetKeyDown(goKey))
+                if (Input.GetKeyDown(goKey) && playerInsideElevator)
                 {
                     targetFloor = (currentFloor == Floor.Ground)
                         ? Floor.Underground
@@ -125,7 +140,6 @@ public class ElevatorController : MonoBehaviour
                     ? groundFloorY
                     : undergroundFloorY;
 
-                // Chỉ di chuyển trục Y, X và Z giữ nguyên
                 float newY = Mathf.MoveTowards(
                     transform.position.y, destY, moveSpeed * Time.deltaTime);
 
@@ -136,7 +150,6 @@ public class ElevatorController : MonoBehaviour
 
                 if (Mathf.Abs(transform.position.y - destY) < 0.01f)
                 {
-                    // Snap chính xác về đúng Y
                     SetFloorY(destY);
                     currentFloor = targetFloor;
                     OpenDoors();
@@ -146,7 +159,6 @@ public class ElevatorController : MonoBehaviour
         }
     }
 
-    // Chỉ thay Y, giữ nguyên X Z tránh bị lệch
     void SetFloorY(float y)
     {
         transform.position = new Vector3(
@@ -167,22 +179,21 @@ public class ElevatorController : MonoBehaviour
         doorRight.Close();
     }
 
-    bool IsPlayerInsideElevator()
-    {
-        if (player == null) return false;
-        return Vector3.Distance(player.position, transform.position) < 1.5f;
-    }
-
     void UpdateHints()
     {
         if (player == null) return;
+
         float dist = Vector3.Distance(player.position, transform.position);
-        bool near = dist < 3f;
+        bool nearElevator = dist < 3f;
 
+        // Hint F: hiện khi đứng gần, chưa vào trong, thang đang Idle
         if (hintOutsideUI)
-            hintOutsideUI.SetActive(near && state == State.Idle);
+            hintOutsideUI.SetActive(nearElevator && !playerInsideElevator && state == State.Idle);
 
+        // Hint G: chỉ hiện khi đang TRONG cabin
         if (hintInsideUI)
-            hintInsideUI.SetActive(near && (state == State.WaitingForGo || state == State.ClosingDoor_Timeout));
+            hintInsideUI.SetActive(
+                playerInsideElevator &&
+                (state == State.WaitingForGo || state == State.ClosingDoor_Timeout));
     }
 }

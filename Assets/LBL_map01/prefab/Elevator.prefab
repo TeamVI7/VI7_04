@@ -249,7 +249,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 4057
+  m_VersionIndex: 4063
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -370,7 +370,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ElevatorDoor
   side: 1
-  openDistance: 1.2
+  openDistance: 2
   speed: 2
 --- !u!1 &939362012487550652
 GameObject:
@@ -620,7 +620,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 2793
+  m_VersionIndex: 2799
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -738,6 +738,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5236595391810264290}
   - component: {fileID: 8256596242406309342}
+  - component: {fileID: 6737275672651575217}
   m_Layer: 0
   m_Name: Elevator
   m_TagString: Untagged
@@ -782,8 +783,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c6455c04df2c5b44a195c84f1b84735, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ElevatorController
-  groundFloorPos: {fileID: 0}
-  undergroundFloorPos: {fileID: 0}
+  groundFloorY: 54.31
+  undergroundFloorY: 0.46
   doorLeft: {fileID: 4760285904642398882}
   doorRight: {fileID: 6960617921322323912}
   hintInsideUI: {fileID: 2059068679190366334}
@@ -792,6 +793,27 @@ MonoBehaviour:
   doorOpenWaitTime: 8
   callKey: 102
   goKey: 103
+--- !u!65 &6737275672651575217
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1659717555199879090}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 7.4213867, y: 8.900024, z: 8.573425}
+  m_Center: {x: 1.5128174, y: 3.9500122, z: -0.30033112}
 --- !u!1 &1865472794218600279
 GameObject:
   m_ObjectHideFlags: 0
@@ -1279,7 +1301,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 4014
+  m_VersionIndex: 4020
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1635,7 +1657,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 2508
+  m_VersionIndex: 2514
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -2475,7 +2497,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 3760
+  m_VersionIndex: 3766
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -2934,7 +2956,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 4673
+  m_VersionIndex: 4679
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -3055,7 +3077,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ElevatorDoor
   side: 0
-  openDistance: 1.2
+  openDistance: 2
   speed: 2
 --- !u!1 &7264556190127072867
 GameObject:
@@ -3087,7 +3109,7 @@ Transform:
   m_GameObject: {fileID: 7264556190127072867}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.6360779, y: 0.49261796, z: 3.2269897}
+  m_LocalPosition: {x: -1.6360474, y: 0.49261856, z: 3.2269897}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3220,54 +3242,54 @@ MonoBehaviour:
   - m_Vertices: 0b0000000e00000012000000
   m_SharedTextures: []
   m_Positions:
-  - {x: -0.7812958, y: -0.49262238, z: 0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: 0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: 0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: 0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: 0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: -0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: 0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: -0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: -0.19741821}
-  - {x: -0.7812958, y: -0.49262238, z: -0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: -0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: -0.19741821}
-  - {x: -0.7812958, y: -0.49262238, z: -0.19741821}
-  - {x: -0.7812958, y: -0.49262238, z: 0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: -0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: 0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: 0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: 0.19741821}
-  - {x: -0.7812958, y: 8.080336, z: -0.19741821}
-  - {x: 6.6000824, y: 8.080336, z: -0.19741821}
-  - {x: -0.7812958, y: -0.49262238, z: -0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: -0.19741821}
-  - {x: -0.7812958, y: -0.49262238, z: 0.19741821}
-  - {x: 6.6000824, y: -0.49262238, z: 0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: 0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: 0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: 0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: 0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: 0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: -0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: 0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: -0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: -0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: -0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: -0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: -0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: -0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: 0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: -0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: 0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: 0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: 0.19741821}
+  - {x: -0.6976776, y: 8.080337, z: -0.19741821}
+  - {x: 6.6000214, y: 8.080337, z: -0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: -0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: -0.19741821}
+  - {x: -0.6976776, y: -0.49262142, z: 0.19741821}
+  - {x: 6.6000214, y: -0.49262142, z: 0.19741821}
   m_Textures0:
-  - {x: 7.381378, y: -7.572958}
+  - {x: 7.297699, y: -7.572958}
   - {x: 0, y: -7.572958}
-  - {x: 7.381378, y: 1}
+  - {x: 7.297699, y: 1}
   - {x: 0, y: 1}
   - {x: 0.39483643, y: -7.572958}
   - {x: 0, y: -7.572958}
   - {x: 0.39483643, y: 1}
   - {x: 0, y: 1}
-  - {x: 7.381378, y: -7.572958}
+  - {x: 7.297699, y: -7.572958}
   - {x: 0, y: -7.572958}
-  - {x: 7.381378, y: 1}
+  - {x: 7.297699, y: 1}
   - {x: 0, y: 1}
   - {x: 0.39483643, y: -7.572958}
   - {x: 0, y: -7.572958}
   - {x: 0.39483643, y: 1}
   - {x: 0, y: 1}
   - {x: 0, y: 1}
-  - {x: 7.381378, y: 1}
+  - {x: 7.297699, y: 1}
   - {x: 0, y: 0.6051636}
-  - {x: 7.381378, y: 0.6051636}
-  - {x: 7.381378, y: 0.6051636}
+  - {x: 7.297699, y: 0.6051636}
+  - {x: 7.297699, y: 0.6051636}
   - {x: 0, y: 0.6051636}
-  - {x: 7.381378, y: 1}
+  - {x: 7.297699, y: 1}
   - {x: 0, y: 1}
   m_Textures2: []
   m_Textures3: []
@@ -3305,7 +3327,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 4069
+  m_VersionIndex: 4603
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -3325,9 +3347,9 @@ MonoBehaviour:
   m_Shape:
     rid: 5667577872018309347
   m_ShapeRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_UnmodifiedMeshVersion: 4069
-  m_Size: {x: -7.381378, y: 8.572958, z: 0.39483643}
-  m_LocalCenter: {x: 2.9093933, y: 3.7938566, z: 0}
+  m_UnmodifiedMeshVersion: 4597
+  m_Size: {x: -7.297699, y: 8.572958, z: 0.39483643}
+  m_LocalCenter: {x: 2.9511719, y: 3.7938576, z: 0}
   references:
     version: 2
     RefIds:
@@ -3661,7 +3683,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 2508
+  m_VersionIndex: 2514
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
