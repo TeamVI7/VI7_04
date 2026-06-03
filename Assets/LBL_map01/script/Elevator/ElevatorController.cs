@@ -5,9 +5,9 @@ public class ElevatorController : MonoBehaviour
     public enum Floor { Ground = 0, Underground = 1 }
     public enum State { Idle, OpeningDoor, WaitingForGo, ClosingDoor, ClosingDoor_Timeout, OpeningDoor_ThenGo, Moving }
 
-    [Header("Tầng")]
-    public Transform groundFloorPos;
-    public Transform undergroundFloorPos;
+    [Header("Tầng - chỉ cần nhập số Y")]
+    public float groundFloorY = 0f;       // Y của tầng trên
+    public float undergroundFloorY = -5f; // Y của tầng dưới
 
     [Header("Cửa")]
     public ElevatorDoor doorLeft;
@@ -19,7 +19,7 @@ public class ElevatorController : MonoBehaviour
 
     [Header("Cài đặt")]
     public float moveSpeed = 2f;
-    public float doorOpenWaitTime = 5f; // tăng lên 5 giây
+    public float doorOpenWaitTime = 5f;
 
     public KeyCode callKey = KeyCode.F;
     public KeyCode goKey = KeyCode.G;
@@ -32,7 +32,8 @@ public class ElevatorController : MonoBehaviour
 
     void Start()
     {
-        transform.position = groundFloorPos.position;
+        // Snap thẳng về Y đúng, giữ nguyên X Z
+        SetFloorY(groundFloorY);
 
         GameObject p = GameObject.FindWithTag("Player");
         if (p != null) player = p.transform;
@@ -64,7 +65,6 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.WaitingForGo:
-                // Bấm G -> đi luôn
                 if (Input.GetKeyDown(goKey))
                 {
                     targetFloor = (currentFloor == Floor.Ground)
@@ -86,14 +86,12 @@ public class ElevatorController : MonoBehaviour
                     }
                     else
                     {
-                        // Player trong thang, tiếp tục chờ
                         waitTimer = doorOpenWaitTime;
                     }
                 }
                 break;
 
             case State.ClosingDoor_Timeout:
-                // Bấm G khi cửa đang tự đóng -> mở lại rồi đi
                 if (Input.GetKeyDown(goKey))
                 {
                     targetFloor = (currentFloor == Floor.Ground)
@@ -110,7 +108,6 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.OpeningDoor_ThenGo:
-                // Chờ cửa mở hẳn rồi đóng lại để đi
                 if (doorLeft.IsFullyOpen() && doorRight.IsFullyOpen())
                 {
                     CloseDoors();
@@ -124,22 +121,38 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.Moving:
-                Vector3 dest = (targetFloor == Floor.Ground)
-                    ? groundFloorPos.position
-                    : undergroundFloorPos.position;
+                float destY = (targetFloor == Floor.Ground)
+                    ? groundFloorY
+                    : undergroundFloorY;
 
-                transform.position = Vector3.MoveTowards(
-                    transform.position, dest, moveSpeed * Time.deltaTime);
+                // Chỉ di chuyển trục Y, X và Z giữ nguyên
+                float newY = Mathf.MoveTowards(
+                    transform.position.y, destY, moveSpeed * Time.deltaTime);
 
-                if (Vector3.Distance(transform.position, dest) < 0.01f)
+                transform.position = new Vector3(
+                    transform.position.x,
+                    newY,
+                    transform.position.z);
+
+                if (Mathf.Abs(transform.position.y - destY) < 0.01f)
                 {
-                    transform.position = dest;
+                    // Snap chính xác về đúng Y
+                    SetFloorY(destY);
                     currentFloor = targetFloor;
                     OpenDoors();
                     state = State.OpeningDoor;
                 }
                 break;
         }
+    }
+
+    // Chỉ thay Y, giữ nguyên X Z tránh bị lệch
+    void SetFloorY(float y)
+    {
+        transform.position = new Vector3(
+            transform.position.x,
+            y,
+            transform.position.z);
     }
 
     void OpenDoors()
