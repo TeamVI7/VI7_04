@@ -1,47 +1,54 @@
+// ============================================================
+//  EnemyHealthUI.cs  —  Out of Bullet
+//  Hiển thị thanh máu Slider trên đầu Enemy.
+//  FIX: Đọc đúng MaxHP/CurrentHP sau khi EnemyBase.Awake() chạy xong.
+// ============================================================
 using UnityEngine;
 using UnityEngine.UI;
+using OutOfBullet.Enemy;
 
 public class EnemyHealthUI : MonoBehaviour
 {
     [SerializeField] private Slider healthSlider;
-    private OutOfBullet.Enemy.EnemyHealth enemyHealth;
+    private EnemyBase _enemyBase;
 
     private void Start()
     {
-        // Tìm EnemyHealth ở object cha
-        enemyHealth = GetComponentInParent<OutOfBullet.Enemy.EnemyHealth>();
-        
-        if (enemyHealth != null)
-        {
-            // Khởi tạo giá trị Slider ban đầu
-            healthSlider.maxValue = enemyHealth.MaxHP;
-            healthSlider.value = enemyHealth.CurrentHP;
+        _enemyBase = GetComponentInParent<EnemyBase>();
 
-            // Đăng ký nhận sự kiện khi Enemy bị trừ máu
-            enemyHealth.OnHealthChanged += UpdateHealthBar;
+        if (_enemyBase == null)
+        {
+            Debug.LogWarning("[EnemyHealthUI] Không tìm thấy EnemyBase ở object cha!");
+            return;
         }
+
+        healthSlider.maxValue = _enemyBase.MaxHP;
+        healthSlider.value    = _enemyBase.CurrentHP;
+
+        Debug.Log($"[EnemyHealthUI] Init — MaxHP: {_enemyBase.MaxHP}  CurrentHP: {_enemyBase.CurrentHP}");
+
+        _enemyBase.OnHealthChanged += UpdateHealthBar;
     }
 
     private void UpdateHealthBar(float currentHP)
     {
-        healthSlider.value = currentHP;
+        if (healthSlider != null)
+            healthSlider.value = currentHP;
     }
 
     private void OnDestroy()
     {
-        if (enemyHealth != null)
-        {
-            enemyHealth.OnHealthChanged -= UpdateHealthBar;
-        }
+        if (_enemyBase != null)
+            _enemyBase.OnHealthChanged -= UpdateHealthBar;
     }
 
     private void LateUpdate()
     {
-        // Mẹo nhỏ: Giúp thanh máu luôn quay mặt về phía Camera của Player để không bị lật ngược khi Enemy di chuyển
         if (Camera.main != null)
         {
-            transform.LookAt(transform.position + Camera.main.transform.rotation * Vector3.forward,
-                             Camera.main.transform.rotation * Vector3.up);
+            transform.LookAt(
+                transform.position + Camera.main.transform.rotation * Vector3.forward,
+                Camera.main.transform.rotation * Vector3.up);
         }
     }
 }

@@ -2,6 +2,7 @@
 //  GameManager.cs  —  Out of Bullet
 //  Singleton. Owns scene lifecycle, global pause, debug mode.
 //  Does NOT own gameplay logic — that lives in feature systems.
+//  FIX: DebugTimeScale default 1f, tránh vô tình set timeScale = 0.1f
 // ============================================================
 using UnityEngine;
 using OutOfBullet.Core;
@@ -18,6 +19,7 @@ namespace OutOfBullet.Core
         [Tooltip("Enable to show debug overlays and verbose logs.")]
         public bool DebugMode = false;
 
+        // FIX: Default 1f thay vì 0.1f — tránh vô tình làm chậm game
         [Tooltip("Slow motion scale for debugging momentum chains.")]
         [Range(0.1f, 1f)]
         public float DebugTimeScale = 1f;
@@ -44,7 +46,10 @@ namespace OutOfBullet.Core
             DontDestroyOnLoad(gameObject);
 
             Application.targetFrameRate = 120;
-            QualitySettings.vSyncCount  = 0;
+            QualitySettings.vSyncCount = 0;
+
+            // FIX: Đảm bảo timeScale luôn = 1 khi khởi động
+            Time.timeScale = 1f;
 
             if (DebugMode)
                 Debug.Log("[GameManager] Debug mode ON");
@@ -94,7 +99,6 @@ namespace OutOfBullet.Core
         {
             IsGameOver = false;
             EventBus.Publish(new ArenaResetEvent());
-            // Full scene reload:
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             UnityEngine.SceneManagement.SceneManager.LoadScene(scene.buildIndex);
         }
@@ -113,8 +117,16 @@ namespace OutOfBullet.Core
         // ── Frame Timing ─────────────────────────────────────────
         private void Update()
         {
+            // BẪY: Phát hiện ngay khi timeScale bị thay đổi
+            if (Time.timeScale != 1f && !IsPaused)
+            {
+                Debug.LogWarning($"[BẪY] timeScale = {Time.timeScale} — StackTrace:", this);
+                Debug.LogWarning(System.Environment.StackTrace);
+                Time.timeScale = 1f; // Reset về 1 ngay lập tức
+            }
+
 #if UNITY_EDITOR
-            if (DebugMode && Time.timeScale != DebugTimeScale && !IsPaused)
+            if (DebugMode && !IsPaused)
                 Time.timeScale = DebugTimeScale;
 #endif
         }

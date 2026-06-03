@@ -3,6 +3,8 @@
 //  Single MonoBehaviour for ALL player movement.
 //  Covers: movement, jump, sprint, crouch, slope,
 //          sliding, climbing, dash, grapple mode.
+//  FIX: StopAllCoroutines() → StopCoroutine(_lerpCoroutine)
+//       để không vô tình dừng DashRegen và IFrame coroutines.
 // ============================================================
 using System.Collections;
 using UnityEngine;
@@ -17,8 +19,8 @@ namespace OutOfBullet.Player
         //  REFERENCES
         // ════════════════════════════════════════════════════════
         [Header("References")]
-        public Transform orientation;   // empty child GO — rotates with camera Y
-        public Transform playerObj;     // mesh root — scales for crouch/slide
+        public Transform orientation;
+        public Transform playerObj;
 
         [HideInInspector] public Rigidbody Rb;
 
@@ -89,13 +91,12 @@ namespace OutOfBullet.Player
         public float chargeRegenTime = 4f;
         public KeyCode dashKey = KeyCode.Mouse2;
 
-        // ── Dash public state (read by HUD / PlayerHealth) ───────
         public int DashCharges { get; private set; }
         public bool IsInvincible { get; private set; }
         public float DashRegenProgress { get; private set; }
 
         // ════════════════════════════════════════════════════════
-        //  PUBLIC STATE  (read by enemies, grapple, HUD)
+        //  PUBLIC STATE
         // ════════════════════════════════════════════════════════
         public bool grounded { get; private set; }
         public bool sliding { get; private set; }
@@ -107,7 +108,6 @@ namespace OutOfBullet.Player
         public bool GrappleActive { get; private set; }
         public Vector3 GrappleVelocity;
 
-        // ── Movement state enum ──────────────────────────────────
         public enum MoveState { walking, sprinting, crouching, sliding, climbing, air }
         public MoveState state;
 
@@ -143,6 +143,9 @@ namespace OutOfBullet.Player
         private bool _dashRegenRunning;
         private Coroutine _iFrameCoroutine;
 
+        // FIX: Track riêng coroutine lerp speed, không StopAllCoroutines()
+        private Coroutine _lerpCoroutine;
+
         // -- Health ref for i-frames --
         private PlayerHealth _health;
 
@@ -159,8 +162,9 @@ namespace OutOfBullet.Player
         }
 
         [Header("Attack Settings")]
-        [SerializeField] private float attackRange = 3f; // Khoảng cách có thể đánh tới Enemy
-        [SerializeField] private LayerMask enemyMask;    // Layer của Enemy để tránh đánh nhầm đất đá
+        [SerializeField] private float attackRange = 3f;
+        [SerializeField] private LayerMask enemyMask;
+
         private void Update()
         {
             if (GrappleActive) return;
@@ -178,28 +182,23 @@ namespace OutOfBullet.Player
             Rb.linearDamping = (grounded && !_isClimbing) ? groundDrag : 0f;
 
             if (Input.GetKeyDown(KeyCode.H))
-            {
                 TryHitEnemy();
-            }
         }
 
         private void TryHitEnemy()
         {
-            // Điểm phát tia từ chính giữa camera (tâm màn hình FPS) hoặc từ tâm Player
-            Vector3 raycastOrigin = transform.position;
-            Vector3 dir = transform.forward; // Hướng nhìn thẳng phía trước của Player
+            if (Camera.main == null) return;
 
-            // Vẽ tia Debug màu xanh dương trong Scene để dễ quan sát tầm đánh
+            Vector3 raycastOrigin = Camera.main.transform.position;
+            Vector3 dir = Camera.main.transform.forward;
+
             Debug.DrawRay(raycastOrigin, dir * attackRange, Color.blue, 0.3f);
 
             if (Physics.Raycast(raycastOrigin, dir, out RaycastHit hit, attackRange, enemyMask))
             {
-                // Tìm component EnemyHealth trên đối tượng vừa bị đánh trúng
-                var enemyHealth = hit.collider.GetComponentInParent<OutOfBullet.Enemy.EnemyHealth>();
-                if (enemyHealth != null)
-                {
-                    enemyHealth.TakeDamage(10f); // Mỗi lần hit mất 10 máu
-                }
+                var enemy = hit.collider.GetComponentInParent<OutOfBullet.Enemy.EnemyBase>();
+                if (enemy != null)
+                    enemy.ApplyDamage(10f, this);
             }
         }
 
@@ -234,7 +233,6 @@ namespace OutOfBullet.Player
             _h = Input.GetAxisRaw("Horizontal");
             _v = Input.GetAxisRaw("Vertical");
 
-            // Jump
             if (Input.GetKey(jumpKey) && _readyToJump && grounded)
             {
                 _readyToJump = false;
@@ -242,7 +240,6 @@ namespace OutOfBullet.Player
                 Invoke(nameof(ResetJump), jumpCooldown);
             }
 
-            // Crouch start
             if (Input.GetKeyDown(crouchKey) && !sliding)
             {
                 if (playerObj) playerObj.localScale =
@@ -250,22 +247,18 @@ namespace OutOfBullet.Player
                 Rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
             }
 
-            // Crouch end
             if (Input.GetKeyUp(crouchKey) && !sliding)
             {
                 if (playerObj) playerObj.localScale =
                     new Vector3(playerObj.localScale.x, _startYScale, playerObj.localScale.z);
             }
 
-            // Slide start
             if (Input.GetKeyDown(slideKey) && (_h != 0 || _v != 0))
                 StartSlide();
 
-            // Slide end
             if (Input.GetKeyUp(slideKey) && sliding)
                 StopSlide();
 
-            // Dash
             if (Input.GetKeyDown(dashKey))
                 TryDash();
         }
@@ -307,8 +300,10 @@ namespace OutOfBullet.Player
 
             if (Mathf.Abs(_desiredMoveSpeed - _lastDesiredMoveSpeed) > 4f && _moveSpeed != 0)
             {
-                StopAllCoroutines();
-                StartCoroutine(SmoothlyLerpMoveSpeed());
+                // FIX: Chỉ stop coroutine lerp speed, không StopAllCoroutines()
+                if (_lerpCoroutine != null) StopCoroutine(_lerpCoroutine);
+                _lerpCoroutine = StartCoroutine(SmoothlyLerpMoveSpeed());
+
                 if (!_dashRegenRunning && DashCharges < maxDashCharges)
                     StartCoroutine(DashRegenRoutine());
             }
@@ -333,6 +328,7 @@ namespace OutOfBullet.Player
                 yield return null;
             }
             _moveSpeed = _desiredMoveSpeed;
+            _lerpCoroutine = null;
         }
 
         // ════════════════════════════════════════════════════════
@@ -569,13 +565,13 @@ namespace OutOfBullet.Player
             float v = Input.GetAxisRaw("Vertical");
             Transform cam = Camera.main.transform;
             Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
-            Vector3 right = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+            Vector3 right   = Vector3.ProjectOnPlane(cam.right,   Vector3.up).normalized;
             Vector3 dir = forward * v + right * h;
             return dir.sqrMagnitude > 0.01f ? dir.normalized : forward;
         }
 
         // ════════════════════════════════════════════════════════
-        //  GRAPPLE  (called by GrappleSystem)
+        //  GRAPPLE
         // ════════════════════════════════════════════════════════
         public void StartGrapple()
         {

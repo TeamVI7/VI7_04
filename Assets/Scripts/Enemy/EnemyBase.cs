@@ -65,11 +65,20 @@ namespace OutOfBullet.Enemy
         [Tooltip("Window in seconds to accumulate stagger damage (GDD: ~4s).")]
         public float StaggerWindow = 4f;
 
+        [Header("VFX & SFX Settings (DATN Upgrade)")]
+        [Tooltip("Kéo cái DamagePopupPrefab (Canvas World Space) vào ô này để hiện hiệu ứng chữ bay.")]
+        public GameObject DamagePopupPrefab;
+        [Tooltip("Độ cao xuất hiện của chữ nhảy ở trên đầu con quái.")]
+        public float SpawnPopupHeight = 2f;
+
         // ── Runtime ──────────────────────────────────────────────
         public float      CurrentHP    { get; private set; }
         public bool       IsAlive      => CurrentHP > 0f && _state != EnemyState.Ragdoll;
         public bool       IsStaggered  => _state == EnemyState.Staggered;
         public EnemyState State        => _state;
+
+        // Event kết nối ra UI phản hồi dính đòn
+        public System.Action<float> OnHealthChanged;
 
         protected EnemyState _state        = EnemyState.Idle;
         private   float      _staggerTimer;
@@ -146,11 +155,20 @@ namespace OutOfBullet.Enemy
 
         // ── Damage ───────────────────────────────────────────────
         /// <param name="instigator">Player controller reference for velocity seeding.</param>
-        public void ApplyDamage(float amount, PlayerController instigator)
+        public virtual void ApplyDamage(float amount, PlayerController instigator)
         {
             if (!IsAlive) return;
 
             CurrentHP = Mathf.Max(0f, CurrentHP - amount);
+
+            // 1. Kích hoạt thông báo sự kiện để thanh Slider máu UI co lại
+            OnHealthChanged?.Invoke(CurrentHP);
+
+            // 2. Kích hoạt hiệu ứng chữ nhảy bung số sát thương trên đầu quái
+            SpawnDamagePopup((int)amount);
+
+            // 3. Kích hoạt âm thanh "ưa ựa" dính đòn (Sẽ ném code âm thanh vào đây sau)
+            PlayPainSound();
 
             // Accumulate toward stagger threshold (GDD §5.3.1)
             if (Tier == EnemyTier.Heavy && _state == EnemyState.Aggro)
@@ -168,6 +186,36 @@ namespace OutOfBullet.Enemy
 
             if (CurrentHP <= 0f)
                 Die(instigator);
+        }
+
+        /// <summary>
+        /// Khởi tạo Text Popup hiển thị số sát thương trên đầu quái
+        /// </summary>
+        private void SpawnDamagePopup(int dmg)
+        {
+            if (DamagePopupPrefab == null) return;
+
+            // Vị trí xuất hiện: Tọa độ chân con quái cộng thêm độ cao Offset trên đầu
+            Vector3 spawnPos = transform.position + Vector3.up * SpawnPopupHeight;
+
+            // Instantiate Prefab chữ ra không gian World Space
+            GameObject popupGO = Instantiate(DamagePopupPrefab, spawnPos, Quaternion.identity);
+            
+            // Đẩy lượng sát thương vừa nhận vào để text cập nhật hiển thị
+            DamagePopup popupScript = popupGO.GetComponent<DamagePopup>();
+            if (popupScript != null)
+            {
+                popupScript.Setup(dmg);
+            }
+        }
+
+        /// <summary>
+        /// Nơi quản lý âm thanh rên rỉ khi dính sát thương
+        /// </summary>
+        private void PlayPainSound()
+        {
+            // Tạm thời log debug để kiểm tra luồng chạy, hôm sau cậu gắn AudioSource sau nhé
+            // GameManager.Instance?.DebugLog($"[SFX] {name} kêu ưa ựa!");
         }
 
         // ── Stagger ──────────────────────────────────────────────
@@ -206,7 +254,7 @@ namespace OutOfBullet.Enemy
             // Publish BEFORE ragdoll to let other systems react
             EventBus.Publish(new EnemyKilledEvent
             {
-                Enemy               = gameObject,
+                Enemy                = gameObject,
                 DeathPosition       = transform.position,
                 PlayerVelocityAtKill = playerVel
             });

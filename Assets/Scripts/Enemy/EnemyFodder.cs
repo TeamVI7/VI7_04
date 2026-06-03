@@ -1,8 +1,8 @@
 // ============================================================
 //  EnemyFodder.cs  —  Out of Bullet
 //  GDD §5.1 — 1-hit kill from any source. Loop filler.
-//  Aggros on sight, fires at player, minimal flanking.
-//  Chains of 3+ Fodder executes should feel effortless.
+//  FIX: Bắn tầm xa phương ngang (súng lục), radar rộng độc lập patrol
+//  FIX: Không cần đến sát mặt mới bắn — giữ khoảng cách tối ưu
 // ============================================================
 using UnityEngine;
 using UnityEngine.AI;
@@ -16,95 +16,212 @@ namespace OutOfBullet.Enemy
     {
         // ── Inspector ────────────────────────────────────────────
         [Header("Fodder — Combat")]
-        public float FireRate       = 1.5f;     // shots per second
+        public float FireRate       = 1.5f;
         public float FireRange      = 20f;
-        public float PreferredRange = 8f;
-        public LayerMask PlayerMask;
+        public float PreferredRange = 10f;   // Khoảng cách lý tưởng để dừng và bắn
 
         [Header("Fodder — Nav")]
         public float MoveSpeed = 4.5f;
 
+        [Header("Fodder — SpeedChase")]
+        [Tooltip("Tốc độ chase khi aggro — tăng tức thì khi phát hiện player.")]
+        public float ChaseSpeed = 10f;
+
+        // ── Projectile (Súng lục — bắn phương ngang) ────────────
+        [Header("Fodder — Pistol (Horizontal Shot)")]
+        [Tooltip("Prefab viên đạn acid/pistol — gán AcidProjectile.cs lên đó.")]
+        public GameObject AcidProjectilePrefab;
+
+        [Tooltip("Điểm phát đạn — tạo Empty GO ở miệng/tay enemy, kéo vào đây.")]
+        public Transform  FirePoint;
+
+        [Tooltip("Tầm bắn tối đa (xa hơn PreferredRange nhiều).")]
+        public float AcidRange    = 30f;    // Rộng hơn mặc định cũ (15f)
+
+        [Tooltip("Tốc độ bắn (lần/giây).")]
+        public float AcidFireRate = 1.2f;
+
+        // ── Radar (Độc lập với patrol, phát hiện player từ xa) ──
+        [Header("Fodder — Radar")]
+        [Tooltip("Bán kính radar để PHÁT HIỆN và BẮN — lớn hơn AggroRadius nhiều.")]
+        public float RadarRange = 40f;      // Quét thấy player từ rất xa
+
+        [Tooltip("Layer của player để radar quét.")]
+        public LayerMask RadarPlayerLayer;
+
+        [Header("Fodder — Patrol Settings")]
+        public float PatrolSpeed      = 2.0f;
+        public float PatrolRadius     = 12f;
+        public float WaypointWaitTime = 2.5f;
+
         // ── Runtime ──────────────────────────────────────────────
-        private NavMeshAgent _nav;
-        private Transform    _player;
-        private float        _fireTimer;
+        protected NavMeshAgent _nav;
+        protected Transform    _player;
+        protected float        _fireTimer; // Đổi sang protected để lớp con Drone dùng nếu cần
+
+        private Vector3 _spawnPosition;
+        private Vector3 _patrolTarget;
+        private bool    _hasPatrolTarget;
+        private float   _waitTimer;
 
         // ── Unity ────────────────────────────────────────────────
-
         protected override void Awake()
         {
-            // FIX: Set Tier and MaxHP BEFORE base.Awake() so CurrentHP
-            // is initialised to the correct value (1f), not the Inspector default (100f).
             Tier  = EnemyTier.Fodder;
-            MaxHP = 1f;     // Fodder dies to anything (GDD §5.1)
-            base.Awake();   // CurrentHP = MaxHP = 1 ✓
+            MaxHP = 100f;
+            base.Awake();
 
             _nav         = GetComponent<NavMeshAgent>();
             _nav.speed   = MoveSpeed;
-            _nav.enabled = false;   // Enabled on Aggro via OnStateEntered
+            _nav.enabled = true;
         }
 
         private void Start()
         {
-            // Cache player reference — avoids per-frame Find
+            _spawnPosition = transform.position;
+
             var playerGo = GameObject.FindGameObjectWithTag("Player");
             if (playerGo != null) _player = playerGo.transform;
         }
 
         // ── State Behaviors ──────────────────────────────────────
+        protected override void TickIdle()
+        {
+            // --- RADAR CHECK: độc lập với patrol ---
+            if (TryRadarDetectPlayer(out float radarDist))
+            {
+                if (radarDist <= AcidRange)
+                {
+                    FacePlayer();
+                    TryFireHorizontal(radarDist);
+                }
+
+                if (radarDist <= AggroRadius)
+                {
+                    _hasPatrolTarget = false;
+                    TransitionTo(EnemyState.Aggro);
+                    return;
+                }
+            }
+
+            // --- PATROL ---
+            if (_nav == null || !_nav.enabled || !_nav.isOnNavMesh) return;
+            _nav.speed = PatrolSpeed;
+
+            if (!_hasPatrolTarget)
+            {
+                _waitTimer += Time.deltaTime;
+                if (_waitTimer >= WaypointWaitTime)
+                    FindNewPatrolPoint();
+            }
+            else
+            {
+                if (!_nav.pathPending && _nav.remainingDistance <= _nav.stoppingDistance)
+                {
+                    _hasPatrolTarget = false;
+                    _waitTimer = 0f;
+                }
+            }
+        }
+
         protected override void TickAggro()
         {
+            // ── Shield Break Stun Lock (dùng cho EnemyShielder kế thừa) ──
+            EnemyShielder shielder = GetComponent<EnemyShielder>();
+            if (shielder != null && shielder.IsShieldBreakRecovering)
+            {
+                if (_nav != null)
+                {
+                    _nav.ResetPath();
+                    _nav.velocity  = Vector3.zero;
+                    _nav.isStopped = true;
+                }
+                return;
+            }
+            if (_nav != null && _nav.isStopped)
+                _nav.isStopped = false;
+
             if (_player == null) return;
 
             float dist = Vector3.Distance(transform.position, _player.position);
 
-            // Move to preferred engagement range
+            if (dist > RadarRange)
+            {
+                _nav.ResetPath();
+                _hasPatrolTarget = false;
+                _waitTimer = 0f;
+                TransitionTo(EnemyState.Idle);
+                return;
+            }
+
+            if (_nav == null || !_nav.enabled || !_nav.isOnNavMesh) return;
+
             if (dist > PreferredRange)
             {
+                _nav.speed = ChaseSpeed;
                 _nav.SetDestination(_player.position);
             }
             else
             {
+                _nav.speed = MoveSpeed;
                 _nav.ResetPath();
                 FacePlayer();
-                TryFire(dist);
             }
+
+            TryFireHorizontal(dist);
         }
 
-        private void TryFire(float dist)
-{
-    if (dist > FireRange) return;
-
-    _fireTimer += Time.deltaTime;
-    if (_fireTimer < 1f / FireRate) return;
-    _fireTimer = 0f;
-
-    // 1. Tính hướng bắn thẳng từ tâm Enemy sang tâm Player (bỏ cộng up 1f để tránh lệch pivot)
-    Vector3 spread = Random.insideUnitSphere * 0.05f;
-    Vector3 dir = (_player.position - transform.position).normalized + spread;
-
-    // 2. Điểm phát tia: Đẩy điểm phát đạn ra phía trước mặt Enemy 0.6 mét (để thoát khỏi Collider của chính nó)
-    Vector3 raycastOrigin = transform.position + transform.forward * 0.6f;
-
-    // Đính kèm Raycast vào Debug để cậu có thể nhìn thấy tia đạn trong Scene khi Play
-    Debug.DrawRay(raycastOrigin, dir * FireRange, Color.red, 0.5f);
-
-    // 3. Thực hiện quét tia Raycast
-    if (Physics.Raycast(raycastOrigin, dir, out RaycastHit hit, FireRange, PlayerMask))
-    {
-        // Debug xem thực sự tia đạn đã chạm vào cái gì
-        Debug.Log($"[Enemy Weapon] Hit object: {hit.collider.name} trên Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
-
-        var health = hit.collider.GetComponentInParent<OutOfBullet.Player.PlayerHealth>();
-        if (health != null)
+        // ── Pistol Fire — Phương Ngang ───────────────────────────
+        /// <summary>
+        /// Bắn đạn theo phương NGANG nhắm thẳng vào thân player.
+        /// </summary>
+        protected virtual void TryFireHorizontal(float dist)
         {
-            health.TakeDamage(10f);
-            GameManager.Instance?.DebugLog($"[Combat] Enemy hit Player! Sát thương: 10. Máu còn: {health.CurrentHP}");
-        }
-    }
-}
+            if (dist > AcidRange) return;
+            if (AcidProjectilePrefab == null) return;
 
-        private void FacePlayer()
+            _fireTimer += Time.deltaTime;
+            if (_fireTimer < 1f / AcidFireRate) return;
+            _fireTimer = 0f;
+
+            Vector3 origin = FirePoint != null
+                ? FirePoint.position
+                : transform.position + Vector3.up * 1.4f;
+
+            Vector3 targetPos  = _player.position + Vector3.up * 1.0f;
+            Vector3 toTarget   = targetPos - origin;
+            toTarget.y = 0f;
+
+            Vector3 direction = toTarget.sqrMagnitude > 0.01f
+                ? toTarget.normalized
+                : transform.forward;
+
+            GameObject projGO  = Instantiate(AcidProjectilePrefab, origin, Quaternion.LookRotation(direction));
+            AcidProjectile proj = projGO.GetComponent<AcidProjectile>();
+            if (proj != null)
+                proj.Init(direction);
+
+            Debug.DrawRay(origin, direction * AcidRange, Color.green, 0.5f);
+            GameManager.Instance?.DebugLog($"[Fodder] Bắn súng lục → player dist={dist:F1}");
+        }
+
+        // ── Radar Detection ──────────────────────────────────────
+        protected bool TryRadarDetectPlayer(out float distance)
+        {
+            distance = float.MaxValue;
+
+            if (_player == null)
+            {
+                var go = GameObject.FindGameObjectWithTag("Player");
+                if (go != null) _player = go.transform;
+                else return false;
+            }
+
+            distance = Vector3.Distance(transform.position, _player.position);
+            return distance <= RadarRange;
+        }
+
+        protected void FacePlayer()
         {
             if (_player == null) return;
             Vector3 dir = (_player.position - transform.position);
@@ -118,144 +235,30 @@ namespace OutOfBullet.Enemy
         {
             switch (newState)
             {
+                case EnemyState.Idle:
                 case EnemyState.Aggro:
-                    _nav.enabled = true;
+                    if (_nav != null) _nav.enabled = true;
                     break;
 
                 case EnemyState.Staggered:
                 case EnemyState.Ragdoll:
-                    _nav.enabled = false;
+                    if (_nav != null) _nav.enabled = false;
                     break;
             }
         }
-    }
-}
 
-// ============================================================
-//  EnemyHeavy.cs  —  Out of Bullet
-//  GDD §5.2 — High HP, stagger-gated execution.
-//  Vertical slice: simplified stagger-stub per GDD §11.1.
-//  Full behavior tree deferred to full production (GDD §11.2).
-// ============================================================
-namespace OutOfBullet.Enemy
-{
-    using UnityEngine;
-    using UnityEngine.AI;
-    using OutOfBullet.Core;
-    using OutOfBullet.Player;
-
-    [RequireComponent(typeof(NavMeshAgent))]
-    public class EnemyHeavy : EnemyBase
-    {
-        // ── Inspector ────────────────────────────────────────────
-        [Header("Heavy — Combat")]
-        public float FireRate         = 0.7f;
-        public float FireRange        = 30f;
-        public float BulletDamage     = 20f;
-        public LayerMask PlayerMask;
-
-        [Header("Heavy — Nav")]
-        public float MoveSpeed        = 2.5f;
-
-        [Header("Heavy — Aggression Boost on Stagger Expire")]
-        [Tooltip("Move speed multiplier after stagger expires (GDD §5.3.2).")]
-        public float PostStaggerSpeedMul = 1.5f;
-
-        // ── Runtime ──────────────────────────────────────────────
-        private NavMeshAgent _nav;
-        private Transform    _player;
-        private float        _fireTimer;
-        private bool         _postStaggerBoosted;
-
-        // ── Unity ────────────────────────────────────────────────
-
-        protected override void Awake()
+        private void FindNewPatrolPoint()
         {
-            // FIX: Set Tier and MaxHP BEFORE base.Awake() so CurrentHP
-            // is initialised to the correct value (200f), not the Inspector default (100f).
-            Tier  = EnemyTier.Heavy;
-            MaxHP = 200f;   // Tuning target — placeholder
-            base.Awake();   // CurrentHP = MaxHP = 200 ✓
+            Vector3 randomDirection = Random.insideUnitSphere * PatrolRadius;
+            randomDirection += _spawnPosition;
 
-            _nav         = GetComponent<NavMeshAgent>();
-            _nav.speed   = MoveSpeed;
-            _nav.enabled = false;
-        }
-
-        private void Start()
-        {
-            var playerGo = GameObject.FindGameObjectWithTag("Player");
-            if (playerGo != null) _player = playerGo.transform;
-        }
-
-        // ── State Behaviors ──────────────────────────────────────
-        protected override void TickAggro()
-        {
-            if (_player == null) return;
-
-            _nav.SetDestination(_player.position);
-            FacePlayer();
-            TryFire();
-        }
-
-        protected override void TickStaggered()
-        {
-            base.TickStaggered();   // handles timer expiry
-            // Staggered: cannot fire, cannot move (GDD §5.3.2)
-        }
-
-        private void TryFire()
-        {
-            if (_player == null) return;
-            float dist = Vector3.Distance(transform.position, _player.position);
-            if (dist > FireRange) return;
-
-            _fireTimer += Time.deltaTime;
-            if (_fireTimer < 1f / FireRate) return;
-            _fireTimer = 0f;
-
-            Vector3 dir = (_player.position + Vector3.up * 1f - transform.position + Vector3.up * 1f).normalized;
-            if (Physics.Raycast(transform.position + Vector3.up * 1.2f, dir, out RaycastHit hit, FireRange, PlayerMask))
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(randomDirection, out hit, PatrolRadius, NavMesh.AllAreas))
             {
-                var health = hit.collider.GetComponentInParent<OutOfBullet.Player.PlayerHealth>();
-                health?.TakeDamage(BulletDamage);
+                _patrolTarget    = hit.position;
+                _nav.SetDestination(_patrolTarget);
+                _hasPatrolTarget = true;
             }
-        }
-
-        private void FacePlayer()
-        {
-            if (_player == null) return;
-            Vector3 dir = _player.position - transform.position;
-            dir.y = 0;
-            if (dir != Vector3.zero)
-                transform.rotation = Quaternion.Slerp(
-                    transform.rotation, Quaternion.LookRotation(dir), 5f * Time.deltaTime);
-        }
-
-        protected override void OnStateEntered(EnemyState newState)
-        {
-            switch (newState)
-            {
-                case EnemyState.Aggro:
-                    _nav.enabled = true;
-                    _nav.speed   = _postStaggerBoosted ? MoveSpeed * PostStaggerSpeedMul : MoveSpeed;
-                    break;
-
-                case EnemyState.Staggered:
-                    _nav.enabled = false;   // Cannot move while staggered
-                    break;
-
-                case EnemyState.Ragdoll:
-                    _nav.enabled = false;
-                    break;
-            }
-        }
-
-        protected override void OnStaggerExpired()
-        {
-            // GDD §5.3.2: resume with boosted aggression
-            _postStaggerBoosted = true;
-            GameManager.Instance?.DebugLog($"[Heavy:{name}] Stagger expired — aggression boosted!");
         }
     }
 }
