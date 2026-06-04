@@ -10,9 +10,11 @@ public class PlayerCam : MonoBehaviour
 
     public Transform orientation;
     public Transform camHolder;
-
+    public float moveTiltAmount = 2f;
     float xRotation;
     float yRotation;
+    public bool disableMoveTilt;
+    private float wallTiltZ = 0f;
 
     private void Start()
     {
@@ -25,6 +27,7 @@ public class PlayerCam : MonoBehaviour
         // get mouse input
         float mouseX = Input.GetAxisRaw("Mouse X") * Time.deltaTime * sensX;
         float mouseY = Input.GetAxisRaw("Mouse Y") * Time.deltaTime * sensY;
+        float tilt = -Input.GetAxisRaw("Horizontal") * moveTiltAmount;
 
         yRotation += mouseX;
 
@@ -34,6 +37,17 @@ public class PlayerCam : MonoBehaviour
         // rotate cam and orientation
         camHolder.rotation = Quaternion.Euler(xRotation, yRotation, 0);
         orientation.rotation = Quaternion.Euler(0, yRotation, 0);
+        transform.DOLocalRotate(new Vector3(0, 0, tilt), 0.15f);
+        if (!disableMoveTilt)
+        {
+            float moveTilt = -Input.GetAxisRaw("Horizontal") * moveTiltAmount;
+            float combined = wallTiltZ + moveTilt;
+            transform.DOLocalRotate(new Vector3(0, 0, combined), 0.15f);
+        }
+        else
+        {
+            transform.DOLocalRotate(new Vector3(0, 0, wallTiltZ), 0.15f);
+        }
     }
 
     public void DoFov(float endValue)
@@ -43,6 +57,14 @@ public class PlayerCam : MonoBehaviour
 
     public void DoTilt(float zTilt)
     {
-        transform.DOLocalRotate(new Vector3(0, 0, zTilt), 0.25f);
+        wallTiltZ = zTilt;
+    }
+    
+    public void DoSlideOffset(bool sliding)
+    {
+        float targetY = sliding ? -1f : 0f; // was -0.5f, lower = more crouch feel
+        camHolder.DOLocalMoveY(targetY, 0.15f);
+        DoTilt(sliding ? 3f : 0f);
+        DoFov(sliding ? 90f : 85f);
     }
 }

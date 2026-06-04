@@ -125,15 +125,21 @@ public class PlayerMovement : MonoBehaviour
     private Vector3    velocityToSet;
     private bool       enableMovementOnNextTouch;
 
+    private CapsuleCollider col;
+    private float startColHeight;
+    private Vector3 startColCenter;
     // -------------------------------------------------------------------------
     // Unity lifecycle
     // -------------------------------------------------------------------------
 
     private void Start()
     {
+        col = GetComponent<CapsuleCollider>();
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
         startYScale = transform.localScale.y;
+        startColHeight = col.height;
+        startColCenter = col.center;
     }
 
     private void Update()
@@ -188,18 +194,16 @@ public class PlayerMovement : MonoBehaviour
         // crouch start
         if (Input.GetKeyDown(crouchKey))
         {
-            transform.localScale = new Vector3(transform.localScale.x,
-                                               crouchYScale,
-                                               transform.localScale.z);
+            col.height = col.height * crouchYScale;
+            col.center = new Vector3(col.center.x, col.center.y * crouchYScale, col.center.z);
             rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
         }
 
-        // crouch stop
+        // REPLACE crouch GetKeyUp block:
         if (Input.GetKeyUp(crouchKey))
         {
-            transform.localScale = new Vector3(transform.localScale.x,
-                                               startYScale,
-                                               transform.localScale.z);
+            col.height = startColHeight;
+            col.center = startColCenter;
         }
     }
 
@@ -373,6 +377,13 @@ public class PlayerMovement : MonoBehaviour
         else if (grounded)
         {
             rb.AddForce(moveDirection.normalized * moveSpeed * 10f, ForceMode.Force);
+
+            // ADD: brake when no input
+            if (horizontalInput == 0 && verticalInput == 0)
+            {
+                Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+                rb.AddForce(-flatVel * 15f, ForceMode.Force);
+            }
         }
         else
         {

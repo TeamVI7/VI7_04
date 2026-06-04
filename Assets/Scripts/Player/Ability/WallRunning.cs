@@ -159,6 +159,7 @@ public class WallRunning : MonoBehaviour
 
     private void StartWallRun()
     {
+        cam.disableMoveTilt = true;
         pm.wallrunning = true;
         pm.climbing = false;
 
@@ -203,6 +204,7 @@ public class WallRunning : MonoBehaviour
 
     private void StopWallRun()
     {
+        cam.disableMoveTilt = false;
         pm.wallrunning = false;
 
         // reset camera effects

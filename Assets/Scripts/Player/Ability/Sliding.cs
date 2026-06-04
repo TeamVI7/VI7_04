@@ -7,8 +7,10 @@ public class Sliding : MonoBehaviour
     [Header("References")]
     public Transform orientation;
     public Transform playerObj;
+    public PlayerCam cam;
     private Rigidbody rb;
     private PlayerMovement pm;
+    private CapsuleCollider col;
 
     [Header("Sliding")]
     public float maxSlideTime;
@@ -20,19 +22,23 @@ public class Sliding : MonoBehaviour
 
     public float slideYScale;
     private float startYScale;
+    private float originalColHeight;
+    private Vector3 originalColCenter;
 
     [Header("Input")]
     public KeyCode slideKey = KeyCode.LeftControl;
     private float horizontalInput;
     private float verticalInput;
 
-
     private void Start()
     {
         rb = GetComponent<Rigidbody>();
         pm = GetComponent<PlayerMovement>();
+        col = GetComponent<CapsuleCollider>();
 
         startYScale = playerObj.localScale.y;
+        originalColHeight = col.height;
+        originalColCenter = col.center;
     }
 
     private void Update()
@@ -56,13 +62,12 @@ public class Sliding : MonoBehaviour
     private void StartSlide()
     {
         pm.sliding = true;
-
         originalDrag = rb.linearDamping;
         rb.linearDamping = slideDrag;
-
-        playerObj.localScale = new Vector3(playerObj.localScale.x, slideYScale, playerObj.localScale.z);
+        col.height = originalColHeight * 0.5f;
+        col.center = new Vector3(originalColCenter.x, originalColCenter.y * 0.5f, originalColCenter.z);
+        cam.DoSlideOffset(true);
         rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
-
         slideTimer = maxSlideTime;
     }
 
@@ -70,15 +75,11 @@ public class Sliding : MonoBehaviour
     {
         Vector3 inputDirection = orientation.forward * verticalInput + orientation.right * horizontalInput;
 
-        // sliding normal
-        if(!pm.OnSlope() || rb.linearVelocity.y > -0.1f)
+        if (!pm.OnSlope() || rb.linearVelocity.y > -0.1f)
         {
             rb.AddForce(inputDirection.normalized * slideForce, ForceMode.Force);
-
             slideTimer -= Time.deltaTime;
         }
-
-        // sliding down a slope
         else
         {
             rb.AddForce(pm.GetSlopeMoveDirection(inputDirection) * slideForce, ForceMode.Force);
@@ -92,7 +93,10 @@ public class Sliding : MonoBehaviour
     private void StopSlide()
     {
         pm.sliding = false;
-
-        playerObj.localScale = new Vector3(playerObj.localScale.x, startYScale, playerObj.localScale.z);
+        rb.linearDamping = originalDrag;
+        col.height = originalColHeight;
+        col.center = originalColCenter;
+        cam.DoSlideOffset(false);
     }
+
 }
