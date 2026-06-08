@@ -1,5 +1,12 @@
+// ============================================================
+//  EnemyStealth.cs  —  Out of Bullet
+//  Quái tàng hình áp sát gây sát thương theo thời gian.
+//  Khi Player chạy thoát sẽ bị dính độc Bleeding giật 10 HP/s trong 5s.
+// ============================================================
+
 using UnityEngine;
-using OutOfBullet.Player; // Đảm bảo gọi đúng namespace chứa PlayerHealth của nhóm cậu
+using System.Collections;
+using OutOfBullet.Player; // Gọi đúng namespace chứa PlayerHealth gốc của nhóm
 
 namespace OutOfBullet.Enemy
 {
@@ -21,12 +28,20 @@ namespace OutOfBullet.Enemy
         [Tooltip("Tốc độ mờ dần khi chuyển đổi tàng hình.")]
         public float FadeSpeed = 2f;
 
-        [Header("Cận Chiến / Sát Thương Áp Sát (Giống Nhện Heavy)")]
+        [Header("Cận Chiến / Sát Thương Áp Sát")]
         [Tooltip("Khoảng cách đứng gần Player để bắt đầu gây sát thương.")]
         public float DamageRange = 2f; 
         
-        [Tooltip("Sát thương gây ra cho Player mỗi giây.")]
+        [Tooltip("Sát thương gây ra cho Player mỗi giây khi đứng gần.")]
         public float DamagePerSecond = 15f; 
+
+        [Header("Bleeding Settings (Upgrade)")]
+        [Tooltip("Thời gian bị chảy máu sau khi chạy thoát khỏi quái (giây).")]
+        public float BleedDuration = 5f;
+        [Tooltip("Sát thương chảy máu mỗi lần giật.")]
+        public float BleedDamagePerTick = 10f;
+        [Tooltip("Khoảng cách thời gian giữa mỗi lần giật máu (1s là chuẩn).")]
+        public float BleedInterval = 1f;
 
         // Các biến xử lý ngầm
         private Material _originalMaterial; 
@@ -36,6 +51,10 @@ namespace OutOfBullet.Enemy
 
         private StealthState _currentState = StealthState.Visible;
         private float _stateTimer = 0f;
+
+        // Quản lý trạng thái Bleeding độc lập cho Player
+        private bool _playerWasInZone = false;
+        private static Coroutine _activeBleedCoroutine; 
 
         protected override void Awake()
         {
@@ -59,7 +78,7 @@ namespace OutOfBullet.Enemy
 
         protected override void Update()
         {
-            base.Update(); // Giữ nguyên AI di chuyển, tìm đường đuổi Player của EnemyFodder
+            base.Update(); // Giữ nguyên AI di chuyển và tìm đường của EnemyFodder
 
             // 1. XỬ LÝ LERP ALPHA (Khi đang tàng hình)
             if (_currentState == StealthState.Cloaked && _runtimeStealthMat != null && EnemyRenderer != null)
@@ -82,7 +101,7 @@ namespace OutOfBullet.Enemy
                 SwitchStealthState();
             }
 
-            // 3. CƠ CHẾ TỰ ĐỘNG TRỪ MÁU PLAYER KHI ĐẾN GẦN (Copy chuẩn từ Heavy)
+            // 3. CƠ CHẾ TỰ ĐỘNG TRỪ MÁU PLAYER KHI ĐẾN GẦN & KÍCH HOẠT BLEEDING KHI CHẠY XA
             HandleProximityDamage();
         }
 
@@ -108,25 +127,68 @@ namespace OutOfBullet.Enemy
             }
         }
 
-        // Hàm xử lý gây sát thương liên tục khi áp sát Player
+        // Hàm xử lý gây sát thương liên tục và bắt trạng thái kích hoạt Bleeding
         private void HandleProximityDamage()
         {
             if (_player == null) return;
 
-            // Tính khoảng cách thực tế giữa nhện và Player
+            // Tính khoảng cách thực tế giữa nhện Stealth và Player
             float distance = Vector3.Distance(transform.position, _player.position);
+            var playerHealth = _player.GetComponent<PlayerHealth>();
 
-            // Nếu Player đi vào vùng nguy hiểm của nhện
+            if (playerHealth == null) return;
+
             if (distance <= DamageRange)
             {
-                // Lấy component máu của Player ra để trừ
-                var playerHealth = _player.GetComponent<PlayerHealth>();
-                if (playerHealth != null)
+                // Tình huống 1: Player đang ở TRONG vùng nguy hiểm
+                playerHealth.TakeDamage(DamagePerSecond * Time.deltaTime);
+                
+                // Nếu đang đứng gần quái thì tạm thời tắt hiệu ứng giật độc chạy xa (hoặc reset)
+                if (_activeBleedCoroutine != null)
                 {
-                    // Trừ máu theo thời gian thực (mỗi giây trừ đúng lượng DamagePerSecond)
-                    playerHealth.TakeDamage(DamagePerSecond * Time.deltaTime);
+                    StopCoroutine(_activeBleedCoroutine);
+                    _activeBleedCoroutine = null;
+                }
+
+                _playerWasInZone = true; // Đánh dấu Player đã từng lọt vào tầm cào
+            }
+            else
+            {
+                // Tình huống 2: Player vừa CHẠY THOÁT ra ngoài tầm sát thương
+                if (_playerWasInZone)
+                {
+                    _playerWasInZone = false; // Reset cờ hiệu
+
+                    // Kích hoạt hiệu ứng Bleeding kéo dài 5 giây độc lập
+                    if (_activeBleedCoroutine != null) StopCoroutine(_activeBleedCoroutine);
+                    _activeBleedCoroutine = StartCoroutine(PlayerBleedingRoutine(playerHealth));
                 }
             }
+        }
+
+        // Coroutine găm trực tiếp sát thương thời gian vào Player
+        private IEnumerator PlayerBleedingRoutine(PlayerHealth targetHealth)
+        {
+            float elapsed = 0f;
+
+            while (elapsed < BleedDuration)
+            {
+                yield return new WaitForSeconds(BleedInterval);
+                elapsed += BleedInterval;
+
+                if (targetHealth != null && targetHealth.IsAlive)
+                {
+                    // Trừ chuẩn 10 máu mỗi tick thông qua hàm TakeDamage gốc của PlayerHealth
+                    targetHealth.TakeDamage(BleedDamagePerTick);
+                    Debug.Log($"[Stealth Poison] Player dính độc rỉ máu! Giật -{BleedDamagePerTick} HP. Progress: {elapsed}/{BleedDuration}s");
+                }
+                else
+                {
+                    break; // Ngừng giật nếu Player đã hi sinh
+                }
+            }
+
+            _activeBleedCoroutine = null;
         }
     }
 }
