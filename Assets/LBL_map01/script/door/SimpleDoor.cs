@@ -21,6 +21,12 @@ public class SimpleDoor : MonoBehaviour
     [Header("Hint (tuỳ chọn)")]
     public GameObject interactHint;
 
+    [Header("Âm thanh")]
+    [Tooltip("AudioClip phát khi cửa bắt đầu mở")]
+    public AudioClip openSound;
+    [Tooltip("Để trống → tự tạo AudioSource trên GameObject này")]
+    public AudioSource audioSource;
+
     // ── Internal ─────────────────────────────────────────────────
     private bool    _isOpen  = false;
     private bool    _moving  = false;
@@ -31,20 +37,18 @@ public class SimpleDoor : MonoBehaviour
 
     private void Start()
     {
-        // Tự tính slideDistance nếu để 0
         if (slideDistance <= 0f)
         {
             Renderer r = GetComponent<Renderer>();
             if (r != null)
             {
-                // Lấy kích thước theo hướng trượt
                 Vector3 size = r.bounds.size;
                 slideDistance = Mathf.Abs(Vector3.Dot(size, slideDirection.normalized));
-                slideDistance = Mathf.Max(slideDistance, 1f); // tối thiểu 1
+                slideDistance = Mathf.Max(slideDistance, 1f);
             }
             else
             {
-                slideDistance = 3f; // fallback
+                slideDistance = 3f;
             }
         }
 
@@ -56,6 +60,10 @@ public class SimpleDoor : MonoBehaviour
         _cam = Camera.main;
 
         if (interactHint) interactHint.SetActive(false);
+
+        // Tự tạo AudioSource nếu chưa gán
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
 
         Debug.Log($"[SimpleDoor] slideDistance = {slideDistance:F2} | openPos = {_openPos}");
     }
@@ -87,10 +95,18 @@ public class SimpleDoor : MonoBehaviour
         return false;
     }
 
+    private void PlayOpenSound()
+    {
+        if (openSound != null && audioSource != null)
+            audioSource.PlayOneShot(openSound);
+    }
+
     private IEnumerator OpenDoor()
     {
         _moving = true;
         if (interactHint) interactHint.SetActive(false);
+
+        PlayOpenSound();
 
         Vector3 start   = transform.position;
         float   elapsed = 0f;
@@ -108,17 +124,15 @@ public class SimpleDoor : MonoBehaviour
         _moving = false;
     }
 
-    // ── Gizmo: hiện vị trí cửa khi mở trong Scene view ──────────
+    // ── Gizmo ────────────────────────────────────────────────────
     private void OnDrawGizmosSelected()
     {
         float dist = slideDistance > 0f ? slideDistance : 3f;
         Vector3 open = transform.position + slideDirection.normalized * dist;
 
-        // Đường trượt
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, open);
 
-        // Vị trí cửa khi mở (outline)
         Gizmos.color = new Color(0f, 1f, 0f, 0.3f);
         Renderer r = GetComponent<Renderer>();
         if (r != null)
@@ -126,7 +140,6 @@ public class SimpleDoor : MonoBehaviour
         else
             Gizmos.DrawWireCube(open, Vector3.one);
 
-        // Vùng interact
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, interactRange);
     }
