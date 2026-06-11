@@ -22,6 +22,13 @@ MonoBehaviour:
   weaponDamage: 25
   maxRange: 999
   hitImpulseForce: 10
+  isBoltAction: 0
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSound: {fileID: 0}
+  boltOutVolume: 1
+  boltInSound: {fileID: 0}
+  boltInVolume: 1
   baseSpread: 0.02
   adsSpreadMultiplier: 0.2
   moveSpreadMultiplier: 2.5
@@ -35,7 +42,7 @@ MonoBehaviour:
   reloadMagOutDelay: 0.5
   reloadMagInDelay: 1
   reloadChamberDelay: 0.5
-  requiresManualChamber: 1
+  requiresManualChamber: 0
   shootSounds:
   - {fileID: 8300000, guid: 19687943ed3e2934da32fcd154c72923, type: 3}
   - {fileID: 8300000, guid: 7c757e6ef553ff34d99d083ecf708759, type: 3}
