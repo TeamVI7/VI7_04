@@ -1,98 +1,87 @@
-// ============================================================
-//  PlayerHealth.cs  —  Out of Bullet
-//  GDD §6 — Single HP bar, kill-gated only.
-//  No regen, no pickups, no shields.
-//  I-frames are self-contained via IFrame event — no dash ref.
-// ============================================================
 using UnityEngine;
-using OutOfBullet.Core;
+using UnityEngine.UI;
+using DG.Tweening;
 
-namespace OutOfBullet.Player
+public class PlayerHealth : MonoBehaviour
 {
-    public class PlayerHealth : MonoBehaviour
+    [Header("Stats")]
+    [SerializeField] float maxHP = 100f;
+    [SerializeField] float regenDelay = 3f;
+    [SerializeField] float regenRate = 15f;
+    [SerializeField] bool canRegen = false;
+
+    [Header("Overlay")]
+    [SerializeField] Image damageOverlay;       // full-screen red Image on Canvas
+    [SerializeField] float overlayMaxAlpha = 0.5f;
+    [SerializeField] float overlayFadeOut = 1f;
+
+    float _hp;
+    float _lastHitTime;
+    bool _dead;
+    Sequence _overlaySeq;
+
+    public float HP  => _hp;
+    public float Pct => _hp / maxHP;
+
+    public static event System.Action<float, float> OnHealthChanged; // (current, max)
+    public static event System.Action OnDied;
+
+    void Awake()
     {
-        [Header("Health")]
-        public float MaxHP = 100f;
+        _hp = maxHP;
+        SetAlpha(damageOverlay, 0f);
+    }
 
-        public float CurrentHP  { get; private set; }
-        public bool  IsAlive    => CurrentHP > 0f;
-        public float Fraction   => CurrentHP / MaxHP;
+    void Update()
+    {
+        if (_dead || !canRegen || _hp >= maxHP) return;
+        if (Time.time - _lastHitTime < regenDelay) return;
 
-        private bool _isDead;
-        private bool _isInvincible;   // set by dash via SetInvincible()
+        _hp = Mathf.Min(_hp + regenRate * Time.deltaTime, maxHP);
+        OnHealthChanged?.Invoke(_hp, maxHP);
+    }
 
-        private void Awake()
-        {
-            CurrentHP = MaxHP;
-        }
+    public void TakeDamage(float dmg)
+    {
+        if (_dead) return;
 
-        private void OnEnable()
-        {
-            EventBus.Subscribe<EnemyExecutedEvent>(OnEnemyExecuted);
-            EventBus.Subscribe<ArenaResetEvent>(OnArenaReset);
-        }
+        _hp = Mathf.Clamp(_hp - dmg, 0f, maxHP);
+        _lastHitTime = Time.time;
 
-        private void OnDisable()
-        {
-            EventBus.Unsubscribe<EnemyExecutedEvent>(OnEnemyExecuted);
-            EventBus.Unsubscribe<ArenaResetEvent>(OnArenaReset);
-        }
+        OnHealthChanged?.Invoke(_hp, maxHP);
+        FlashOverlay(dmg);
 
-        // ── Damage ───────────────────────────────────────────────
-        public void TakeDamage(float amount)
-        {
-            if (_isDead || _isInvincible) return;
-            ApplyDelta(-amount);
-        }
+        if (_hp <= 0f) Die();
+    }
 
-        // ── I-frames — called by PlayerController ─
-        public void SetInvincible(bool invincible)
-        {
-            _isInvincible = invincible;
-        }
+    public void Heal(float amount)
+    {
+        if (_dead) return;
+        
+        _hp = Mathf.Min(_hp + amount, maxHP);
+        OnHealthChanged?.Invoke(_hp, maxHP);
+    }
 
-        // ── Siphon ───────────────────────────────────────────────
-        public void ApplySiphon(float amount)
-        {
-            if (_isDead) return;
-            ApplyDelta(amount);
-        }
+    void FlashOverlay(float dmg)
+    {
+        if (!damageOverlay) return;
+        float peak = Mathf.Max(dmg / maxHP * overlayMaxAlpha, 0.15f);
 
-        // ── Internal ─────────────────────────────────────────────
-        private void ApplyDelta(float delta)
-        {
-            CurrentHP = Mathf.Clamp(CurrentHP + delta, 0f, MaxHP);
-            EventBus.Publish(new PlayerHealthChangedEvent
-            {
-                CurrentHP = CurrentHP,
-                MaxHP     = MaxHP,
-                Delta     = delta
-            });
-            if (CurrentHP <= 0f && !_isDead) Die();
-        }
+        _overlaySeq?.Kill();
+        _overlaySeq = DOTween.Sequence()
+            .Append(damageOverlay.DOFade(peak, 0.05f))
+            .Append(damageOverlay.DOFade(0f, overlayFadeOut).SetEase(Ease.OutQuad));
+    }
 
-        private void Die()
-        {
-            _isDead = true;
-            EventBus.Publish(new PlayerDiedEvent());
-        }
+    void Die()
+    {
+        _dead = true;
+        OnDied?.Invoke();
+    }
 
-        // ── Events ───────────────────────────────────────────────
-        private void OnEnemyExecuted(EnemyExecutedEvent evt)
-        {
-            ApplySiphon(evt.HealthSiphonAmount);
-        }
-
-        private void OnArenaReset(ArenaResetEvent evt)
-        {
-            _isDead   = false;
-            CurrentHP = MaxHP;
-            EventBus.Publish(new PlayerHealthChangedEvent
-            {
-                CurrentHP = CurrentHP,
-                MaxHP     = MaxHP,
-                Delta     = MaxHP
-            });
-        }
+    static void SetAlpha(Image img, float a)
+    {
+        if (!img) return;
+        Color c = img.color; c.a = a; img.color = c;
     }
 }

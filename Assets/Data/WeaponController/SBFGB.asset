@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
+  m_Name: SBFGB
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: SBFG_B
+  caliber: .50
+  ammoType: BMG
+  isFullAuto: 0
+  fireRate: 1
+  clipSize: 7
+  reservedAmmoCapacity: 270
+  weaponDamage: 25
+  maxRange: 999
+  hitImpulseForce: 10
+  isBoltAction: 1
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSound: {fileID: 8300000, guid: aa97261398b30bc47ab2311e989bfacd, type: 3}
+  boltOutVolume: 1
+  boltInSound: {fileID: 8300000, guid: d4b66a19a4feaea4a84d7c9d9680b4d4, type: 3}
+  boltInVolume: 1
+  baseSpread: 0.02
+  adsSpreadMultiplier: 0.2
+  moveSpreadMultiplier: 2.5
+  sprintSpreadMultiplier: 5
+  crouchSpreadMultiplier: 0.6
+  standSpreadMultiplier: 0.8
+  spreadBuildPerShot: 0.01
+  spreadRecoveryRate: 0.04
+  maxSpreadBuildup: 0.08
+  reloadTotalTime: 2.4
+  reloadMagOutDelay: 0.5
+  reloadMagInDelay: 1
+  reloadChamberDelay: 0.5
+  requiresManualChamber: 0
+  shootSounds:
+  - {fileID: 8300000, guid: 9ca60a8b8384ae0478e390a0f863dcd3, type: 3}
+  - {fileID: 8300000, guid: 26ea180b66c6b7042a051eaf7011afdb, type: 3}
+  dryFireSound: {fileID: 8300000, guid: a3e46cc83dc522047951f4f5eee3dbf7, type: 3}
+  magOutSound: {fileID: 8300000, guid: aa97261398b30bc47ab2311e989bfacd, type: 3}
+  magInSound: {fileID: 8300000, guid: b3a669a5c678a024390d15f33d675079, type: 3}
+  chamberRoundSound: {fileID: 8300000, guid: 2a40d2613fab3e24baa1de408d9701dc, type: 3}
+  shootVolume: 1
+  reloadVolume: 0.8
+  dryFireVolume: 0.8
+  chamberVolume: 0.8
+  casingEjectForce: 2
+  casingDestroyTime: 5
