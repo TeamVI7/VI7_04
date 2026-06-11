@@ -1,29 +1,14 @@
-using System.Collections.Generic;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// World-space weapon HUD — canvas follows the camera in 3D space.
+/// Screen-space weapon HUD utilizing a UI Slider and overlay image for the ammo bar.
 ///
-/// ── Canvas Setup ──────────────────────────────────────────────────────────
-///  1. Create a Canvas.
-///       Render Mode  →  World Space
-///       Event Camera →  your Camera
-///  2. Set canvas scale to ~0.001 on all axes (converts pixel units → meters).
-///  3. Set RectTransform Width/Height to e.g. 400 × 200.
-///  4. Do NOT parent the Canvas to the Camera — this script moves it each frame.
-///  5. Inside the canvas build your layout (same as screen-space):
-///       WeaponName, AmmoClip, AmmoSlash, AmmoReserve, LowAmmoObject, SlotsParent
-///
-/// ── World-Space Offset ────────────────────────────────────────────────────
-///  positionOffset is in camera-local space.
-///  Default (0.13, -0.08, 0.25) puts it bottom-right, 25 cm in front of lens.
-///  Tweak until it sits where you want in the viewport.
-///
-/// ── Slots ─────────────────────────────────────────────────────────────────
-///  slotImages — one Image per weapon, same order as WeaponSwitcher.weapons.
-///  slotKeyLabels — optional TMP labels inside each slot ("1", "2", …).
+/// ── Companion script ──────────────────────────────────────────────────────
+///  Add WeaponDisplayInfo.cs to each weapon GameObject for display name,
+///  caliber, and ammo type.  Falls back to gameObject.name / "FMJ" if absent.
 /// </summary>
 public class WeaponHUD : MonoBehaviour
 {
@@ -32,42 +17,38 @@ public class WeaponHUD : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     [Header("References")]
-    public WeaponSwitcher weaponSwitcher;
-
-    [Header("World Space")]
-    [Tooltip("The Canvas component (Render Mode must be World Space).")]
-    public Canvas canvas;
-    [Tooltip("Camera the canvas follows and faces.")]
-    public Camera targetCamera;
-    [Tooltip("Position in camera-local space. Z = distance in front of lens.")]
-    public Vector3 positionOffset = new Vector3(0.13f, -0.08f, 0.25f);
-    [Tooltip("Optional extra rotation offset on the canvas.")]
-    public Vector3 rotationOffset = Vector3.zero;
-
-    [Header("Ammo Text")]
-    public TextMeshProUGUI weaponNameText;
-    public TextMeshProUGUI ammoClipText;
-    public TextMeshProUGUI ammoReserveText;
-
-    [Header("Low Ammo Warning")]
-    [Tooltip("Any GameObject (Text, Image…). Shown when clip ≤ lowAmmoThreshold.")]
-    public GameObject lowAmmoIndicator;
-    [Tooltip("Clip count at or below which the warning activates.")]
-    public int   lowAmmoThreshold = 3;
-    public Color normalAmmoColor  = Color.white;
-    public Color lowAmmoColor     = new Color(1f, 0.25f, 0.25f);
-
-    [Header("Weapon Slots")]
-    [Tooltip("One Image per slot, same order as WeaponSwitcher.weapons.")]
-    public List<Image> slotImages = new();
-    [Tooltip("Optional TMP key labels inside each slot (auto-fills '1','2'… if empty).")]
-    public List<TextMeshProUGUI> slotKeyLabels = new();
-    public Color slotActiveColor   = new Color(0.91f, 0.79f, 0.48f);
-    public Color slotInactiveColor = new Color(0.29f, 0.28f, 0.27f);
-
-    [Header("Misc")]
-    [Tooltip("Root panel — hidden while switching weapons.")]
+    public WeaponSwitcherProcedural weaponSwitcher;
     public GameObject hudPanel;
+
+    [Header("Weapon Name + Mode")]
+    [Tooltip("'GLOCK G17 // 9MM'")]
+    public TextMeshProUGUI weaponNameText;
+    [Tooltip("Fire mode label: S / B / A")]
+    public TextMeshProUGUI modeText;
+    [Tooltip("Ammo type label: FMJ / HP / AP")]
+    public TextMeshProUGUI ammoTypeText;
+
+    [Header("Ammo Bar (Slider)")]
+    [Tooltip("Standard UI Slider. Interactable should be false. Handle removed.")]
+    public Slider ammoSlider;
+    [Tooltip("Optional: The Fill image of the slider, used to change color when low.")]
+    public Image ammoFillImage;
+    public Color ammoNormalColor = new Color(0.75f, 0.70f, 0.60f, 1f);
+    public Color ammoLowColor    = new Color(0.82f, 0.28f, 0.22f, 1f);
+
+    [Header("Ammo Count")]
+    public TextMeshProUGUI ammoClipText;
+    public int lowAmmoThreshold = 3;
+
+    [Header("Magazine Reserve")]
+    [Tooltip("Shows spare magazine count (reserve ÷ clipSize).")]
+    public TextMeshProUGUI magCountText;
+
+    [Header("Player Health")]
+    public TextMeshProUGUI healthText;
+    public Image healthBarFill; 
+    public Color healthHighColor = new Color(0.2f, 0.8f, 0.2f, 1f);
+    public Color healthLowColor  = new Color(0.8f, 0.2f, 0.2f, 1f);
 
     #endregion
 
@@ -75,14 +56,24 @@ public class WeaponHUD : MonoBehaviour
     #region Private State
     // ─────────────────────────────────────────────────────────────────────────
 
-    private WeaponsController _trackedWeapon;
-    private Transform         _camTransform;
+    private WeaponsController _tracked;
+    private int _maxClip;
 
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
     #region Unity Lifecycle
     // ─────────────────────────────────────────────────────────────────────────
+
+    private void OnEnable()
+    {
+        PlayerHealth.OnHealthChanged += HandleHealthChanged;
+    }
+
+    private void OnDisable()
+    {
+        PlayerHealth.OnHealthChanged -= HandleHealthChanged;
+    }
 
     private void Start()
     {
@@ -92,34 +83,11 @@ public class WeaponHUD : MonoBehaviour
             return;
         }
 
-        // Cache camera transform; fall back to Camera.main.
-        if (targetCamera == null) targetCamera = Camera.main;
-        if (targetCamera != null)
-        {
-            _camTransform = targetCamera.transform;
-            if (canvas != null) canvas.worldCamera = targetCamera;
-        }
-
         weaponSwitcher.OnSwitchStart    += HandleSwitchStart;
         weaponSwitcher.OnSwitchComplete += HandleSwitchComplete;
 
-        AutoFillSlotLabels();
-
         if (weaponSwitcher.weapons.Count > 0)
-            BindToWeapon(weaponSwitcher.weapons[0]);
-
-        RefreshSlots(0);
-    }
-
-    private void LateUpdate()
-    {
-        // Move and orient the canvas so it always sits at positionOffset
-        // relative to the camera — same effect as parenting but lets you
-        // adjust the offset at runtime without messing up the canvas hierarchy.
-        if (_camTransform == null || canvas == null) return;
-
-        canvas.transform.position = _camTransform.TransformPoint(positionOffset);
-        canvas.transform.rotation = _camTransform.rotation * Quaternion.Euler(rotationOffset);
+            Bind(weaponSwitcher.weapons[0]);
     }
 
     private void OnDestroy()
@@ -127,7 +95,7 @@ public class WeaponHUD : MonoBehaviour
         if (weaponSwitcher == null) return;
         weaponSwitcher.OnSwitchStart    -= HandleSwitchStart;
         weaponSwitcher.OnSwitchComplete -= HandleSwitchComplete;
-        UnbindCurrentWeapon();
+        Unbind();
     }
 
     #endregion
@@ -136,20 +104,45 @@ public class WeaponHUD : MonoBehaviour
     #region Event Handlers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void HandleSwitchStart(WeaponsController outgoing, WeaponsController incoming)
+    private void HandleSwitchStart(WeaponsController o, WeaponsController n)
     {
-        SetHudVisible(false);
-        UnbindCurrentWeapon();
+        // Don't hide — just unbind old and pre-bind new immediately
+        Unbind();
+        if (n != null) Bind(n);
     }
 
-    private void HandleSwitchComplete(WeaponsController outgoing, WeaponsController incoming)
+    private void HandleSwitchComplete(WeaponsController o, WeaponsController n)
     {
-        BindToWeapon(incoming);
-        RefreshSlots(weaponSwitcher.CurrentIndex);
-        SetHudVisible(true);
+        // Bind again in case n changed, ensure visible
+        Unbind();
+        if (n != null) Bind(n);
+        SetVisible(true);
     }
-
+    
     private void HandleAmmoChanged(int clip, int reserve) => RefreshAmmo(clip, reserve);
+
+    private void HandleHealthChanged(float current, float max)
+    {
+        if (healthText != null)
+        {
+            healthText.text = Mathf.CeilToInt(current).ToString("D3");
+        }
+
+        if (healthBarFill != null && max > 0f)
+        {
+            float pct = current / max;
+            healthBarFill.fillAmount = pct;
+            
+            if (pct > 0.5f)
+            {
+                healthBarFill.color = Color.Lerp(Color.yellow, healthHighColor, (pct - 0.5f) * 2f);
+            }
+            else
+            {
+                healthBarFill.color = Color.Lerp(healthLowColor, Color.yellow, pct * 2f);
+            }
+        }
+    }
 
     #endregion
 
@@ -157,33 +150,58 @@ public class WeaponHUD : MonoBehaviour
     #region Bind / Unbind
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void BindToWeapon(WeaponsController weapon)
+    private void Bind(WeaponsController w)
     {
-        if (weapon == null) return;
-        _trackedWeapon = weapon;
-        _trackedWeapon.OnAmmoChanged += HandleAmmoChanged;
-        RefreshName(weapon.gameObject.name);
-        RefreshAmmo(weapon.CurrentAmmo, weapon.ReserveAmmo);
-        SetHudVisible(true);
-    }
+        if (w == null) return;
+        _tracked = w;
+        _tracked.OnAmmoChanged += HandleAmmoChanged;
 
-    private void UnbindCurrentWeapon()
+
+        _maxClip = w.weaponData != null ? w.weaponData.clipSize : w.CurrentAmmo;
+        
+        if (ammoSlider != null)
+        {
+            ammoSlider.maxValue = _maxClip;
+            ammoSlider.minValue = 0;
+        }
+
+        string displayName = w.weaponData != null ? w.weaponData.displayName : w.gameObject.name.ToUpper();
+        string caliber     = w.weaponData?.caliber  ?? "";
+        string ammoType    = w.weaponData?.ammoType ?? "FMJ";
+        RefreshName(displayName, caliber);
+
+        if (ammoTypeText != null) ammoTypeText.text = ammoType.ToUpper();
+
+        RefreshAmmo(w.CurrentAmmo, w.ReserveAmmo);
+        SetVisible(true);
+        StartCoroutine(Co_LateRefresh());
+    }
+    private IEnumerator Co_LateRefresh()
     {
-        if (_trackedWeapon == null) return;
-        _trackedWeapon.OnAmmoChanged -= HandleAmmoChanged;
-        _trackedWeapon = null;
+        yield return null;
+        if (_tracked != null)
+            RefreshAmmo(_tracked.CurrentAmmo, _tracked.ReserveAmmo);
+    }
+    
+    private void Unbind()
+    {
+        if (_tracked == null) return;
+        _tracked.OnAmmoChanged -= HandleAmmoChanged;
+        _tracked = null;
     }
 
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Display
+    #region Display Refresh
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void RefreshName(string weaponName)
+    private void RefreshName(string name, string caliber)
     {
-        if (weaponNameText != null)
-            weaponNameText.text = weaponName.ToUpper();
+        if (weaponNameText == null) return;
+        weaponNameText.text = string.IsNullOrEmpty(caliber)
+            ? name
+            : $"{name} // {caliber.ToUpper()}";
     }
 
     private void RefreshAmmo(int clip, int reserve)
@@ -192,38 +210,30 @@ public class WeaponHUD : MonoBehaviour
 
         if (ammoClipText != null)
         {
-            ammoClipText.text  = clip.ToString();
-            ammoClipText.color = isLow ? lowAmmoColor : normalAmmoColor;
+            ammoClipText.text  = clip.ToString("D3");
+            ammoClipText.color = isLow ? ammoLowColor : ammoNormalColor;
         }
 
-        if (ammoReserveText != null)
-            ammoReserveText.text = reserve.ToString();
-
-        if (lowAmmoIndicator != null)
-            lowAmmoIndicator.SetActive(isLow);
-    }
-
-    private void RefreshSlots(int activeIndex)
-    {
-        for (int i = 0; i < slotImages.Count; i++)
+        if (magCountText != null)
         {
-            if (slotImages[i] == null) continue;
-            slotImages[i].color = i == activeIndex ? slotActiveColor : slotInactiveColor;
+            int spares = _maxClip > 0 ? reserve / _maxClip : 0;
+            magCountText.text = spares.ToString("D3");
         }
-    }
 
-    private void SetHudVisible(bool visible)
-    {
-        if (hudPanel != null) hudPanel.SetActive(visible);
-    }
-
-    private void AutoFillSlotLabels()
-    {
-        for (int i = 0; i < slotKeyLabels.Count; i++)
+        if (ammoSlider != null)
         {
-            if (slotKeyLabels[i] != null && string.IsNullOrEmpty(slotKeyLabels[i].text))
-                slotKeyLabels[i].text = (i + 1).ToString();
+            ammoSlider.value = clip;
         }
+
+        if (ammoFillImage != null)
+        {
+            ammoFillImage.color = isLow ? ammoLowColor : ammoNormalColor;
+        }
+    }
+
+    private void SetVisible(bool v)
+    {
+        if (hudPanel != null) hudPanel.SetActive(v);
     }
 
     #endregion

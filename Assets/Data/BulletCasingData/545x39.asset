@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b32335ed5fe177b4aa1831ceb22e21bb, type: 3}
+  m_Name: 545x39
+  m_EditorClassIdentifier: Assembly-CSharp::BulletCasingData
+  casingPrefab: {fileID: 4033532083382471309, guid: 87e0779d44929244c8b52a400a7a14a6, type: 3}
+  ejectionForce: 3
+  ejectionUpwardForce: 1.5
+  torqueRange: {x: 5, y: 15}
+  ejectionSpreadAngle: 10
+  lifetime: 4
+  fadeDuration: 0.5
+  bounceClips:
+  - {fileID: 8300000, guid: 45a781d067e15484a936c23542c07d17, type: 3}
+  - {fileID: 8300000, guid: 23b9397877c80864180e1ef0b1c445ea, type: 3}
+  - {fileID: 8300000, guid: bacdc913d889e5f40807a24b2d13d264, type: 3}
+  - {fileID: 8300000, guid: 4fc306f102cdf0843a451f4b7a2d93d8, type: 3}
+  - {fileID: 8300000, guid: 898e7e496dbf35e4f8f198706f8e7271, type: 3}
+  - {fileID: 8300000, guid: 704f40e7c1352b348a9f9cf9efe260aa, type: 3}
+  - {fileID: 8300000, guid: df852aaf711663541a2eb15d1b148da5, type: 3}
+  - {fileID: 8300000, guid: a082413176e79c1468e0a1a2a1f8b663, type: 3}
+  - {fileID: 8300000, guid: 30965bbb059383b4f85608d48aa10c7c, type: 3}
+  - {fileID: 8300000, guid: 7e5f05e34e07a034087e9deb94272d72, type: 3}
+  bounceVolume: 0.4
+  minBounceVelocity: 0.5
+  maxBounceSounds: 2
+  prewarmCount: 10
+  debugDrawEjection: 1

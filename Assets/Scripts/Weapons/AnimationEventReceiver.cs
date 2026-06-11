@@ -15,6 +15,7 @@ using UnityEngine;
 public class AnimationEventReceiver : MonoBehaviour
 {
     [SerializeField] private WeaponsController weaponsController;
+    [SerializeField] private CasingEjector casingEjector;
     [SerializeField] private bool showDebugLogs = true;
 
     private void Start()
@@ -24,6 +25,13 @@ public class AnimationEventReceiver : MonoBehaviour
 
         if (weaponsController == null)
             LogWarning("WeaponsController not found!");
+        
+        // Subscribe to bolt action events
+        if (weaponsController != null)
+        {
+            weaponsController.OnBoltOut += PlayBoltOutSound;
+            weaponsController.OnBoltIn += PlayBoltInSound;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -140,6 +148,42 @@ public class AnimationEventReceiver : MonoBehaviour
     {
         Log("AnimEvent_DrawEnd");
         weaponsController?.OnDrawEnd_AnimDriven();
+    }
+
+    public void AnimEvent_BoltOut()
+    {
+        Log("AnimEvent_BoltOut");
+        weaponsController?.OnBoltOut_AnimDriven();
+    }
+
+    public void AnimEvent_BoltIn()
+    {
+        Log("AnimEvent_BoltIn");
+        weaponsController?.OnBoltIn_AnimDriven();
+    }
+
+    /// <summary>
+    /// Triggers casing ejection via animation event.
+    /// Or via AnimationEventReceiver for bolt-action/pump delayed eject
+    /// AnimationEvent → "OnCasingEject" → routes to ejector.Eject()
+    /// Function name: AnimEvent_OnCasingEject
+    /// </summary>
+    public void AnimEvent_OnCasingEject()
+    {
+        Log("AnimEvent_OnCasingEject");
+        casingEjector?.Eject();
+    }
+
+    private void PlayBoltOutSound()
+    {
+        Log("PlayBoltOutSound");
+        weaponsController?.PlayBoltOutSound();
+    }
+
+    private void PlayBoltInSound()
+    {
+        Log("PlayBoltInSound");
+        weaponsController?.PlayBoltInSound();
     }
 
     #endregion

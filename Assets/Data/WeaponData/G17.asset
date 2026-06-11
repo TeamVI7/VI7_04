@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
+  m_Name: G17
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: G17
+  caliber: 9x19
+  ammoType: FMJ
+  isFullAuto: 0
+  fireRate: 0.1
+  clipSize: 17
+  reservedAmmoCapacity: 270
+  weaponDamage: 25
+  maxRange: 999
+  hitImpulseForce: 10
+  isBoltAction: 0
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSound: {fileID: 0}
+  boltOutVolume: 1
+  boltInSound: {fileID: 0}
+  boltInVolume: 1
+  baseSpread: 0.02
+  adsSpreadMultiplier: 0.2
+  moveSpreadMultiplier: 2.5
+  sprintSpreadMultiplier: 5
+  crouchSpreadMultiplier: 0.6
+  standSpreadMultiplier: 0.8
+  spreadBuildPerShot: 0.01
+  spreadRecoveryRate: 0.04
+  maxSpreadBuildup: 0.08
+  reloadTotalTime: 2.4
+  reloadMagOutDelay: 0.5
+  reloadMagInDelay: 1
+  reloadChamberDelay: 0.5
+  requiresManualChamber: 0
+  shootSounds:
+  - {fileID: 8300000, guid: 19687943ed3e2934da32fcd154c72923, type: 3}
+  - {fileID: 8300000, guid: 7c757e6ef553ff34d99d083ecf708759, type: 3}
+  - {fileID: 8300000, guid: 4dadb518ca86dd9428f0b4574f1338af, type: 3}
+  - {fileID: 8300000, guid: e60a0abfb44f9f44e8382a5cf2a3a481, type: 3}
+  - {fileID: 8300000, guid: 8400a2390de3b754daed947e0a8fdaa3, type: 3}
+  - {fileID: 8300000, guid: 94020894a0ef39348baa1985f586057c, type: 3}
+  dryFireSound: {fileID: 8300000, guid: c3c1725fc7b98464e92734ed854c1643, type: 3}
+  magOutSound: {fileID: 8300000, guid: 21c72f198e2b82543a9d22fe754b8aaa, type: 3}
+  magInSound: {fileID: 8300000, guid: 8e59739f8cc6d6e478f60dab6afec354, type: 3}
+  chamberRoundSound: {fileID: 8300000, guid: 4e9a0b398a075fc46834751b6d13ae4a, type: 3}
+  shootVolume: 1
+  reloadVolume: 0.8
+  dryFireVolume: 0.8
+  chamberVolume: 0.8
+  casingEjectForce: 2
+  casingDestroyTime: 5

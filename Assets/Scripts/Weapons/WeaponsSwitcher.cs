@@ -3,27 +3,72 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WeaponSwitcher : MonoBehaviour
+/// <summary>
+/// Drop-in replacement for WeaponSwitcher that uses procedural Transform lerp
+/// to switch weapons — no animation events, no holster/draw clips required.
+///
+/// WHAT IT DOES:
+///   Outgoing weapon lerps down-and-tilted out of frame, then the incoming
+///   weapon rises up from below into the rest pose.  Inspired by the smooth
+///   procedural switching in Battlefield/CoD.
+///
+/// SETUP:
+///   1. Replace WeaponSwitcher with this component on the WeaponHolder object.
+///   2. Assign the same weapons list (WeaponsControllers).
+///   3. Assign weaponPivot (the WeaponPivot Transform that ProceduralWeaponAnimator sits on).
+///   4. The outgoing weapon's GameObject is hidden at the MIDPOINT of the switch,
+///      not immediately — this is what gives the "dip out, rise in" feel.
+///
+/// HIERARCHY:
+///   [Player]
+///     └─ [Camera]
+///           └─ [WeaponPivot]  ← weaponPivot ref, has ProceduralWeaponAnimator + ProceduralRecoil
+///                 └─ [WeaponRoot / each weapon GameObject]
+///
+/// EVENTS:
+///   Same as WeaponSwitcher — OnSwitchStart and OnSwitchComplete fire so WeaponHUD
+///   continues to work without modification.
+///
+/// EXTEND:
+///   • Per-weapon ProceduralProfile: swap bob/sway/recoil params from ProceduralWeaponAnimator
+///     inside FinishSwitch() below.
+///   • Add haptic rumble call in TriggerSwitch() for controller support.
+/// </summary>
+public class WeaponSwitcherProcedural : MonoBehaviour
 {
     // ─────────────────────────────────────────────────────────────────────────
     #region Inspector
     // ─────────────────────────────────────────────────────────────────────────
 
-    [Header("Weapons — slot order matches key 1 / 2 / …")]
-    [Tooltip("Drag each weapon's WeaponsController here in slot order.")]
+    [Header("Weapons — slot order = key 1/2/…")]
     public List<WeaponsController> weapons = new();
 
-    [Header("Timing")]
-    [Tooltip("Maximum seconds to wait for AnimEvent_HolsterEnd before forcing the swap.")]
-    public float holsterTimeout = 1.5f;
-    [Tooltip("Maximum seconds to wait for AnimEvent_DrawEnd before marking the switch done.")]
-    public float drawTimeout    = 1.5f;
+    [Header("Pivot Reference")]
+    [Tooltip("The WeaponPivot Transform that ProceduralWeaponAnimator + ProceduralRecoil live on.")]
+    public Transform weaponPivot;
+
+    [Header("Switch Animation")]
+    [Tooltip("Local Y position the weapon drops to when leaving.")]
+    public float dropY          = -0.35f;
+    [Tooltip("Local Z rotation the weapon tilts to when leaving.")]
+    public float dropTiltZ      = -15f;
+    [Tooltip("Time to animate the outgoing weapon out of frame.")]
+    public float dropDuration   = 0.14f;
+    [Tooltip("Local Y position the incoming weapon rises from.")]
+    public float riseFromY      = -0.45f;
+    [Tooltip("Time to animate the incoming weapon into the rest pose.")]
+    public float riseDuration   = 0.18f;
 
     [Header("Input")]
-    public bool useScrollWheel    = true;
-    public bool useNumberKeys     = true;
-    [Tooltip("Prevents switching while the current weapon is mid-reload.")]
+    public bool useScrollWheel  = true;
+    public bool useNumberKeys   = true;
+    [Tooltip("Block switching while the current weapon is mid-reload.")]
     public bool blockDuringReload = true;
+
+    [Header("References")]
+    public Grappling             grapplingModule;
+    public ProceduralWeaponAnimator proceduralAnimator;
+    public ProceduralRecoil      recoilModule;
 
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
@@ -31,16 +76,10 @@ public class WeaponSwitcher : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Events
+    #region Events  (identical signatures to WeaponSwitcher — WeaponHUD compatible)
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Fires the moment a switch is requested.
-    /// Either argument may be null (null outgoing on first equip).
-    /// </summary>
     public event Action<WeaponsController, WeaponsController> OnSwitchStart;
-
-    /// <summary>Fires after the incoming weapon finishes its draw animation.</summary>
     public event Action<WeaponsController, WeaponsController> OnSwitchComplete;
 
     #endregion
@@ -49,7 +88,6 @@ public class WeaponSwitcher : MonoBehaviour
     #region Public Read-only State
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The weapon currently in hand. Null while a switch is in progress.</summary>
     public WeaponsController CurrentWeapon =>
         IsSwitching ? null : GetWeapon(_currentIndex);
 
@@ -62,7 +100,7 @@ public class WeaponSwitcher : MonoBehaviour
     #region Private State
     // ─────────────────────────────────────────────────────────────────────────
 
-    private int       _currentIndex   = 0;
+    private int       _currentIndex;
     private Coroutine _switchCoroutine;
 
     #endregion
@@ -75,24 +113,30 @@ public class WeaponSwitcher : MonoBehaviour
     {
         if (weapons.Count == 0)
         {
-            Debug.LogWarning("[WeaponSwitcher] Weapons list is empty — nothing to switch.", this);
+            FPSDebug.LogWarning("Weapons list is empty.", this);
             return;
         }
 
-        // Deactivate all slots then silently equip slot 0 (no draw animation at spawn).
+        // Deactivate all then silently equip slot 0 (no animation at spawn).
         for (int i = 0; i < weapons.Count; i++)
             GetWeapon(i)?.gameObject.SetActive(i == 0);
 
-        // Tell slot 0 it is equipped so it can initialise correctly.
-        GetWeapon(0)?.NotifyEquipped();
+        var first = GetWeapon(0);
+        if (first != null)
+        {
+            first.SwapAnimationClips();
+            first.NotifyEquipped();
+        }
 
-        Log($"Ready — active: [{0}] {GetWeapon(0)?.name}");
+        if (grapplingModule != null) grapplingModule.activeWeapon = first;
+        recoilModule?.RebindController(first);
+
+        Log($"Ready — active: [{0}] {first?.name}");
     }
 
     private void Update()
     {
-        if (IsSwitching) return;
-        HandleSwitchInput();
+        if (!IsSwitching) HandleSwitchInput();
     }
 
     #endregion
@@ -103,34 +147,25 @@ public class WeaponSwitcher : MonoBehaviour
 
     private void HandleSwitchInput()
     {
-        // Optional: block while the current weapon is mid-reload.
         if (blockDuringReload)
         {
             var cw = GetWeapon(_currentIndex);
             if (cw != null && cw.IsReloading) return;
         }
 
-        // ── Scroll wheel ─────────────────────────────────────────────────────
+        if (grapplingModule != null && grapplingModule.IsGrappling()) return;
+
         if (useScrollWheel && weapons.Count > 1)
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (scroll > 0f)
-            {
-                TrySwitchTo((_currentIndex - 1 + weapons.Count) % weapons.Count);
-                return;
-            }
-            if (scroll < 0f)
-            {
-                TrySwitchTo((_currentIndex + 1) % weapons.Count);
-                return;
-            }
+            if (scroll > 0f) { TrySwitchTo((_currentIndex - 1 + weapons.Count) % weapons.Count); return; }
+            if (scroll < 0f) { TrySwitchTo((_currentIndex + 1) % weapons.Count); return; }
         }
 
-        // ── Alpha 1 – 9 ──────────────────────────────────────────────────────
         if (useNumberKeys)
         {
-            int slotCount = Mathf.Min(weapons.Count, 9);
-            for (int i = 0; i < slotCount; i++)
+            int max = Mathf.Min(weapons.Count, 9);
+            for (int i = 0; i < max; i++)
             {
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i))
                 {
@@ -147,16 +182,9 @@ public class WeaponSwitcher : MonoBehaviour
     #region Public API
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Programmatically switch to weapon at <paramref name="index"/>.</summary>
-    public void SwitchTo(int index) => TrySwitchTo(index);
-
-    /// <summary>Cycle to the next weapon slot (wraps).</summary>
-    public void SwitchToNext() =>
-        TrySwitchTo((_currentIndex + 1) % weapons.Count);
-
-    /// <summary>Cycle to the previous weapon slot (wraps).</summary>
-    public void SwitchToPrevious() =>
-        TrySwitchTo((_currentIndex - 1 + weapons.Count) % weapons.Count);
+    public void SwitchTo(int index)     => TrySwitchTo(index);
+    public void SwitchToNext()          => TrySwitchTo((_currentIndex + 1) % weapons.Count);
+    public void SwitchToPrevious()      => TrySwitchTo((_currentIndex - 1 + weapons.Count) % weapons.Count);
 
     #endregion
 
@@ -166,8 +194,8 @@ public class WeaponSwitcher : MonoBehaviour
 
     private void TrySwitchTo(int index)
     {
-        if (index == _currentIndex)              return; // already equipped
-        if (IsSwitching)                         return; // mid-switch — ignore
+        if (index == _currentIndex)              return;
+        if (IsSwitching)                         return;
         if (index < 0 || index >= weapons.Count) return;
         if (GetWeapon(index) == null)            return;
 
@@ -179,53 +207,83 @@ public class WeaponSwitcher : MonoBehaviour
         WeaponsController outgoing = GetWeapon(_currentIndex);
         WeaponsController incoming = GetWeapon(nextIndex);
 
-        Log($"[{_currentIndex}] {outgoing?.name}  →  [{nextIndex}] {incoming?.name}");
         OnSwitchStart?.Invoke(outgoing, incoming);
 
-        // ── STEP 1: Cancel everything on the outgoing weapon ─────────────────
-        if (outgoing != null)
+        if (outgoing != null) outgoing.ForceIdle();
+        outgoing?.NotifyUnequipped();
+
+        // ── Tell animator to hands off ────────────────────────────────────
+        if (proceduralAnimator != null) proceduralAnimator.IsSwitching = true;
+
+        // ── Drop out ──────────────────────────────────────────────────────
+        if (weaponPivot != null && outgoing != null)
         {
-            // ForceIdle stops all coroutines (fire / reload / inspect) cleanly.
-            outgoing.ForceIdle();
-
-            // Trigger Holster animation and wait for completion signal.
-            outgoing.StartHolster();
-
-            float t = 0f;
-            while (!outgoing.HolsterComplete && t < holsterTimeout)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            if (t >= holsterTimeout)
-                LogWarning($"Holster timed out on '{outgoing.name}' — forcing switch.");
-
-            outgoing.gameObject.SetActive(false);
-            outgoing.NotifyUnequipped();
+            Vector3    startPos  = weaponPivot.localPosition;
+            Quaternion startRot  = weaponPivot.localRotation;
+            Vector3    targetPos = startPos + new Vector3(0f, dropY, 0f);
+            Quaternion targetRot = startRot * Quaternion.Euler(0f, 0f, dropTiltZ);
+            yield return AnimatePivot(startPos, targetPos, startRot, targetRot,
+                                    dropDuration, Easing.EaseInQuad);
         }
+        else yield return new WaitForSeconds(dropDuration);
 
-        // ── STEP 2: Activate and draw the incoming weapon ─────────────────────
+        // ── Swap ──────────────────────────────────────────────────────────
+        if (outgoing != null) outgoing.gameObject.SetActive(false);
         _currentIndex = nextIndex;
         incoming.gameObject.SetActive(true);
-        incoming.StartDraw();
+        incoming.SwapAnimationClips();
+        if (grapplingModule != null) grapplingModule.activeWeapon = incoming;
+        recoilModule?.RebindController(incoming);
+        proceduralAnimator?.SnapToHip();
 
-        float dt = 0f;
-        while (!incoming.DrawComplete && dt < drawTimeout)
+        if (weaponPivot != null)
         {
-            dt += Time.deltaTime;
-            yield return null;
+            Vector3 riseStart = weaponPivot.localPosition + new Vector3(0f, riseFromY - dropY, 0f);
+            weaponPivot.localPosition = riseStart;
+            weaponPivot.localRotation = Quaternion.identity;
         }
 
-        if (dt >= drawTimeout)
-            LogWarning($"Draw timed out on '{incoming.name}' — switch complete anyway.");
+        // ── Rise in ───────────────────────────────────────────────────────
+        if (weaponPivot != null)
+        {
+            Vector3    riseStartPos  = weaponPivot.localPosition;
+            Quaternion riseStartRot  = weaponPivot.localRotation;
+            Vector3    riseTargetPos = proceduralAnimator != null
+                                    ? proceduralAnimator.basePosOffset
+                                    : riseStartPos + new Vector3(0f, -riseFromY, 0f);
+            yield return AnimatePivot(riseStartPos, riseTargetPos, riseStartRot,
+                                    Quaternion.identity, riseDuration, Easing.EaseOutBack);
+        }
+        else yield return new WaitForSeconds(riseDuration);
+
+        // ── Hand back control to animator ─────────────────────────────────
+        if (proceduralAnimator != null) proceduralAnimator.IsSwitching = false;
 
         incoming.NotifyEquipped();
-
-        Log($"Switch complete → [{nextIndex}] {incoming.name}");
         OnSwitchComplete?.Invoke(outgoing, incoming);
-
         _switchCoroutine = null;
+    }
+
+    /// <summary>
+    /// Animates weaponPivot localPos + localRot over <paramref name="duration"/> seconds
+    /// using the supplied easing function.
+    /// </summary>
+    private IEnumerator AnimatePivot(
+        Vector3    startPos, Vector3    endPos,
+        Quaternion startRot, Quaternion endRot,
+        float duration, Func<float, float> ease)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float t = ease(elapsed / duration);
+            weaponPivot.localPosition = Vector3.Lerp(startPos, endPos, t);
+            weaponPivot.localRotation = Quaternion.Slerp(startRot, endRot, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        weaponPivot.localPosition = endPos;
+        weaponPivot.localRotation = endRot;
     }
 
     #endregion
@@ -240,12 +298,37 @@ public class WeaponSwitcher : MonoBehaviour
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void Log(string msg)
     {
-        if (debugLog) Debug.Log($"[WeaponSwitcher] {msg}", this);
+        if (debugLog) Debug.Log($"[WeaponSwitcherProcedural] {msg}", this);
     }
 
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void LogWarning(string msg) =>
-        Debug.LogWarning($"[WeaponSwitcher] ⚠ {msg}", this);
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Easing Library
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Minimal inline easing functions so the switcher has no external deps.
+    /// EXTEND: Add more curves here or replace with AnimationCurve fields.
+    /// </summary>
+    private static class Easing
+    {
+        public static float Linear(float t)     => t;
+        public static float EaseInQuad(float t) => t * t;
+        public static float EaseOutQuad(float t) => 1f - (1f - t) * (1f - t);
+        public static float EaseInOutQuad(float t) =>
+            t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) * 0.5f;
+
+        /// <summary>Overshoots slightly — nice "snap into place" feel for weapon draw.</summary>
+        public static float EaseOutBack(float t)
+        {
+            const float c1 = 1.70158f;
+            const float c3 = c1 + 1f;
+            return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+        }
+
+        public static float EaseOutCubic(float t) => 1f - Mathf.Pow(1f - t, 3f);
+    }
 
     #endregion
 }

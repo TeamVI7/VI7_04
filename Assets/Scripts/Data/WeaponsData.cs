@@ -11,8 +11,14 @@ public class WeaponData : ScriptableObject
     // ─────────────────────────────────────────────────────────────────────────
     #region Core Stats
     // ─────────────────────────────────────────────────────────────────────────
+    [Header("HUD Display")]
+    public string displayName = "WEAPON";
+    public string caliber     = "";
+    public string ammoType    = "FMJ";
 
     [Header("Core Stats")]
+    [Tooltip("When true, weapon can fire automatically while trigger is held.")]
+    public bool isFullAuto = true;
     [Tooltip("Rounds per second (lower = faster).")]
     public float fireRate = 0.1f;
 
@@ -30,7 +36,16 @@ public class WeaponData : ScriptableObject
 
     [Tooltip("Impulse force applied to a hit Rigidbody.")]
     public float hitImpulseForce = 10f;
-
+    
+    [Header("Bolt Action")]
+    public bool  isBoltAction    = false;
+    public float boltOutDuration = 0.3f;   // timed fallback
+    public float boltInDuration  = 0.25f;  // timed fallback
+    [Header("Bolt Action SFX")]
+    public AudioClip[] boltOutSounds;
+    public AudioClip boltInSound;
+    public float     boltOutVolume  = 1f;
+    public float     boltInVolume   = 1f;
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
