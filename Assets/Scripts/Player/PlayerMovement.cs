@@ -182,6 +182,13 @@ public class PlayerMovement : MonoBehaviour
     {
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput   = Input.GetAxisRaw("Vertical");
+  // ── Tắt movement input khi UI đang mở ──
+        if (ComputerInteraction.UIOpen)
+        {
+        horizontalInput = 0f;
+        verticalInput   = 0f;
+        return;
+        }
 
         // jump
         if (Input.GetKey(jumpKey) && readyToJump && grounded)

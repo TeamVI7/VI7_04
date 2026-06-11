@@ -319,6 +319,11 @@ public class WeaponsController : MonoBehaviour
 
     private void HandleInput()
     {
+        // ── Tắt input vũ khí khi UI đang mở ──
+    if (ComputerInteraction.UIOpen) return;
+
+    if (_isSwitching) return;
+    // ... code cũ giữ nguyên
         if (_isSwitching) return;
 
         bool fireInput = weaponData.isFullAuto
