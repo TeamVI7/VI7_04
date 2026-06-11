@@ -15,6 +15,7 @@ using UnityEngine;
 public class AnimationEventReceiver : MonoBehaviour
 {
     [SerializeField] private WeaponsController weaponsController;
+    [SerializeField] private CasingEjector casingEjector;
     [SerializeField] private bool showDebugLogs = true;
 
     private void Start()
@@ -159,6 +160,18 @@ public class AnimationEventReceiver : MonoBehaviour
     {
         Log("AnimEvent_BoltIn");
         weaponsController?.OnBoltIn_AnimDriven();
+    }
+
+    /// <summary>
+    /// Triggers casing ejection via animation event.
+    /// Or via AnimationEventReceiver for bolt-action/pump delayed eject
+    /// AnimationEvent → "OnCasingEject" → routes to ejector.Eject()
+    /// Function name: AnimEvent_OnCasingEject
+    /// </summary>
+    public void AnimEvent_OnCasingEject()
+    {
+        Log("AnimEvent_OnCasingEject");
+        casingEjector?.Eject();
     }
 
     private void PlayBoltOutSound()

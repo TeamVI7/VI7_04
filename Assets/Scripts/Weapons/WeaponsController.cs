@@ -16,7 +16,7 @@ public class WeaponsController : MonoBehaviour
 
     [Header("Weapon Data")]
     public WeaponData weaponData;
-
+    public RecoilProfile recoilProfile; // assign per weapon in Inspector
     [Header("References")]
     public Animator                   gunAnimator;
     public AnimatorOverrideController weaponAnimOverride;
@@ -151,7 +151,7 @@ public class WeaponsController : MonoBehaviour
 
         // ── Bolt out ──────────────────────────────────────────────────────────
         yield return new WaitForSeconds(weaponData.boltOutDuration);
-        PlaySound(weaponData.boltOutSound, weaponData.boltOutVolume);
+        PlayRandomSound(weaponData.boltOutSounds, weaponData.boltOutVolume);
         OnBoltOut?.Invoke();
 
         // ── Bolt in ───────────────────────────────────────────────────────────
@@ -867,7 +867,14 @@ public class WeaponsController : MonoBehaviour
     public bool        HolsterComplete => _holsterComplete;
     public bool        DrawComplete    => _drawComplete;
 
-    public void PlayBoltOutSound() => PlaySound(weaponData.boltOutSound, weaponData.boltOutVolume);
+    public void PlayBoltOutSound()
+    {
+        if (weaponData.boltOutSounds.Length > 0)
+        {
+            AudioClip randomClip = weaponData.boltOutSounds[Random.Range(0, weaponData.boltOutSounds.Length)];
+            PlaySound(randomClip, weaponData.boltOutVolume);
+        }
+    }
     public void PlayBoltInSound() => PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
 
     public void ForceIdle()

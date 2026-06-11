@@ -17,7 +17,7 @@ public class WeaponHUD : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     [Header("References")]
-    public WeaponSwitcher weaponSwitcher;
+    public WeaponSwitcherProcedural weaponSwitcher;
     public GameObject hudPanel;
 
     [Header("Weapon Name + Mode")]
@@ -106,16 +106,19 @@ public class WeaponHUD : MonoBehaviour
 
     private void HandleSwitchStart(WeaponsController o, WeaponsController n)
     {
-        SetVisible(false);
+        // Don't hide — just unbind old and pre-bind new immediately
         Unbind();
+        if (n != null) Bind(n);
     }
 
     private void HandleSwitchComplete(WeaponsController o, WeaponsController n)
     {
-        Bind(n);
+        // Bind again in case n changed, ensure visible
+        Unbind();
+        if (n != null) Bind(n);
         SetVisible(true);
     }
-
+    
     private void HandleAmmoChanged(int clip, int reserve) => RefreshAmmo(clip, reserve);
 
     private void HandleHealthChanged(float current, float max)

@@ -42,9 +42,9 @@ public class WeaponData : ScriptableObject
     public float boltOutDuration = 0.3f;   // timed fallback
     public float boltInDuration  = 0.25f;  // timed fallback
     [Header("Bolt Action SFX")]
-    public AudioClip boltOutSound;
-    public float     boltOutVolume  = 1f;
+    public AudioClip[] boltOutSounds;
     public AudioClip boltInSound;
+    public float     boltOutVolume  = 1f;
     public float     boltInVolume   = 1f;
     #endregion
 
