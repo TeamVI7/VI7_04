@@ -25,6 +25,9 @@ public class WeaponSwitcher : MonoBehaviour
     [Tooltip("Prevents switching while the current weapon is mid-reload.")]
     public bool blockDuringReload = true;
 
+    [Header("References")]
+    public Grappling grapplingModule;
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
 
@@ -84,6 +87,8 @@ public class WeaponSwitcher : MonoBehaviour
             GetWeapon(i)?.gameObject.SetActive(i == 0);
 
         // Tell slot 0 it is equipped so it can initialise correctly.
+        GetWeapon(0)?.SwapAnimationClips();
+        if (grapplingModule != null) grapplingModule.activeWeapon = GetWeapon(0);
         GetWeapon(0)?.NotifyEquipped();
 
         Log($"Ready — active: [{0}] {GetWeapon(0)?.name}");
@@ -109,6 +114,9 @@ public class WeaponSwitcher : MonoBehaviour
             var cw = GetWeapon(_currentIndex);
             if (cw != null && cw.IsReloading) return;
         }
+
+        // BLOCK WEAPON SWITCHING WHILE GRAPPLING
+        if (grapplingModule != null && grapplingModule.IsGrappling()) return;
 
         // ── Scroll wheel ─────────────────────────────────────────────────────
         if (useScrollWheel && weapons.Count > 1)
@@ -208,6 +216,8 @@ public class WeaponSwitcher : MonoBehaviour
         // ── STEP 2: Activate and draw the incoming weapon ─────────────────────
         _currentIndex = nextIndex;
         incoming.gameObject.SetActive(true);
+        incoming.SwapAnimationClips();
+        if (grapplingModule != null) grapplingModule.activeWeapon = incoming;
         incoming.StartDraw();
 
         float dt = 0f;

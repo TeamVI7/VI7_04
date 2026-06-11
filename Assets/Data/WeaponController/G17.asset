@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
   m_Name: G17
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: G17
+  caliber: 9x19
+  ammoType: FMJ
+  isFullAuto: 0
   fireRate: 0.1
   clipSize: 17
   reservedAmmoCapacity: 270

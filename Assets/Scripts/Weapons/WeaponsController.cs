@@ -6,17 +6,6 @@ using Random = UnityEngine.Random;
 /// <summary>
 /// Primary weapon controller for an FPS character.
 /// All tunable values live in a <see cref="WeaponData"/> ScriptableObject.
-///
-/// ── Reload event order ───────────────────────────────────────────────────
-///   OnReloadStart  →  OnMagOut  →  OnMagIn  →  OnChamberRound  →  OnReloadComplete
-///   Any phase can be subscribed to independently for SFX, VFX, UI, IK, etc.
-///
-/// ── Inspect ──────────────────────────────────────────────────────────────
-///   Press F (default) to inspect the weapon from any state.
-///   Firing or reloading will cancel the inspect coroutine immediately.
-///   Wire an "Inspect" trigger in your Animator and add AnimEvent_InspectEnd
-///   on the last frame of your inspect clip.
-/// ─────────────────────────────────────────────────────────────────────────
 /// </summary>
 [RequireComponent(typeof(AudioSource))]
 public class WeaponsController : MonoBehaviour
@@ -26,14 +15,13 @@ public class WeaponsController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     [Header("Weapon Data")]
-    [Tooltip("ScriptableObject containing all stats for this weapon. " +
-             "Create one via Right-click > FPS > Weapon Data.")]
     public WeaponData weaponData;
 
     [Header("References")]
-    public Animator        gunAnimator;
-    public PlayerMovement  playerMovement;
-    public LayerMask       aimColliderLayerMask;
+    public Animator                   gunAnimator;
+    public AnimatorOverrideController weaponAnimOverride;
+    public PlayerMovement             playerMovement;
+    public LayerMask                  aimColliderLayerMask;
 
     [Header("Transform Points")]
     public Transform muzzleFlashPoint;
@@ -46,123 +34,80 @@ public class WeaponsController : MonoBehaviour
     public GameObject muzzleFlashPrefab;
 
     [Header("Reload Mode")]
-    [Tooltip("TRUE  → reload/inspect phases are triggered by Animation Events via AnimationEventReceiver.\n" +
-             "FALSE → reload phases are driven by the timed delays in WeaponData (no Animation Events needed).")]
     public bool animationDrivenReload = true;
+    public bool IsEmpty => _currentAmmoInClip <= 0 && !_roundInChamber;
 
     [Header("Inspect")]
-    [Tooltip("Keyboard key that triggers the weapon inspect animation.")]
     public KeyCode inspectKey = KeyCode.I;
-    [Tooltip("Fallback inspect duration used in timed mode (when animationDrivenReload is false).")]
     public float inspectDuration = 2.5f;
-    [Header("Switch Animations (Timed fallback — used when animationDrivenReload = false)")]
-    [Tooltip("Duration of the Holster animation clip when no AnimEvent_HolsterEnd is wired.")]
+    
+    [Header("Switch Animations")]
     public float holsterDuration = 0.4f;
-    [Tooltip("Duration of the Draw animation clip when no AnimEvent_DrawEnd is wired.")]
     public float drawDuration    = 0.4f;
 
     [Header("Debug")]
     [SerializeField] private bool showDebugLogs    = true;
+#if UNITY_EDITOR
     [SerializeField] private bool showSpreadGizmo  = true;
     [SerializeField] private bool showRaycastGizmo = true;
-
+#endif
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Reload Events
+    #region Events
     // ─────────────────────────────────────────────────────────────────────────
-    // Subscribe to any of these from UI, animation rigs, IK controllers, etc.
-    // All callbacks run on the main thread.
 
-    /// <summary>Fired the moment the player triggers a reload.</summary>
     public event Action OnReloadStart;
-
-    /// <summary>Fired when the magazine physically leaves the weapon.
-    /// Hook this to mag-drop VFX, mag-out IK pose, etc.</summary>
     public event Action OnMagOut;
-
-    /// <summary>Fired when the fresh magazine seats into the weapon.
-    /// Hook this to mag-in IK pose, mag-in VFX, etc.</summary>
     public event Action OnMagIn;
-
-    /// <summary>Fired when the bolt/slide chambers a round.
-    /// Hook this to bolt-pull animation, chamber sound, etc.
-    /// Only fires when <see cref="WeaponData.requiresManualChamber"/> is true
-    /// or when chambering after an empty-gun reload.</summary>
     public event Action OnChamberRound;
-
-    /// <summary>Fired after all reload phases complete and ammo is replenished.</summary>
     public event Action OnReloadComplete;
-
-    /// <summary>Fired if reload is interrupted before it finishes.</summary>
     public event Action OnReloadCancelled;
-    /// <summary>Fired by WeaponSwitcher after draw completes and weapon is live.</summary>
     public event Action OnEquipped;
-
-    /// <summary>Fired by WeaponSwitcher after holster completes and GO is deactivated.</summary>
     public event Action OnUnequipped;
-
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
-    #region General Weapon Events
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>Fired on every successful shot. Payload: world-space hit point
-    /// (Vector3.zero if no surface was hit within range).</summary>
     public event Action<Vector3> OnWeaponFired;
-
-    /// <summary>Fired whenever clip or reserve ammo changes.</summary>
-    public event Action<int, int> OnAmmoChanged; // (currentClip, reserve)
-
-    /// <summary>Fired when the trigger is pulled with no ammo.</summary>
+    public event Action<int, int> OnAmmoChanged;
     public event Action OnDryFire;
-
-    /// <summary>Fired when the clip empties after the last shot.</summary>
     public event Action OnWeaponEmpty;
-
-    /// <summary>Fired when the player begins the inspect animation.</summary>
     public event Action OnInspectStart;
-
-    /// <summary>Fired when the inspect animation finishes.</summary>
     public event Action OnInspectEnd;
+    public event Action OnBoltOut;
+    public event Action OnBoltIn;
 
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
     #region Animation-Driven Entry Points
     // ─────────────────────────────────────────────────────────────────────────
-    // AnimationEventReceiver calls these public methods when each animation
-    // event fires. They signal the coroutines to advance to the next phase
-    // instead of using timed delays.
 
-    // ── Reload signals ────────────────────────────────────────────────────────
     private bool _animSignal_MagOut;
     private bool _animSignal_MagIn;
     private bool _animSignal_ChamberRound;
     private bool _animSignal_ReloadEnd;
-
-    // ── Inspect signal ────────────────────────────────────────────────────────
     private bool _animSignal_InspectEnd;
-
-    // ── Switch signals ────────────────────────────────────────────────────────
     private bool _animSignal_HolsterEnd;
     private bool _animSignal_DrawEnd;
+    private bool _animSignal_BoltOut;
+    private bool _animSignal_BoltIn;
 
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_ReloadStart"/>.</summary>
-    public void OnReloadStart_AnimDriven()   { /* start already handled by coroutine */ }
-
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_MagOut"/>.</summary>
+    public void OnBoltOut_AnimDriven() 
+    { 
+        _animSignal_BoltOut = true;
+        OnBoltOut?.Invoke();
+    }
+    public void OnBoltIn_AnimDriven()  
+    { 
+        _animSignal_BoltIn  = true;
+        OnBoltIn?.Invoke();
+    }
+    public void OnReloadStart_AnimDriven()   { }
     public void OnMagOut_AnimDriven()        { _animSignal_MagOut       = true; }
-
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_MagIn"/>.</summary>
     public void OnMagIn_AnimDriven()         { _animSignal_MagIn        = true; }
-
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_ChamberRound"/>.</summary>
     public void OnChamberRound_AnimDriven()  { _animSignal_ChamberRound = true; }
-
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_ReloadEnd"/>.</summary>
     public void OnReloadEnd_AnimDriven()     { _animSignal_ReloadEnd    = true; }
+    public void OnInspectEnd_AnimDriven()    { _animSignal_InspectEnd   = true; }
+    public void OnHolsterEnd_AnimDriven()    { _animSignal_HolsterEnd   = true; }
+    public void OnDrawEnd_AnimDriven()       { _animSignal_DrawEnd      = true; }
 
     public void OnInspectMagOut_AnimDriven()
     {
@@ -174,15 +119,6 @@ public class WeaponsController : MonoBehaviour
         PlaySound(weaponData.magInSound, weaponData.reloadVolume);
     }
 
-    /// <summary>Called by <see cref="AnimationEventReceiver.AnimEvent_InspectEnd"/>.</summary>
-    public void OnInspectEnd_AnimDriven()    { _animSignal_InspectEnd   = true; }
-
-    /// <summary>Called by AnimationEventReceiver.AnimEvent_HolsterEnd.</summary>
-    public void OnHolsterEnd_AnimDriven()    { _animSignal_HolsterEnd   = true; }
-
-    /// <summary>Called by AnimationEventReceiver.AnimEvent_DrawEnd.</summary>
-    public void OnDrawEnd_AnimDriven()       { _animSignal_DrawEnd      = true; }
-
     private void ResetAnimSignals()
     {
         _animSignal_MagOut       = false;
@@ -192,12 +128,10 @@ public class WeaponsController : MonoBehaviour
         _animSignal_InspectEnd   = false;
         _animSignal_HolsterEnd   = false;
         _animSignal_DrawEnd      = false;
+        _animSignal_BoltOut = false;
+        _animSignal_BoltIn  = false;
     }
 
-    /// <summary>
-    /// Yields until <paramref name="signal"/> becomes true or
-    /// <paramref name="timeout"/> seconds pass (failsafe against missing events).
-    /// </summary>
     private IEnumerator WaitForAnimSignal(System.Func<bool> signal, float timeout, string signalName)
     {
         float elapsed = 0f;
@@ -208,28 +142,42 @@ public class WeaponsController : MonoBehaviour
         }
 
         if (elapsed >= timeout)
-            LogWarning($"Timed out waiting for anim signal '{signalName}'. " +
-                       "Is the Animation Event added in the FBX importer? " +
-                       "Is AnimationEventReceiver on the Animator GameObject?");
+            LogWarning($"Timed out waiting for anim signal '{signalName}'.");
     }
 
+    private IEnumerator Co_BoltCycle()
+    {
+        SetState(WeaponState.BoltCycling);
+
+        // ── Bolt out ──────────────────────────────────────────────────────────
+        yield return new WaitForSeconds(weaponData.boltOutDuration);
+        PlaySound(weaponData.boltOutSound, weaponData.boltOutVolume);
+        OnBoltOut?.Invoke();
+
+        // ── Bolt in ───────────────────────────────────────────────────────────
+        yield return new WaitForSeconds(weaponData.boltInDuration);
+        PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
+        OnBoltIn?.Invoke();
+
+        _canShoot = true;
+        SetState((_currentAmmoInClip <= 0 && !_roundInChamber) ? WeaponState.Empty : WeaponState.Idle);
+    }
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
     #region Weapon State Machine
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>All possible states the weapon can be in at any time.</summary>
     public enum WeaponState
     {
         Idle,
         Firing,
         Reloading,
-        Empty,       // clip empty, no reserve — weapon is dead until pickup
-        Switching
+        Empty,
+        Switching,
+        BoltCycling
     }
 
-    /// <summary>Current weapon state. Read-only externally; drives all logic gating.</summary>
     public WeaponState CurrentState { get; private set; } = WeaponState.Idle;
 
     private void SetState(WeaponState next)
@@ -244,7 +192,6 @@ public class WeaponsController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Animator Parameter Hashes
     // ─────────────────────────────────────────────────────────────────────────
-    // Cached at startup — avoids per-frame string allocations and typos.
 
     private static readonly int AnimIsWalking   = Animator.StringToHash("isWalking");
     private static readonly int AnimIsShooting  = Animator.StringToHash("IsShooting");
@@ -253,6 +200,8 @@ public class WeaponsController : MonoBehaviour
     private static readonly int AnimInspect     = Animator.StringToHash("Inspect");
     private static readonly int AnimHolster     = Animator.StringToHash("Holster");
     private static readonly int AnimDraw        = Animator.StringToHash("Draw");
+    private static readonly int AnimBoltOut     = Animator.StringToHash("BoltOut");
+    private static readonly int AnimBoltIn      = Animator.StringToHash("BoltIn");
 
     #endregion
 
@@ -260,25 +209,27 @@ public class WeaponsController : MonoBehaviour
     #region Private State
     // ─────────────────────────────────────────────────────────────────────────
 
+    private Grappling _grapplingModule;
+
     private int   _currentAmmoInClip;
     private int   _ammoInReserve;
     private bool  _roundInChamber;
     private bool  _canShoot;
-    private bool  _isInspecting;       // true while Co_Inspect is running
-    private bool  _isSwitching;        // true while holstering or drawing
-    private bool  _holsterComplete;    // set true by Co_WaitHolster
-    private bool  _drawComplete;       // set true by Co_WaitDraw
+    private bool  _isInspecting;
+    private bool  _isSwitching;
+    private bool  _holsterComplete;
+    private bool  _drawComplete;
 
     private float _currentSpreadBuildup;
     private float _dryFireCooldown;
     private const float DryFireCooldownTime = 0.3f;
 
     private Coroutine  _inspectCoroutine;
+    private Coroutine  _reloadCoroutine;
     private AudioSource        _weaponAudioSource;
     private Camera             _mainCamera;
     private static AudioSource _sharedImpactAudio;
 
-    // Last gizmo data — written each shot, read by OnDrawGizmosSelected
     private Vector3 _gizmoRayOrigin;
     private Vector3 _gizmoRayEnd;
     private float   _gizmoSpread;
@@ -289,10 +240,17 @@ public class WeaponsController : MonoBehaviour
     #region Unity Lifecycle
     // ─────────────────────────────────────────────────────────────────────────
 
+    private void Awake()
+    {
+        InitAmmo();
+    }
+
     private void Start()
     {
+        _grapplingModule = GetComponentInParent<Grappling>();
+
         ValidateSetup();
-        InitAmmo();
+        ApplyAnimationOverride();
         InitAudio();
         EnsureSharedImpactAudio();
     }
@@ -311,8 +269,25 @@ public class WeaponsController : MonoBehaviour
     #region Initialisation
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void InitAmmo()
+    private void ApplyAnimationOverride()
     {
+        if (gunAnimator == null || weaponAnimOverride == null) return;
+
+        // Directly plug in the exact Override Controller asset from the Unity Editor.
+        // This preserves the 'None' fallback for shared animations.
+        gunAnimator.runtimeAnimatorController = weaponAnimOverride;
+
+        // Force the secondary layers to weight 1.0 every time the weapon is equipped,
+        // preventing Unity from resetting Layer 2 back to 0 when the GameObject wakes up.
+        for (int i = 1; i < gunAnimator.layerCount; i++)
+        {
+            gunAnimator.SetLayerWeight(i, 1f);
+        }
+    }
+
+    public void SwapAnimationClips() => ApplyAnimationOverride();
+
+    private void InitAmmo()    {
         _currentAmmoInClip = weaponData.clipSize;
         _ammoInReserve     = weaponData.reservedAmmoCapacity;
         _roundInChamber    = true;
@@ -326,10 +301,6 @@ public class WeaponsController : MonoBehaviour
         _weaponAudioSource.playOnAwake  = false;
     }
 
-    /// <summary>
-    /// Warns in the console about any missing critical references.
-    /// Runs once at Start so you catch problems immediately on Play.
-    /// </summary>
     private void ValidateSetup()
     {
         if (weaponData          == null) LogWarning("weaponData is not assigned!");
@@ -348,29 +319,32 @@ public class WeaponsController : MonoBehaviour
 
     private void HandleInput()
     {
-        if (_isSwitching) return;   // block all input while switching
+        if (_isSwitching) return;
 
-        // ── Primary fire ────────────────────────────────────────────────────
-        if (Input.GetMouseButtonDown(0))
+        bool fireInput = weaponData.isFullAuto
+            ? Input.GetMouseButton(0)
+            : Input.GetMouseButtonDown(0);
+
+        if (fireInput)
         {
             if (_canShoot && CurrentState == WeaponState.Idle && (_currentAmmoInClip > 0 || _roundInChamber))
             {
                 _canShoot = false;
                 StartCoroutine(Co_Fire());
             }
-            else if (CurrentState != WeaponState.Reloading && _currentAmmoInClip <= 0 && !_roundInChamber)
+            else if (Input.GetMouseButtonDown(0)
+                  && CurrentState != WeaponState.Reloading
+                  && _currentAmmoInClip <= 0 && !_roundInChamber)
             {
                 TriggerDryFire();
             }
         }
 
-        // ── Reload ──────────────────────────────────────────────────────────
         if (Input.GetKeyDown(KeyCode.R))
         {
             TryStartReload();
         }
 
-        // ── Inspect ─────────────────────────────────────────────────────────
         if (Input.GetKeyDown(inspectKey))
         {
             TryStartInspect();
@@ -379,11 +353,15 @@ public class WeaponsController : MonoBehaviour
 
     private void TryStartReload()
     {
+        // Block manual reload if the player is currently grappling
+        if (_grapplingModule != null && _grapplingModule.IsGrappling()) return;
+
+        if (CurrentState == WeaponState.BoltCycling) return;
         if (CurrentState == WeaponState.Reloading) return;
         if (_currentAmmoInClip >= weaponData.clipSize) return;
         if (_ammoInReserve <= 0)                       return;
 
-        StartCoroutine(Co_Reload());
+        _reloadCoroutine = StartCoroutine(Co_Reload());
     }
 
     private void TriggerDryFire()
@@ -396,18 +374,10 @@ public class WeaponsController : MonoBehaviour
         OnDryFire?.Invoke();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Inspect
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Starts the weapon inspect animation from any weapon state.
-    /// If an inspect is already playing it is ignored (no double-trigger).
-    /// Firing or reloading will cancel the inspect automatically.
-    /// </summary>
     private void TryStartInspect()
     {
         if (_isInspecting) return;
+        if (CurrentState != WeaponState.Idle) return;
         _inspectCoroutine = StartCoroutine(Co_Inspect());
     }
 
@@ -418,7 +388,7 @@ public class WeaponsController : MonoBehaviour
         _isInspecting           = false;
         _animSignal_InspectEnd  = false;
         Log("Inspect cancelled.");
-        OnInspectEnd?.Invoke();  // notify listeners the inspect ended early
+        OnInspectEnd?.Invoke();
     }
 
     private IEnumerator Co_Inspect()
@@ -432,14 +402,12 @@ public class WeaponsController : MonoBehaviour
 
         if (animationDrivenReload)
         {
-            // Wait for AnimEvent_InspectEnd on the last frame of the inspect clip.
-            // safetyTimeout: inspectDuration + 1 s so a missing event doesn't hang forever.
             yield return WaitForAnimSignal(
                 () => _animSignal_InspectEnd,
                 inspectDuration + 1f,
                 "AnimEvent_InspectEnd");
 
-            _animSignal_InspectEnd = false; // consume
+            _animSignal_InspectEnd = false;
         }
         else
         {
@@ -448,7 +416,8 @@ public class WeaponsController : MonoBehaviour
 
         Log("Inspect end.");
         OnInspectEnd?.Invoke();
-        _isInspecting = false;
+        _isInspecting     = false;
+        _inspectCoroutine = null;
     }
 
     #endregion
@@ -459,7 +428,8 @@ public class WeaponsController : MonoBehaviour
 
     private IEnumerator Co_Fire()
     {
-        // Cancel any ongoing inspect — firing takes priority
+        _animSignal_BoltOut = false;  // ← ADD
+        _animSignal_BoltIn  = false;  // ← ADD
         CancelInspect();
 
         if (!_roundInChamber)
@@ -470,7 +440,6 @@ public class WeaponsController : MonoBehaviour
 
         SetState(WeaponState.Firing);
 
-        // Consume ammo
         _roundInChamber = false;
         if (_currentAmmoInClip > 0)
         {
@@ -478,45 +447,44 @@ public class WeaponsController : MonoBehaviour
             _roundInChamber = true;
         }
 
-        // Trigger animation
         SetAnimatorTrigger(AnimIsShooting);
-
-        // Visuals
         SpawnMuzzleFlash();
         SpawnBulletCasing();
 
-        // Hitscan
         Vector3 aimDir   = CalculateAimWithSpread();
         Vector3 hitPoint = PerformHitscan(aimDir);
 
-        // Trail
         SpawnBulletTrail(aimDir, hitPoint);
-
-        // Audio
         PlayRandomSound(weaponData.shootSounds, weaponData.shootVolume);
 
-        // Broadcast
         OnWeaponFired?.Invoke(hitPoint);
         NotifyAmmoChanged();
 
-        // Auto-reload prompt / empty state
         if (_currentAmmoInClip <= 0 && !_roundInChamber)
         {
             Log("Clip empty.");
             OnWeaponEmpty?.Invoke();
             SetState(WeaponState.Empty);
 
-            // Optional: auto-reload when empty
-            if (_ammoInReserve > 0)
-                StartCoroutine(Co_Reload());
+            // Auto-reload when empty, blocked if grappling
+            bool isGrappling = _grapplingModule != null && _grapplingModule.IsGrappling();
+            if (_ammoInReserve > 0 && !isGrappling)
+            {
+                _reloadCoroutine = StartCoroutine(Co_Reload());
+            }
         }
         else
         {
             SetState(WeaponState.Idle);
         }
 
-        yield return new WaitForSeconds(weaponData.fireRate);
-        _canShoot = true;
+        if (weaponData.isBoltAction)
+            yield return Co_BoltCycle();
+        else
+        {
+            yield return new WaitForSeconds(weaponData.fireRate);
+            _canShoot = true;
+        }
     }
 
     #endregion
@@ -524,93 +492,67 @@ public class WeaponsController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Reload — Phased Coroutine
     // ─────────────────────────────────────────────────────────────────────────
-    //
-    //  Timeline (all delays configurable in WeaponData):
-    //
-    //  t=0                  t=MagOut          t=MagIn           t=Chamber      t=Total
-    //  |── OnReloadStart ───|── OnMagOut ─────|── OnMagIn ──────|─ OnChamber ──|── OnReloadComplete
-    //  |                    |  (audio/VFX)     |  (audio/VFX)    |  (optional)  |  (ammo replenished)
-    //
-    // ─────────────────────────────────────────────────────────────────────────
 
     private IEnumerator Co_Reload()
     {
         if (CurrentState == WeaponState.Reloading) yield break;
 
-        // Cancel any ongoing inspect — reloading takes priority
         CancelInspect();
-
         SetState(WeaponState.Reloading);
         ResetAnimSignals();
 
         bool wasEmpty       = !_roundInChamber && _currentAmmoInClip == 0;
         bool needsChamber   = wasEmpty || weaponData.requiresManualChamber;
-        float safetyTimeout = weaponData.reloadTotalTime + 1f; // generous fallback
+        float safetyTimeout = weaponData.reloadTotalTime + 1f;
 
         Log($"Reload started | mode={(animationDrivenReload ? "AnimEvent" : "Timed")} | wasEmpty={wasEmpty}");
 
-        // ── Phase 0: Kick off the animation ──────────────────────────────────
-        // Use a dedicated empty-reload clip when the gun ran dry so the animator
-        // can play a slide-lock → rack variant instead of the normal reload.
         SetAnimatorTrigger(wasEmpty ? AnimReloadEmpty : AnimReload);
         OnReloadStart?.Invoke();
 
-        // ─────────────────────────────────────────────────────────────────────
         if (animationDrivenReload)
         {
-            // ══ ANIMATION-DRIVEN MODE ════════════════════════════════════════
-            // Each phase waits for an Animation Event signal from
-            // AnimationEventReceiver instead of a fixed delay.
-            // Signals are consumed (set back to false) after each wait so that
-            // events arriving early don't cause the next phase to skip instantly.
-
-            // Phase 1 — wait for AnimEvent_MagOut
             yield return WaitForAnimSignal(() => _animSignal_MagOut, safetyTimeout, "AnimEvent_MagOut");
-            _animSignal_MagOut = false; // consume
+            _animSignal_MagOut = false;
             Log("Mag out (anim-driven).");
             PlaySound(weaponData.magOutSound, weaponData.reloadVolume);
             OnMagOut?.Invoke();
 
-            // Phase 2 — wait for AnimEvent_MagIn
             yield return WaitForAnimSignal(() => _animSignal_MagIn, safetyTimeout, "AnimEvent_MagIn");
-            _animSignal_MagIn = false;  // consume
+            _animSignal_MagIn = false;
             Log("Mag in (anim-driven).");
             PlaySound(weaponData.magInSound, weaponData.reloadVolume);
             OnMagIn?.Invoke();
 
-            // Phase 3 — wait for AnimEvent_ChamberRound (conditional)
             if (needsChamber)
             {
                 yield return WaitForAnimSignal(() => _animSignal_ChamberRound, safetyTimeout, "AnimEvent_ChamberRound");
-                _animSignal_ChamberRound = false; // consume
+                _animSignal_ChamberRound = false;
                 Log("Chamber round (anim-driven).");
                 PlaySound(weaponData.chamberRoundSound, weaponData.chamberVolume);
                 OnChamberRound?.Invoke();
             }
 
-            // Phase 4 — wait for AnimEvent_ReloadEnd before applying ammo
-            yield return WaitForAnimSignal(() => _animSignal_ReloadEnd, safetyTimeout, "AnimEvent_ReloadEnd");
-            _animSignal_ReloadEnd = false; // consume
+            // Use timed delay for reload end instead of waiting for animation event
+            float consumed = weaponData.reloadMagOutDelay
+                           + weaponData.reloadMagInDelay
+                           + (needsChamber ? weaponData.reloadChamberDelay : 0f);
+            float remaining = weaponData.reloadTotalTime - consumed;
+            if (remaining > 0f)
+                yield return new WaitForSeconds(remaining);
         }
         else
         {
-            // ══ TIMED MODE ═══════════════════════════════════════════════════
-            // Falls back to the delay values in WeaponData.
-            // Useful when you have no Animation Events yet.
-
-            // Phase 1 — Mag Out
             yield return new WaitForSeconds(weaponData.reloadMagOutDelay);
             Log("Mag out (timed).");
             PlaySound(weaponData.magOutSound, weaponData.reloadVolume);
             OnMagOut?.Invoke();
 
-            // Phase 2 — Mag In
             yield return new WaitForSeconds(weaponData.reloadMagInDelay);
             Log("Mag in (timed).");
             PlaySound(weaponData.magInSound, weaponData.reloadVolume);
             OnMagIn?.Invoke();
 
-            // Phase 3 — Chamber Round (conditional)
             if (needsChamber && weaponData.reloadChamberDelay > 0f)
             {
                 yield return new WaitForSeconds(weaponData.reloadChamberDelay);
@@ -619,7 +561,6 @@ public class WeaponsController : MonoBehaviour
                 OnChamberRound?.Invoke();
             }
 
-            // Phase 4 — Wait out the rest of the animation
             float consumed = weaponData.reloadMagOutDelay
                            + weaponData.reloadMagInDelay
                            + (needsChamber ? weaponData.reloadChamberDelay : 0f);
@@ -628,7 +569,6 @@ public class WeaponsController : MonoBehaviour
                 yield return new WaitForSeconds(remaining);
         }
 
-        // ── Phase 5: Apply ammo math (same for both modes) ───────────────────
         int ammoNeeded = weaponData.clipSize - _currentAmmoInClip;
         int ammoToAdd  = Mathf.Min(ammoNeeded, _ammoInReserve);
 
@@ -644,15 +584,12 @@ public class WeaponsController : MonoBehaviour
         SetState(_currentAmmoInClip > 0 || _roundInChamber ? WeaponState.Idle : WeaponState.Empty);
     }
 
-    /// <summary>
-    /// Call this externally or from another system to hard-cancel a reload
-    /// mid-animation (e.g. player dies, weapon swapped).
-    /// </summary>
     public void CancelReload()
     {
         if (CurrentState != WeaponState.Reloading) return;
 
-        StopAllCoroutines();
+        if (_reloadCoroutine != null) { StopCoroutine(_reloadCoroutine); _reloadCoroutine = null; }
+        ResetAnimSignals();
         Log("Reload cancelled.");
         OnReloadCancelled?.Invoke();
         SetState(WeaponState.Idle);
@@ -665,11 +602,6 @@ public class WeaponsController : MonoBehaviour
     #region Hitscan & Spread
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Fires a raycast along <paramref name="aimDir"/> and applies damage to
-    /// anything implementing <see cref="IDamageable"/>.
-    /// </summary>
-    /// <returns>World-space impact point, or Vector3.zero on miss.</returns>
     private Vector3 PerformHitscan(Vector3 aimDir)
     {
         if (spawnBulletPosition == null) return Vector3.zero;
@@ -681,16 +613,13 @@ public class WeaponsController : MonoBehaviour
         {
             Log($"Hit: {hit.collider.name}  distance={hit.distance:F1}m");
 
-            // IDamageable — implement this interface on any damageable object.
             if (hit.collider.TryGetComponent(out IDamageable damageable))
                 damageable.TakeDamage(weaponData.weaponDamage, aimDir, hit.point);
 
-            // Physics impulse (works even without IDamageable)
             if (hit.rigidbody != null)
                 hit.rigidbody.AddForceAtPosition(aimDir * weaponData.hitImpulseForce,
                                                   hit.point, ForceMode.Impulse);
 
-            // Gizmo data
             _gizmoRayOrigin = origin;
             _gizmoRayEnd    = hit.point;
             return hit.point;
@@ -707,7 +636,6 @@ public class WeaponsController : MonoBehaviour
         if (_mainCamera == null)
             return spawnBulletPosition != null ? spawnBulletPosition.forward : Vector3.forward;
 
-        // Camera-centre ray → world target point
         Ray camRay = _mainCamera.ScreenPointToRay(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
         Vector3 targetPoint = camRay.origin + camRay.direction * 100f;
 
@@ -718,7 +646,6 @@ public class WeaponsController : MonoBehaviour
         Vector3 origin = spawnBulletPosition != null ? spawnBulletPosition.position : transform.position;
         Vector3 aimDir = (targetPoint - origin).normalized;
 
-        // ── Spread multiplier from movement state ─────────────────────────
         float spread = weaponData.baseSpread + _currentSpreadBuildup;
 
         if (playerMovement != null)
@@ -734,7 +661,6 @@ public class WeaponsController : MonoBehaviour
 
         _gizmoSpread = spread;
 
-        // ── Apply spread cone ─────────────────────────────────────────────
         if (spread > 0f)
         {
             Vector3 right = Vector3.Cross(Vector3.up, aimDir).normalized;
@@ -897,7 +823,7 @@ public class WeaponsController : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Debug Logging
+    #region Debug Logging & Gizmos
     // ─────────────────────────────────────────────────────────────────────────
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
@@ -909,47 +835,19 @@ public class WeaponsController : MonoBehaviour
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void LogWarning(string msg) => Debug.LogWarning($"[{name}] ⚠ {msg}", this);
 
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
-    #region Gizmos (Editor Only)
-    // ─────────────────────────────────────────────────────────────────────────
-
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        // ── Raycast line ──────────────────────────────────────────────────────
-        if (showRaycastGizmo && _gizmoRayOrigin != _gizmoRayEnd)
+        if (showRaycastGizmo && _gizmoRayEnd != Vector3.zero)
         {
-            Gizmos.color = Color.yellow;
+            Gizmos.color = Color.red;
             Gizmos.DrawLine(_gizmoRayOrigin, _gizmoRayEnd);
-            Gizmos.DrawSphere(_gizmoRayEnd, 0.05f);
         }
 
-        // ── Spread cone at muzzle ─────────────────────────────────────────────
-        if (showSpreadGizmo && spawnBulletPosition != null && _gizmoSpread > 0f)
+        if (showSpreadGizmo && _gizmoSpread > 0f && spawnBulletPosition != null)
         {
-            Gizmos.color = new Color(1f, 0.4f, 0f, 0.25f);
-            float coneLength = 5f;
-            float radius     = Mathf.Tan(_gizmoSpread) * coneLength;
-
-            Vector3 tip   = spawnBulletPosition.position;
-            Vector3 fwd   = spawnBulletPosition.forward;
-            Vector3 base_ = tip + fwd * coneLength;
-
-            // Draw 8 lines around the cone perimeter
-            Vector3 right = Vector3.Cross(fwd, Vector3.up).normalized;
-            for (int i = 0; i < 8; i++)
-            {
-                float angle = i * Mathf.PI * 2f / 8f;
-                Vector3 offset = (Mathf.Cos(angle) * right
-                                + Mathf.Sin(angle) * Vector3.up) * radius;
-                Gizmos.DrawLine(tip, base_ + offset);
-            }
-
-            // Circle at the base of the cone
-            UnityEditor.Handles.color = new Color(1f, 0.4f, 0f, 0.5f);
-            UnityEditor.Handles.DrawWireDisc(base_, fwd, radius);
+            Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
+            Gizmos.DrawWireSphere(spawnBulletPosition.position, _gizmoSpread);
         }
     }
 #endif
@@ -960,24 +858,18 @@ public class WeaponsController : MonoBehaviour
     #region Public API
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Read-only state for HUD / other systems
     public int         CurrentAmmo     => _currentAmmoInClip;
     public int         ReserveAmmo     => _ammoInReserve;
     public bool        RoundInChamber  => _roundInChamber;
     public bool        IsReloading     => CurrentState == WeaponState.Reloading;
     public bool        IsInspecting    => _isInspecting;
     public float       SpreadBuildup   => _currentSpreadBuildup;
+    public bool        HolsterComplete => _holsterComplete;
+    public bool        DrawComplete    => _drawComplete;
 
-    /// <summary>True when the holster animation has finished. Polled by WeaponSwitcher.</summary>
-    public bool HolsterComplete => _holsterComplete;
+    public void PlayBoltOutSound() => PlaySound(weaponData.boltOutSound, weaponData.boltOutVolume);
+    public void PlayBoltInSound() => PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
 
-    /// <summary>True when the draw animation has finished. Polled by WeaponSwitcher.</summary>
-    public bool DrawComplete    => _drawComplete;
-
-    /// <summary>
-    /// Immediately stops all ongoing activity (fire / reload / inspect) and
-    /// returns the weapon to Idle.  Called by WeaponSwitcher before StartHolster().
-    /// </summary>
     public void ForceIdle()
     {
         StopAllCoroutines();
@@ -991,11 +883,6 @@ public class WeaponsController : MonoBehaviour
         Log("ForceIdle (weapon switcher).");
     }
 
-    /// <summary>
-    /// Triggers the Holster animation.  Poll <see cref="HolsterComplete"/>
-    /// (or subscribe to <see cref="OnUnequipped"/>) to know when it is safe
-    /// to deactivate the GameObject.
-    /// </summary>
     public void StartHolster()
     {
         _isSwitching     = true;
@@ -1006,10 +893,6 @@ public class WeaponsController : MonoBehaviour
         Log("Holster started.");
     }
 
-    /// <summary>
-    /// Triggers the Draw animation.  Poll <see cref="DrawComplete"/> to know
-    /// when the weapon is ready to accept input.
-    /// </summary>
     public void StartDraw()
     {
         _isSwitching  = true;
@@ -1020,10 +903,6 @@ public class WeaponsController : MonoBehaviour
         Log("Draw started.");
     }
 
-    /// <summary>
-    /// Called by WeaponSwitcher once the draw is confirmed complete.
-    /// Marks the weapon as live and ready to fire.
-    /// </summary>
     public void NotifyEquipped()
     {
         _isSwitching = false;
@@ -1033,9 +912,6 @@ public class WeaponsController : MonoBehaviour
         Log("Equipped.");
     }
 
-    /// <summary>
-    /// Called by WeaponSwitcher after the GameObject is deactivated.
-    /// </summary>
     public void NotifyUnequipped()
     {
         _isSwitching = false;
@@ -1047,7 +923,6 @@ public class WeaponsController : MonoBehaviour
     {
         if (animationDrivenReload)
         {
-            // Wait for AnimEvent_HolsterEnd fired by AnimationEventReceiver.
             yield return WaitForAnimSignal(
                 () => _animSignal_HolsterEnd,
                 holsterDuration + 1f,
@@ -1067,7 +942,6 @@ public class WeaponsController : MonoBehaviour
     {
         if (animationDrivenReload)
         {
-            // Wait for AnimEvent_DrawEnd fired by AnimationEventReceiver.
             yield return WaitForAnimSignal(
                 () => _animSignal_DrawEnd,
                 drawDuration + 1f,

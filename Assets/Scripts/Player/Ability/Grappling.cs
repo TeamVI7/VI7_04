@@ -25,7 +25,14 @@ public class Grappling : MonoBehaviour
     [Header("Input")]
     public KeyCode grappleKey = KeyCode.Mouse1;
 
+    [Header("Active Weapon")]
+    public WeaponsController activeWeapon;
+
     private bool grappling;
+    private Coroutine _stopGrappleCoroutine;
+
+    private static readonly int AnimGrapple = Animator.StringToHash("Grapple");
+    private static readonly int AnimStopGrapple = Animator.StringToHash("StopGrapple");
 
     private void Start()
     {
@@ -58,8 +65,20 @@ public class Grappling : MonoBehaviour
         if (grapplingCdTimer > 0) return;
 
         grappling = true;
-
         pm.freeze = true;
+
+        if (activeWeapon != null)
+        {
+            if (activeWeapon.IsReloading) activeWeapon.CancelReload();
+            if (activeWeapon.IsInspecting) activeWeapon.CancelInspect();
+            
+            if (activeWeapon.gunAnimator != null)
+            {
+                // Clear any leftover stop signals, then fire the start trigger
+                activeWeapon.gunAnimator.ResetTrigger(AnimStopGrapple);
+                activeWeapon.gunAnimator.SetTrigger(AnimGrapple);
+            }
+        }
 
         RaycastHit hit;
         if (Physics.Raycast(cam.position, cam.forward, out hit, maxGrappleDistance, whatIsGrappleable))
@@ -94,28 +113,40 @@ public class Grappling : MonoBehaviour
 
         pm.JumpToPosition(grapplePoint, highestPointOnArc);
 
-        Invoke(nameof(StopGrapple), 1f);
+        if (_stopGrappleCoroutine != null) StopCoroutine(_stopGrappleCoroutine);
+        _stopGrappleCoroutine = StartCoroutine(Co_StopWhenArrived());
+    }
+
+    private IEnumerator Co_StopWhenArrived()
+    {
+        float maxWait = 3f;
+        float elapsed = 0f;
+        while (elapsed < maxWait)
+        {
+            elapsed += Time.deltaTime;
+            if (Vector3.Distance(transform.position, grapplePoint) <= 2f) break;
+            yield return null;
+        }
+        StopGrapple();
+        _stopGrappleCoroutine = null;
     }
 
     public void StopGrapple()
     {
-        pm.freeze = false;
-
-        grappling = false;
-
+        if (_stopGrappleCoroutine != null) { StopCoroutine(_stopGrappleCoroutine); _stopGrappleCoroutine = null; }
+        pm.freeze        = false;
+        grappling        = false;
         grapplingCdTimer = grapplingCd;
+        if (lr != null) lr.enabled = false;
 
-        if (lr != null)
-            lr.enabled = false;
+        // Tell the Animator the physical grapple movement has finished
+        if (activeWeapon != null && activeWeapon.gunAnimator != null)
+        {
+            activeWeapon.gunAnimator.ResetTrigger(AnimGrapple);
+            activeWeapon.gunAnimator.SetTrigger(AnimStopGrapple);
+        }
     }
 
-    public bool IsGrappling()
-    {
-        return grappling;
-    }
-
-    public Vector3 GetGrapplePoint()
-    {
-        return grapplePoint;
-    }
-}
+    public bool IsGrappling()      => grappling;
+    public Vector3 GetGrapplePoint() => grapplePoint;
+} 

@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
   m_Name: DE
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: DE
+  caliber: .50
+  ammoType: AE
+  isFullAuto: 0
   fireRate: 0.1
   clipSize: 7
   reservedAmmoCapacity: 270

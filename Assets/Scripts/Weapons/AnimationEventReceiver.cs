@@ -24,6 +24,13 @@ public class AnimationEventReceiver : MonoBehaviour
 
         if (weaponsController == null)
             LogWarning("WeaponsController not found!");
+        
+        // Subscribe to bolt action events
+        if (weaponsController != null)
+        {
+            weaponsController.OnBoltOut += PlayBoltOutSound;
+            weaponsController.OnBoltIn += PlayBoltInSound;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -140,6 +147,30 @@ public class AnimationEventReceiver : MonoBehaviour
     {
         Log("AnimEvent_DrawEnd");
         weaponsController?.OnDrawEnd_AnimDriven();
+    }
+
+    public void AnimEvent_BoltOut()
+    {
+        Log("AnimEvent_BoltOut");
+        weaponsController?.OnBoltOut_AnimDriven();
+    }
+
+    public void AnimEvent_BoltIn()
+    {
+        Log("AnimEvent_BoltIn");
+        weaponsController?.OnBoltIn_AnimDriven();
+    }
+
+    private void PlayBoltOutSound()
+    {
+        Log("PlayBoltOutSound");
+        weaponsController?.PlayBoltOutSound();
+    }
+
+    private void PlayBoltInSound()
+    {
+        Log("PlayBoltInSound");
+        weaponsController?.PlayBoltInSound();
     }
 
     #endregion
