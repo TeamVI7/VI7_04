@@ -119,9 +119,10 @@ public class BulletCasing : MonoBehaviour
         if (_returning) return;
         _returning = true;
 
-        _rb.isKinematic = true;
-        _rb.linearVelocity      = Vector3.zero;
+        // Zero FIRST, then kinematic
+        _rb.linearVelocity  = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
+        _rb.isKinematic     = true;
 
         OnReturnToPool?.Invoke(this);
     }

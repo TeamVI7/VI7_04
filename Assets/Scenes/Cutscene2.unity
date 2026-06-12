@@ -18977,7 +18977,7 @@ PrefabInstance:
     - target: {fileID: 3952727896174928989, guid: 5648227099609ac4281b42cf4a1f516e, type: 3}
       propertyPath: sharedProfile
       value: 
-      objectReference: {fileID: 11400000, guid: da9cd76f2ab70654b86bf1f057f40aa6, type: 2}
+      objectReference: {fileID: 11400000, guid: 1589df8a544fb194c82b8244b4d04df9, type: 2}
     - target: {fileID: 6618750885408558652, guid: 5648227099609ac4281b42cf4a1f516e, type: 3}
       propertyPath: m_Name
       value: Global Volume

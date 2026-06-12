@@ -18,15 +18,15 @@ AvatarMask:
   - m_Path: ArmRIG/Root
     m_Weight: 0
   - m_Path: ArmRIG/Root/hand_Controller_L
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: ArmRIG/Root/hand_R_Controller
     m_Weight: 0
   - m_Path: ArmRIG/Root/Pole_Target_L
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: ArmRIG/Root/Pole_Target_R
     m_Weight: 0
   - m_Path: ArmRIG/Root/upper_arm_L_Controller
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: ArmRIG/upper_arm.L
     m_Weight: 1
   - m_Path: ArmRIG/upper_arm.L/forearm.L

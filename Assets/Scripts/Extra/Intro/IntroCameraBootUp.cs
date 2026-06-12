@@ -12,6 +12,12 @@ public class GTFOMenuScreen : MonoBehaviour
     public Image injectFillBar;
     public CanvasGroup screenGroup;
 
+    [Header("OS Welcome Screen")]
+    public CanvasGroup osWelcomeGroup;
+    public Image osLogo;
+    public TextMeshProUGUI welcomeText;
+    public float welcomeDuration = 5.0f; // Add this line to control the timing
+
     [Header("Settings")]
     public float holdDuration = 2.0f;
     public string mainMenuSceneName = "MainMenu";
@@ -27,6 +33,7 @@ public class GTFOMenuScreen : MonoBehaviour
     public AudioClip injectHoldSound;
     public AudioClip injectDoneSound;
     public AudioClip glitchSound;
+    public AudioClip osStartupSound; // Win95 startup chime
 
     private bool injecting = false;
     private float holdTimer = 0f;
@@ -39,45 +46,65 @@ public class GTFOMenuScreen : MonoBehaviour
     // FORMAT: ("Your text here", delayInSeconds)
         static readonly (string text, float delay)[] phase1Lines =
         {
-            ("CONTAINMENT PROTOCOL v3.1.0", 0.2f),
-            ("-----------------------------", 0.1f),
-            ("LOCATION: SECTOR 4, ULTRA MEGA-FACILITY", 0.4f),
-            ("<color=#FF0000>STATUS: LOCKDOWN ACTIVE — ZONE CLASSIFIED [GRIDLOCK]</color>", 0.6f),
-            ("-----------------------------", 0.2f),
-            ("ULSEC NETWORK: BYPASSING... [OK]", 1.2f),
-            ("SEC SUBNET: ROUTING REMOTE LINK... [ESTABLISHED]", 1.5f),
-            ("OSEC FIREWALL: ████████ BREACHED... [SUCCESS]", 1.8f),
-            ("<color=#FF0000>[mem 43%23rvvv err 00x01003432]</color>", 0.05f), // Fast error spam
-            ("<color=#FF0000>[mem 43%23rvvv err 00x01003432]</color>", 0.05f),
-            ("<color=#FF0000>[mem 43%23rvvv err 00x01003432]</color>\n", 0.4f),
-            ("initializing... ADAFX protocol", 0.6f),
-            ("<color=#FF0000>[WARNING 006 MANUAL OVERRIDE DETECTED]</color>", 0.8f),
-            ("[cmd load adafx.prt]", 0.3f),
-            ("[cmd run adafx.prt]", 0.3f),
-            ("[initializing... ADAFX protocol]\n", 1.5f) // Long pause before screen clears
+            ("Linux version 6.5.0-operator (root@area4) (gcc version 12.3.0)", 0.4f),
+            ("Command line: root=/dev/nvme0n1p1 ro quiet splash mitigations=off", 0.35f),
+            ("BIOS-provided physical RAM map:", 0.25f),
+            ("BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable", 0.2f),
+            ("BIOS-e820: [mem 0x0000000000100000-0x00000003ffffffff] usable", 0.2f),
+            ("[    0.000000] Linux kernel booted on area-4-node", 0.3f),
+            ("[    0.123456] x86/fpu: Supporting XSAVE features 0x001", 0.25f),
+            ("[    0.345678] CPU: 64 cores, 128 threads", 0.3f),
+            ("[    0.567890] Memory: 131072M/131072M available", 0.3f),
+            ("[    0.789012] Calibrating delay loop (skipped)", 0.2f),
+            ("[    1.012345] PID hash table entries: 262144", 0.25f),
+            ("[    1.234567] Dentry cache hash table entries: 8388608", 0.25f),
+            ("[    1.456789] Inode-cache hash table entries: 4194304", 0.25f),
+            ("[    1.678901] Mount-cache hash table entries: 131072", 0.2f),
+            ("[    1.901234] Initializing cgroup subsys cpu,cpuacct,memory", 0.3f),
+            ("[    2.123456] ULSEC network interface eth0: link up", 0.6f),
+            ("[    2.456789] SEC subnet: establishing encrypted tunnel", 0.7f),
+            ("[    3.012345] OSEC firewall: <color=#FF0000>bypassing ruleset</color>", 0.8f),
+            ("[    3.567890] OSEC firewall: <color=#FF0000>breached</color> <color=#00FF00>[SUCCESS]</color>", 0.9f),
+            ("<color=#FF0000>[mem error 0x01003432] corrupted page @ 0x43%23rvvv</color>", 0.05f),
+            ("<color=#FF0000>[mem error 0x01003432] corrupted page @ 0x43%23rvvv</color>", 0.05f),
+            ("<color=#FF0000>[mem error 0x01003432] corrupted page @ 0x43%23rvvv</color>\n", 0.35f),
+            ("[    4.123456] Loading ADAFX protocol module", 0.5f),
+            ("[    4.567890] modprobe adafx.prt", 0.3f),
+            ("[    5.012345] adafx: initializing quantum-secure link", 0.6f),
+            ("<color=#FF0000>[WARNING] Manual override detected in kernel ring buffer</color>", 0.7f),
+            ("[    5.678901] Starting ADAFX daemon...", 0.8f),
+            ("[    6.234567] ADAFX protocol v3.1.0 loaded successfully", 0.6f),
+            ("[    6.789012] Remote link latency: 12ms", 0.4f),
+            ("[    7.345678] Initializing threat detection engine", 0.7f),
+            ("[    8.012345] Mounting operator overlay filesystem", 0.5f),
+            ("[    8.567890] System uptime: 00h 13m 42s", 0.4f)
         };
 
-        // PHASE 2: Prisoner / Vitals Status
         static readonly (string text, float delay)[] phase2Lines =
         {
-            ("UNIT ID ********************", 0.2f), // Steam ID
-            ("SECTION 4, ENTRYPOINT b3", 0.1f),
-            ("OPERATOR ALIAS \"*******************\"\n", 0.5f), // Steam Name
-            ("hsu statis, subject quality", 0.2f),
-            ("69, 67, 6, 36, 420, 26", 0.4f),
-            ("rem 73 log, 56%", 0.2f),
-            ("scraper chassis diagnostics", 0.2f),
-            ("hull integrity   100%", 0.2f),
-            ("power core       nominal", 0.2f),
-            ("actuator response   optimal", 0.4f),
-            ("<color=#FF0000>threat detection   ACTIVE</color>", 0.6f),
-            ("kinetic systems  armed", 0.2f),
-            ("remote link latency  12ms", 0.2f),
-            ("sector 4 hostiles detected   high\n", 0.6f),
-            ("operational status : not recommended for deployment", 0.4f),
-            ("suggested action : STAND DOWN", 0.4f),
-            ("<color=#FF0000>OVERRIDE : DEPLOY</color>\n", 1.2f),
-            ("SCRAPER READY FOR REMOTE LINK INJECTION", 0.2f)
+            ("Unit ID: ********************", 0.2f),
+            ("Hostname: area-4-entrypoint-b3", 0.2f),
+            ("Operator: *******************\n", 0.4f),
+            ("Uptime: 00:13:42", 0.2f),
+            ("Load average: 0.69, 0.67, 0.66", 0.25f),
+            ("Tasks: 420 total, 12 running, 89 sleeping", 0.2f),
+            ("Memory: 73% used (95.8GiB / 131GiB)", 0.25f),
+            ("Swap: 0B used", 0.2f),
+            ("CPU usage: 36% user, 4% system, 420 threads", 0.25f),
+            ("Chassis diagnostics: <color=#00FF00>OK</color>", 0.2f),
+            ("Hull integrity: 100%", 0.2f),
+            ("Power core temperature: nominal (42.3°C)", 0.2f),
+            ("Actuator response: optimal", 0.2f),
+            ("Kinetic systems: armed and ready", 0.25f),
+            ("<color=#FF0000>Threat detection: ACTIVE</color>", 0.5f),
+            ("Network latency: 12ms (stable)", 0.2f),
+            ("Sector 4 hostiles detected: HIGH", 0.6f),
+            ("[    9.123456] Scanning local area for anomalies", 0.4f),
+            ("[    9.567890] 17 unknown signatures detected", 0.35f),
+            ("System status: <color=#FFAA00>DEGRADED</color>", 0.4f),
+            ("Suggested action: STAND DOWN", 0.4f),
+            ("<color=#FF0000>OVERRIDE: DEPLOY</color>\n", 1.1f),
+            ("<color=#00FF00>READY FOR DEPLOYMENT</color>", 0.4f)
         };
 
     void Start()
@@ -86,6 +113,12 @@ public class GTFOMenuScreen : MonoBehaviour
         injectLabel.alpha = 0f;
         injectFillBar.fillAmount = 0f;
         injectFillBar.gameObject.SetActive(false);
+        
+        if (osWelcomeGroup != null)
+        {
+            osWelcomeGroup.alpha = 0f;
+            osWelcomeGroup.gameObject.SetActive(false);
+        }
         
         StartCoroutine(RunIntro());
         StartCoroutine(PlayRandomMusic());
@@ -179,7 +212,6 @@ public class GTFOMenuScreen : MonoBehaviour
         {
             yield return StartCoroutine(TypeLines(phase1Lines));
             
-            // The loading pause before screen clear
             yield return StartCoroutine(Spinner(1.5f)); 
             
             PlaySound(glitchSound, 0.4f);
@@ -224,14 +256,12 @@ public class GTFOMenuScreen : MonoBehaviour
 
             if (statusIndex != -1)
             {
-                // Isolate the base line and the bracketed status
                 string baseLine = line.Substring(0, statusIndex + 3);
                 string status = line.Substring(statusIndex + 3);
 
                 currentTypedText += baseLine;
                 terminalText.text = currentTypedText + cursorChar;
                 
-                // Spin for the exact delay defined in the array!
                 yield return StartCoroutine(Spinner(delay));
                 
                 currentTypedText += status + "\n";
@@ -240,7 +270,6 @@ public class GTFOMenuScreen : MonoBehaviour
             }
             else
             {
-                // Print entire line instantly, then wait for the delay
                 currentTypedText += line + "\n";
                 terminalText.text = currentTypedText + cursorChar;
                 yield return new WaitForSeconds(delay);
@@ -328,7 +357,7 @@ public class GTFOMenuScreen : MonoBehaviour
             if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("---"))
                 PlaySound(lineBeepSound, 0.5f, 0.1f);
 
-            yield return new WaitForSeconds(0.5f); // Half a second pause between post-inject lines
+            yield return new WaitForSeconds(0.5f); 
         }
 
         PlaySound(injectDoneSound);
@@ -336,6 +365,40 @@ public class GTFOMenuScreen : MonoBehaviour
         
         terminalText.text = terminalText.text.Replace(cursorChar, "");
         yield return StartCoroutine(SlideUp());
+
+        // --- WIN95 OS WELCOME SEQUENCE ---
+        if (osWelcomeGroup != null)
+        {
+            osWelcomeGroup.gameObject.SetActive(true);
+            
+            if (osStartupSound != null && audioSource != null)
+            {
+                audioSource.pitch = 1f;
+                audioSource.PlayOneShot(osStartupSound, 1f);
+            }
+
+            // Fade in the OS Logo and Welcome Text
+            float fadeTime = 0f;
+            while (fadeTime < 1f)
+            {
+                fadeTime += Time.deltaTime;
+                osWelcomeGroup.alpha = fadeTime;
+                yield return null;
+            }
+
+            // Hold on the welcome screen for your custom duration
+            yield return new WaitForSeconds(welcomeDuration);
+            
+            // Fade out smoothly before switching scenes
+            float fadeOutTime = 0f;
+            while (fadeOutTime < 1f)
+            {
+                fadeOutTime += Time.deltaTime;
+                osWelcomeGroup.alpha = 1f - fadeOutTime;
+                yield return null;
+            }
+        }
+    
 
         SceneManager.LoadScene(mainMenuSceneName);
     }
