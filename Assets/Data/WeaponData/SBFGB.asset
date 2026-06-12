@@ -23,11 +23,12 @@ MonoBehaviour:
   maxRange: 999
   hitImpulseForce: 10
   isBoltAction: 1
-  boltOutDuration: 0.3
-  boltInDuration: 0.25
-  boltOutSound: {fileID: 8300000, guid: aa97261398b30bc47ab2311e989bfacd, type: 3}
-  boltOutVolume: 1
+  boltOutDuration: 0.5
+  boltInDuration: 0.5
+  boltOutSounds:
+  - {fileID: 8300000, guid: 2a40d2613fab3e24baa1de408d9701dc, type: 3}
   boltInSound: {fileID: 8300000, guid: d4b66a19a4feaea4a84d7c9d9680b4d4, type: 3}
+  boltOutVolume: 1
   boltInVolume: 1
   baseSpread: 0.02
   adsSpreadMultiplier: 0.2
@@ -49,7 +50,7 @@ MonoBehaviour:
   dryFireSound: {fileID: 8300000, guid: a3e46cc83dc522047951f4f5eee3dbf7, type: 3}
   magOutSound: {fileID: 8300000, guid: aa97261398b30bc47ab2311e989bfacd, type: 3}
   magInSound: {fileID: 8300000, guid: b3a669a5c678a024390d15f33d675079, type: 3}
-  chamberRoundSound: {fileID: 8300000, guid: 2a40d2613fab3e24baa1de408d9701dc, type: 3}
+  chamberRoundSound: {fileID: 0}
   shootVolume: 1
   reloadVolume: 0.8
   dryFireVolume: 0.8

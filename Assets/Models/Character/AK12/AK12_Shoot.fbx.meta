@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 62ff9933ad994d9469b9e38f06eb1dcf
+guid: c1912207d7054c441b70260f22689780
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -55,7 +55,7 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.2352941
+      - time: 0.24632353
         functionName: AnimEvent_OnCasingEject
         data: 
         objectReferenceParameter: {instanceID: 0}

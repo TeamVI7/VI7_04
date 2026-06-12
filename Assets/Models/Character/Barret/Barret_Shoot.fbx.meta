@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 3f030aa4f408ff148afebbff9135352d
+guid: 6b6b7b009f30ee6489f4d0f1f908efd8
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -12,7 +12,7 @@ ModelImporter:
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
-    resampleCurves: 0
+    resampleCurves: 1
     optimizeGameObjects: 0
     removeConstantScaleCurves: 0
     motionNodeName: 
@@ -22,7 +22,7 @@ ModelImporter:
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
     importConstraints: 0
-    animationCompression: 0
+    animationCompression: 1
     animationRotationError: 0.5
     animationPositionError: 0.5
     animationScaleError: 0.5
@@ -55,21 +55,21 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0.50735295
+      - time: 0.5036765
         functionName: AnimEvent_BoltOut
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.69591844
+      - time: 0.67647064
         functionName: AnimEvent_BoltIn
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.5330882
+      - time: 0.5147059
         functionName: AnimEvent_OnCasingEject
         data: 
         objectReferenceParameter: {instanceID: 0}
