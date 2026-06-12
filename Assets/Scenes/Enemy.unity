@@ -953,6 +953,7 @@ GameObject:
   - component: {fileID: 113884854}
   - component: {fileID: 113884853}
   - component: {fileID: 113884852}
+  - component: {fileID: 113884858}
   m_Layer: 7
   m_Name: Spider_Robot_Heavy
   m_TagString: Enemy
@@ -1156,6 +1157,21 @@ Transform:
   - {fileID: 1476427903}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: -176.131, z: 0}
+--- !u!114 &113884858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 113884851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2c678d1319b378479aad7de5803ae5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySoundController
+  hasWalking: 1
+  hasLaser: 0
+  hasBomb: 1
 --- !u!1 &130488191
 GameObject:
   m_ObjectHideFlags: 0
@@ -1814,6 +1830,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ae3568553c3cc2b4ca949f772b74efe1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 230778266}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ae3568553c3cc2b4ca949f772b74efe1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 230778267}
   m_SourcePrefab: {fileID: 100100000, guid: ae3568553c3cc2b4ca949f772b74efe1, type: 3}
 --- !u!1 &230778259 stripped
 GameObject:
@@ -1947,6 +1966,21 @@ MonoBehaviour:
   SpinRotationSpeed: {x: 0, y: 50, z: 0}
   CoreVisual: {fileID: 1578018770}
   CoreSpinSpeed: 150
+--- !u!114 &230778267
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230778259}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2c678d1319b378479aad7de5803ae5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySoundController
+  hasWalking: 0
+  hasLaser: 1
+  hasBomb: 0
 --- !u!1 &233328972
 GameObject:
   m_ObjectHideFlags: 0
@@ -2428,6 +2462,7 @@ GameObject:
   - component: {fileID: 266825031}
   - component: {fileID: 266825030}
   - component: {fileID: 266825029}
+  - component: {fileID: 266825035}
   m_Layer: 7
   m_Name: Spider_Robot_Stealth
   m_TagString: Enemy
@@ -2622,6 +2657,21 @@ Transform:
   - {fileID: 1275291492}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: -176.131, z: 0}
+--- !u!114 &266825035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 266825028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2c678d1319b378479aad7de5803ae5f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySoundController
+  hasWalking: 1
+  hasLaser: 0
+  hasBomb: 0
 --- !u!1001 &275999019
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5414,6 +5464,55 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &847179449
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 847179451}
+  - component: {fileID: 847179450}
+  m_Layer: 0
+  m_Name: SoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &847179450
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847179449}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f564e524cc988424fbd08b7f6e878f6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  walkingClip: {fileID: 8300000, guid: ae8bcfb701bc82b4e8470f3f841014aa, type: 3}
+  laserClip: {fileID: 8300000, guid: 2239f773405ff2d4cbe83380265d6823, type: 3}
+  bombClip: {fileID: 8300000, guid: 80ba987836d46534caaf3397b61f6f15, type: 3}
+  dieClip: {fileID: 8300000, guid: 29c5b0b4ab1df9c42a5a9bd101d8ad2d, type: 3}
+  poolSize: 8
+--- !u!4 &847179451
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 847179449}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 4.53681, y: -0, z: -14.36351}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11616,3 +11715,4 @@ SceneRoots:
   - {fileID: 275999019}
   - {fileID: 113884857}
   - {fileID: 266825034}
+  - {fileID: 847179451}
