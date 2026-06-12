@@ -19,7 +19,7 @@ MonoBehaviour:
   fireRate: 1
   clipSize: 7
   reservedAmmoCapacity: 270
-  weaponDamage: 25
+  weaponDamage: 100
   maxRange: 999
   hitImpulseForce: 10
   isBoltAction: 1

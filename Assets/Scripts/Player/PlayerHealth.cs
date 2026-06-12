@@ -22,6 +22,7 @@ public class PlayerHealth : MonoBehaviour
 
     public float HP  => _hp;
     public float Pct => _hp / maxHP;
+    public float MaxHP => maxHP;
 
     public static event System.Action<float, float> OnHealthChanged; // (current, max)
     public static event System.Action OnDied;
