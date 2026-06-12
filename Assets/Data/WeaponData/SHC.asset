@@ -1,0 +1,61 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
+  m_Name: SHC
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: SHCG
+  caliber: 410B
+  ammoType: Slug
+  isFullAuto: 0
+  fireRate: 0.1
+  clipSize: 5
+  reservedAmmoCapacity: 270
+  weaponDamage: 25
+  maxRange: 999
+  hitImpulseForce: 10
+  isBoltAction: 1
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSounds:
+  - {fileID: 8300000, guid: 4949697fd504f3c4db004d8a1be5d3fd, type: 3}
+  - {fileID: 8300000, guid: 5792b195452b35c4489f9a6cee0acb9f, type: 3}
+  - {fileID: 8300000, guid: f14b5c3441e3c574d87bab0a885e8382, type: 3}
+  - {fileID: 8300000, guid: 9886bea5d45810e4eb555c93d7a2adb7, type: 3}
+  boltInSound: {fileID: 8300000, guid: 5d34852b897fb04458ff4d17de3616bd, type: 3}
+  boltOutVolume: 1
+  boltInVolume: 1
+  baseSpread: 0.02
+  adsSpreadMultiplier: 0.2
+  moveSpreadMultiplier: 2.5
+  sprintSpreadMultiplier: 5
+  crouchSpreadMultiplier: 0.6
+  standSpreadMultiplier: 0.8
+  spreadBuildPerShot: 0.01
+  spreadRecoveryRate: 0.04
+  maxSpreadBuildup: 0.08
+  reloadTotalTime: 2.4
+  reloadMagOutDelay: 0.5
+  reloadMagInDelay: 1
+  reloadChamberDelay: 0.5
+  requiresManualChamber: 0
+  shootSounds:
+  - {fileID: 8300000, guid: 32b48b68aa6012a47bb2f6e0dc59c9d5, type: 3}
+  dryFireSound: {fileID: 8300000, guid: a3e46cc83dc522047951f4f5eee3dbf7, type: 3}
+  magOutSound: {fileID: 0}
+  magInSound: {fileID: 0}
+  chamberRoundSound: {fileID: 0}
+  shootVolume: 1
+  reloadVolume: 0.8
+  dryFireVolume: 0.8
+  chamberVolume: 0.8
+  casingEjectForce: 2
+  casingDestroyTime: 5

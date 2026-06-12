@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
+  m_Name: AK12
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  displayName: AK12
+  caliber: 5.45x39
+  ammoType: FMJ
+  isFullAuto: 1
+  fireRate: 0.1
+  clipSize: 30
+  reservedAmmoCapacity: 270
+  weaponDamage: 25
+  maxRange: 999
+  hitImpulseForce: 10
+  isBoltAction: 0
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSounds: []
+  boltInSound: {fileID: 0}
+  boltOutVolume: 1
+  boltInVolume: 1
+  baseSpread: 0.02
+  adsSpreadMultiplier: 0.2
+  moveSpreadMultiplier: 2.5
+  sprintSpreadMultiplier: 5
+  crouchSpreadMultiplier: 0.6
+  standSpreadMultiplier: 0.8
+  spreadBuildPerShot: 0.01
+  spreadRecoveryRate: 0.04
+  maxSpreadBuildup: 0.08
+  reloadTotalTime: 2.4
+  reloadMagOutDelay: 0.5
+  reloadMagInDelay: 1
+  reloadChamberDelay: 0.5
+  requiresManualChamber: 0
+  shootSounds:
+  - {fileID: 8300000, guid: c818609ef6739be448b9b80b50cb7edb, type: 3}
+  - {fileID: 8300000, guid: 7831ea990e8fa874585d5776c8604b0b, type: 3}
+  - {fileID: 8300000, guid: 357eaf180b76082498ad2a075933b0d2, type: 3}
+  - {fileID: 8300000, guid: 2b07d371412e5c64987c14718194fc92, type: 3}
+  dryFireSound: {fileID: 8300000, guid: a3e46cc83dc522047951f4f5eee3dbf7, type: 3}
+  magOutSound: {fileID: 8300000, guid: f0314eadd6390524ebe401327b8e9d06, type: 3}
+  magInSound: {fileID: 8300000, guid: 9b1b21c1e1fbab147b3112818a84186c, type: 3}
+  chamberRoundSound: {fileID: 8300000, guid: 391dc79155b2f754095afa1ff36050e7, type: 3}
+  shootVolume: 1
+  reloadVolume: 0.8
+  dryFireVolume: 0.8
+  chamberVolume: 0.8
+  casingEjectForce: 2
+  casingDestroyTime: 5

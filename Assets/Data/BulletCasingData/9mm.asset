@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b32335ed5fe177b4aa1831ceb22e21bb, type: 3}
+  m_Name: 9mm
+  m_EditorClassIdentifier: Assembly-CSharp::BulletCasingData
+  casingPrefab: {fileID: 8937380576247934238, guid: 87dadeddc85f2e54294957037b31ce32, type: 3}
+  ejectionForce: 3
+  ejectionUpwardForce: 1.5
+  torqueRange: {x: 5, y: 15}
+  ejectionSpreadAngle: 10
+  lifetime: 20
+  fadeDuration: 0.5
+  bounceClips:
+  - {fileID: 8300000, guid: fb2947e65d150954ea8e6f109722077a, type: 3}
+  - {fileID: 8300000, guid: 65fc5884c73aa0942958a89d94754068, type: 3}
+  - {fileID: 8300000, guid: 2d3324c06cc5e4842829e527aae6765d, type: 3}
+  - {fileID: 8300000, guid: 5e9a85ea126f0ce49ad8e7279060810a, type: 3}
+  - {fileID: 8300000, guid: 44f605a65c30541429308e1091a30577, type: 3}
+  - {fileID: 8300000, guid: 5c3952312078da145bec9056a3edd5af, type: 3}
+  - {fileID: 8300000, guid: 201a21cf9e0e7ee468825a8871a120c4, type: 3}
+  - {fileID: 8300000, guid: f717e514c6488c54e9bd5feddf2c0adc, type: 3}
+  - {fileID: 8300000, guid: 747b1b68dcca84944b45d987029387ce, type: 3}
+  - {fileID: 8300000, guid: 8e30fb7f853d56f4c82a871d6886e387, type: 3}
+  - {fileID: 8300000, guid: 2f23f52b2800be345b176081e7539779, type: 3}
+  - {fileID: 8300000, guid: ad63d0e0e15da3243af0be8511bce211, type: 3}
+  - {fileID: 8300000, guid: 722e1f5114e8b1b419617feb5980fd99, type: 3}
+  - {fileID: 8300000, guid: 80e2519de58d1f34db3a217021c7dede, type: 3}
+  - {fileID: 8300000, guid: 74c6055aadd2fd84081cfc62ba82fce4, type: 3}
+  - {fileID: 8300000, guid: 8e238f9731c259145bb5a3dd14e26b52, type: 3}
+  - {fileID: 8300000, guid: 8863c569926990043936ccca45fa08fe, type: 3}
+  - {fileID: 8300000, guid: cbaa2dbd422ca0c4a82678c3b6380d21, type: 3}
+  - {fileID: 8300000, guid: 44b973bae088c6b4f9328660b2328801, type: 3}
+  - {fileID: 8300000, guid: 309a221099276324b82fef6212b6b628, type: 3}
+  bounceVolume: 0.4
+  minBounceVelocity: 0.5
+  maxBounceSounds: 2
+  prewarmCount: 10
+  debugDrawEjection: 0

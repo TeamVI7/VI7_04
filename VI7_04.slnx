@@ -1,5 +1,10 @@
 ﻿<Solution>
   <Project Path="Assembly-CSharp.csproj" />
-  <Project Path="OccaSoftware.Crosshairs.Editor.csproj" />
+  <Project Path="VolumetricCloudsURP.Editor.csproj" />
+  <Project Path="Assembly-CSharp-firstpass.csproj" />
+  <Project Path="CodeStage.AFPSCounter.Runtime.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="CodeStage.AFPSCounter.Examples.csproj" />
+  <Project Path="VolumetricCloudsURP.csproj" />
+  <Project Path="CodeStage.AFPSCounter.Editor.csproj" />
 </Solution>

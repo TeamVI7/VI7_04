@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f027607827293224eaecb704238391fe
+AssetOrigin:
+  serializedVersion: 1
+  productId: 14656
+  packageName: Advanced FPS Counter
+  packageVersion: 1.5.7
+  assetPath: Assets/Plugins/CodeStage/AdvancedFPSCounter/Runtime/Scripts/Utils/AFPSRenderRecorder.cs
+  uploadId: 829762
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: -103
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
