@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 583b61ccf144a934e9573038bf7d283e
+guid: c94155643043a744c988deba6ba82eef
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -31,11 +31,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Barret_ReloadEmpty
+      name: AK12_ReloadNew
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 1
-      lastFrame: 90
+      lastFrame: 75
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -62,42 +62,28 @@ ModelImporter:
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.044117644
+      - time: 0.14432989
         functionName: AnimEvent_MagOut
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.36764705
+      - time: 0.5979381
         functionName: AnimEvent_MagIn
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.8015762
-        functionName: AnimEvent_BoltOut
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.90073526
-        functionName: AnimEvent_BoltIn
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.92220855
+      - time: 0.82474226
         functionName: AnimEvent_ChamberRound
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.9485294
+      - time: 0.91714114
         functionName: AnimEvent_ReloadEnd
         data: 
         objectReferenceParameter: {instanceID: 0}
@@ -107,7 +93,7 @@ ModelImporter:
       transformMask: []
       maskType: 3
       maskSource: {instanceID: 0}
-      additiveReferencePoseFrame: 1
+      additiveReferencePoseFrame: 0
     isReadable: 0
   meshes:
     lODScreenPercentages: []

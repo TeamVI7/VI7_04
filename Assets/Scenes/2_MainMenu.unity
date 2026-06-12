@@ -489,10 +489,14 @@ MonoBehaviour:
   btnNewGame: {fileID: 421764637}
   lblContinue: {fileID: 2140462814}
   lblNewGame: {fileID: 470049130}
-  lblSaveStatus: {fileID: 479409728}
   lblLastSaved: {fileID: 1098045493}
+  lblSaveStatus: {fileID: 479409728}
   lblPlaytime: {fileID: 725762285}
   lblRank: {fileID: 317964813}
+  availableMissions:
+  - Operation R.A.I
+  - Redacted
+  - Redacted
   normalColor: {r: 0.67, g: 0.67, b: 0.67, a: 1}
   selectedColor: {r: 0, g: 1, b: 1, a: 1}
   disabledColor: {r: 0.35, g: 0.35, b: 0.35, a: 1}
@@ -503,6 +507,7 @@ MonoBehaviour:
   missionKey: LastMission
   playtimeKey: Playtime
   rankKey: BoardRank
+  targetLevelKey: SelectedLevel
 --- !u!1 &121917051
 GameObject:
   m_ObjectHideFlags: 0
@@ -1561,7 +1566,7 @@ MonoBehaviour:
 '
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
-  m_sharedMaterial: {fileID: 4930119789186492907, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1627,7 +1632,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &475893432
@@ -2160,7 +2165,7 @@ MonoBehaviour:
   m_text: YOU WANT TO QUIT?
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
-  m_sharedMaterial: {fileID: 4930119789186492907, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2226,7 +2231,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &677218004
@@ -3466,9 +3471,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 93b3a026f3ed6294e9eaee80650e26ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MenuAudio
-  clipNavigate: {fileID: 8300000, guid: 93fe8b74e13fa6d408151115e879db7b, type: 3}
-  clipConfirm: {fileID: 8300000, guid: ba42a5659513e104ca8cdc41fb8ee95c, type: 3}
-  clipOpen: {fileID: 8300000, guid: ba42a5659513e104ca8cdc41fb8ee95c, type: 3}
+  clipNavigate: {fileID: 8300000, guid: 2dbca26684357554e819cbd636812113, type: 3}
+  clipConfirm: {fileID: 8300000, guid: 2dbca26684357554e819cbd636812113, type: 3}
+  clipOpen: {fileID: 8300000, guid: 2dbca26684357554e819cbd636812113, type: 3}
   navigateVolume: 0.4
   confirmVolume: 0.7
   openVolume: 0.5
@@ -3976,7 +3981,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1171656187
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4020,8 +4025,8 @@ MonoBehaviour:
 
 '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
-  m_sharedMaterial: {fileID: -2552850544608106109, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4303,10 +4308,10 @@ Canvas:
   m_GameObject: {fileID: 1347422610}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
+  m_RenderMode: 1
   m_Camera: {fileID: 59945205}
   m_PlaneDistance: 100
-  m_PixelPerfect: 0
+  m_PixelPerfect: 1
   m_ReceivesEvents: 1
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
@@ -4460,9 +4465,9 @@ RectTransform:
   - {fileID: 1525209967}
   m_Father: {fileID: 1910602607}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 490.25, y: -88.4855}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 135, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1410449047
@@ -4860,7 +4865,7 @@ MonoBehaviour:
   m_text: '[ EXIT APPLICATION ]'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
-  m_sharedMaterial: {fileID: 4930119789186492907, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -4926,7 +4931,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1476758860
@@ -4997,7 +5002,7 @@ MonoBehaviour:
   m_text: No
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
-  m_sharedMaterial: {fileID: 4930119789186492907, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -5063,7 +5068,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1525209969
@@ -5638,9 +5643,9 @@ RectTransform:
   - {fileID: 475893430}
   m_Father: {fileID: 1910602607}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 160.25, y: -88.4855}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 156, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1833893380
@@ -6017,8 +6022,8 @@ MonoBehaviour:
   m_text: "\u2191\u2193 Select   \t\t\u2190\u2192 Change   \t\tEnter Confirm   \t\tF10
     Save   \t\tEsc Back"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
-  m_sharedMaterial: {fileID: -2552850544608106109, guid: c59368d9950f65d4abeea8076776dcc1, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
+  m_sharedMaterial: {fileID: -7534433237523982521, guid: 6af28648bae4f3740a5184bac7312827, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

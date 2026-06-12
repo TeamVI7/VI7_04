@@ -1,50 +1,100 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
+/// <summary>
+/// Wall-climbing and wall-slide ability.
+/// 
+/// EXTENDING:
+///   - Subscribe to OnClimbStart / OnClimbEnd / OnWallSlideStart / OnWallSlideEnd for VFX, audio, etc.
+///   - Override ClimbingMovement() logic by toggling climbing flag externally if needed.
+/// 
+/// DEBUG:
+///   - Enable debugLog in Inspector for state transition logs.
+/// </summary>
 public class Climbing : MonoBehaviour
 {
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Inspector
+    // ─────────────────────────────────────────────────────────────────────────
+
     [Header("References")]
-    public Transform orientation;
-    public Rigidbody rb;
+    public Transform     orientation;
+    public Rigidbody     rb;
     public PlayerMovement pm;
-    public LayerMask whatIsWall;
+    public LayerMask     whatIsWall;
 
     [Header("Climbing")]
-    public float climbSpeed;
-    public float wallSlideSpeed = 2f;
-    public float maxClimbTime;
-    public float minWallAngle = 70f;
-    private float climbTimer;
-    private bool wallSliding;
+    public float climbSpeed      = 5f;
+    public float wallSlideSpeed  = 2f;
+    public float maxClimbTime    = 1f;
+    public float minWallAngle    = 70f;
 
-    private bool climbing;
-
-    [Header("ClimbJumping")]
-    public float climbJumpUpForce;
-    public float climbJumpBackForce;
-
-    public KeyCode jumpKey = KeyCode.Space;
-    public int climbJumps;
-    private int climbJumpsLeft;
+    [Header("Climb Jump")]
+    public float   climbJumpUpForce   = 10f;
+    public float   climbJumpBackForce = 8f;
+    public KeyCode jumpKey            = KeyCode.Space;
+    public int     climbJumps         = 1;
 
     [Header("Detection")]
-    public float detectionLength;
-    public float sphereCastRadius;
-    public float maxWallLookAngle;
-    private float wallLookAngle;
-
-    private RaycastHit frontWallHit;
-    private bool wallFront;
-
-    private Transform lastWall;
-    private Vector3 lastWallNormal;
-    public float minWallNormalAngleChange;
+    public float detectionLength       = 1f;
+    public float sphereCastRadius      = 0.5f;
+    public float maxWallLookAngle      = 30f;
+    public float minWallNormalAngleChange = 5f;
 
     [Header("Exiting")]
-    public bool exitingWall;
-    public float exitWallTime;
-    private float exitWallTimer;
+    public float exitWallTime = 0.2f;
+
+    [Header("Debug")]
+    [SerializeField] private bool debugLog = false;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Events
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public event Action OnClimbStart;
+    public event Action OnClimbEnd;
+    public event Action OnWallSlideStart;
+    public event Action OnWallSlideEnd;
+
+    /// <summary>Fired when a climb jump executes. Arg: force vector applied.</summary>
+    public event Action<Vector3> OnClimbJump;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Public Read-only State
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public bool IsClimbing    => climbing;
+    public bool IsWallSliding => wallSliding;
+    public bool IsExiting     => exitingWall;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Private
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private float      climbTimer;
+    private bool       wallSliding;
+    private bool       climbing;
+    private bool       exitingWall;
+    private float      exitWallTimer;
+    private int        climbJumpsLeft;
+
+    private float      wallLookAngle;
+    private RaycastHit frontWallHit;
+    private bool       wallFront;
+    private Transform  lastWall;
+    private Vector3    lastWallNormal;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Unity Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void Update()
     {
@@ -57,131 +107,169 @@ public class Climbing : MonoBehaviour
             WallSlideMovement();
     }
 
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region State Machine
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void StateMachine()
     {
-        // State 1 - Climbing
+        // ── Climbing ──────────────────────────────────────────────────────────
         if (wallFront && Input.GetKey(KeyCode.W) && wallLookAngle < maxWallLookAngle && !exitingWall)
         {
             if (!climbing && climbTimer > 0) StartClimbing();
-
             if (wallSliding) StopWallSlide();
 
-            // timer
-            if (climbTimer > 0) climbTimer -= Time.deltaTime;
-            if (climbTimer < 0) StopClimbing();
+            climbTimer -= Time.deltaTime;
+            if (climbTimer <= 0f) StopClimbing();
         }
-
-        // State 2 - Wall sliding
+        // ── Wall sliding ──────────────────────────────────────────────────────
         else if (wallFront && !pm.grounded && !exitingWall)
         {
             if (climbing) StopClimbing();
-
             if (!wallSliding) StartWallSlide();
 
             if (Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0) ClimbJump();
         }
-
-        // State 3 - Exiting
+        // ── Exiting ───────────────────────────────────────────────────────────
         else if (exitingWall)
         {
-            if (climbing) StopClimbing();
+            if (climbing)    StopClimbing();
             if (wallSliding) StopWallSlide();
 
-            if (exitWallTimer > 0) exitWallTimer -= Time.deltaTime;
-            if (exitWallTimer < 0) exitingWall = false;
+            exitWallTimer -= Time.deltaTime;
+            if (exitWallTimer <= 0f) exitingWall = false;
         }
-
-        // State 4 - None
+        // ── None ──────────────────────────────────────────────────────────────
         else
         {
-            if (climbing) StopClimbing();
+            if (climbing)    StopClimbing();
             if (wallSliding) StopWallSlide();
         }
 
+        // Climb jump check while on wall
         if (wallFront && Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0) ClimbJump();
     }
 
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Wall Detection
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void WallCheck()
     {
-        bool hitWall = Physics.SphereCast(transform.position, sphereCastRadius, orientation.forward, out frontWallHit, detectionLength, whatIsWall);
+        bool hitWall = Physics.SphereCast(transform.position, sphereCastRadius,
+                           orientation.forward, out frontWallHit, detectionLength, whatIsWall);
         wallFront = hitWall && IsWallNormal(frontWallHit.normal);
 
-        if (wallFront)
-            wallLookAngle = Vector3.Angle(orientation.forward, -frontWallHit.normal);
-        else
-            wallLookAngle = 180f;
+        wallLookAngle = wallFront
+            ? Vector3.Angle(orientation.forward, -frontWallHit.normal)
+            : 180f;
 
-        bool newWall = wallFront && (frontWallHit.transform != lastWall || Mathf.Abs(Vector3.Angle(lastWallNormal, frontWallHit.normal)) > minWallNormalAngleChange);
+        bool newWall = wallFront
+            && (frontWallHit.transform != lastWall
+                || Mathf.Abs(Vector3.Angle(lastWallNormal, frontWallHit.normal)) > minWallNormalAngleChange);
 
         if ((wallFront && newWall) || pm.grounded)
         {
-            climbTimer = maxClimbTime;
+            climbTimer     = maxClimbTime;
             climbJumpsLeft = climbJumps;
         }
     }
 
-    private bool IsWallNormal(Vector3 normal)
-    {
-        return Vector3.Angle(normal, Vector3.up) > minWallAngle;
-    }
+    private bool IsWallNormal(Vector3 normal) =>
+        Vector3.Angle(normal, Vector3.up) > minWallAngle;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Ability Actions
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void StartClimbing()
     {
-        climbing = true;
-        pm.climbing = true;
+        climbing       = true;
+        pm.climbing    = true;
         pm.wallrunning = false;
-
-        lastWall = frontWallHit.transform;
+        lastWall       = frontWallHit.transform;
         lastWallNormal = frontWallHit.normal;
 
-        /// idea - camera fov change
+        OnClimbStart?.Invoke();
+        Log("Climb start.");
+
+        // Hook: add camera FOV change, audio here or via OnClimbStart event
     }
 
     private void ClimbingMovement()
     {
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, climbSpeed, rb.linearVelocity.z);
 
-        /// idea - sound effect
+        // Hook: add climbing sound / particles via OnClimbStart event
     }
 
     private void StopClimbing()
     {
-        climbing = false;
+        climbing    = false;
         pm.climbing = false;
 
-        /// idea - particle effect
-        /// idea - sound effect
+        OnClimbEnd?.Invoke();
+        Log("Climb end.");
+
+        // Hook: add particle effect, audio via OnClimbEnd event
     }
 
     private void StartWallSlide()
     {
-        wallSliding = true;
+        wallSliding    = true;
         pm.wallSliding = true;
+
+        OnWallSlideStart?.Invoke();
+        Log("Wall slide start.");
     }
 
     private void WallSlideMovement()
     {
-        rb.useGravity = true;
-        float slideY = Mathf.Max(rb.linearVelocity.y, -wallSlideSpeed);
+        rb.useGravity     = true;
+        float slideY      = Mathf.Max(rb.linearVelocity.y, -wallSlideSpeed);
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, slideY, rb.linearVelocity.z);
     }
 
     private void StopWallSlide()
     {
-        wallSliding = false;
+        wallSliding    = false;
         pm.wallSliding = false;
+
+        OnWallSlideEnd?.Invoke();
+        Log("Wall slide end.");
     }
 
     private void ClimbJump()
     {
-        exitingWall = true;
+        exitingWall   = true;
         exitWallTimer = exitWallTime;
-
-        Vector3 forceToApply = transform.up * climbJumpUpForce + frontWallHit.normal * climbJumpBackForce;
-
-        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        rb.AddForce(forceToApply, ForceMode.Impulse);
-
         climbJumpsLeft--;
+
+        Vector3 force = transform.up * climbJumpUpForce + frontWallHit.normal * climbJumpBackForce;
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        rb.AddForce(force, ForceMode.Impulse);
+
+        OnClimbJump?.Invoke(force);
+        Log($"Climb jump. Jumps left: {climbJumpsLeft}");
     }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Debug
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void Log(string msg)
+    {
+        if (debugLog) Debug.Log($"[Climbing] {msg}", this);
+    }
+
+    #endregion
 }

@@ -24,4 +24,4 @@ MonoBehaviour:
   minBounceVelocity: 0.5
   maxBounceSounds: 2
   prewarmCount: 10
-  debugDrawEjection: 1
+  debugDrawEjection: 0

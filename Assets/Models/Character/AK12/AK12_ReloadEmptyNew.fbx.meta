@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 583b61ccf144a934e9573038bf7d283e
+guid: 885a385f3042ef645899005a450ec245
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -31,11 +31,11 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Barret_ReloadEmpty
+      name: AK12_ReloadEmptyNew
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 1
-      lastFrame: 90
+      lastFrame: 75
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -55,49 +55,28 @@ ModelImporter:
       bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
       curves: []
       events:
-      - time: 0
-        functionName: AnimEvent_ReloadStart
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.044117644
+      - time: 0.12327848
         functionName: AnimEvent_MagOut
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.36764705
+      - time: 0.6212731
         functionName: AnimEvent_MagIn
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.8015762
-        functionName: AnimEvent_BoltOut
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.90073526
-        functionName: AnimEvent_BoltIn
-        data: 
-        objectReferenceParameter: {instanceID: 0}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
-      - time: 0.92220855
+      - time: 0.75930446
         functionName: AnimEvent_ChamberRound
         data: 
         objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
-      - time: 0.9485294
+      - time: 0.98225164
         functionName: AnimEvent_ReloadEnd
         data: 
         objectReferenceParameter: {instanceID: 0}
@@ -107,7 +86,7 @@ ModelImporter:
       transformMask: []
       maskType: 3
       maskSource: {instanceID: 0}
-      additiveReferencePoseFrame: 1
+      additiveReferencePoseFrame: 0
     isReadable: 0
   meshes:
     lODScreenPercentages: []

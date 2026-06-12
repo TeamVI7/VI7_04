@@ -62,7 +62,7 @@ public class PlayerCam : MonoBehaviour
     
     public void DoSlideOffset(bool sliding)
     {
-        float targetY = sliding ? -1f : 0f; // was -0.5f, lower = more crouch feel
+        float targetY = sliding ? -0.5f : 0f; // was -0.5f, lower = more crouch feel
         camHolder.DOLocalMoveY(targetY, 0.15f);
         DoTilt(sliding ? 3f : 0f);
         DoFov(sliding ? 90f : 85f);
