@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Package/UnityTechnologies/ParticlePack/TextMesh Pro/Resources/Fonts & Materials.meta
 guid: 97b6847f2f1fedb49839d8a240fcadef
+========
+guid: 59f710b054d19d7478478cd49c09bc5e
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/map1.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Package/UnityTechnologies/ParticlePack/TextMesh Pro.meta
 guid: 5919d2b688df8bb41856fd71589598f9
+========
+guid: 1e6ff7bad6388d54db6bd5560de57c82
+>>>>>>>> origin/Main_lbl_map04:Assets/_Recovery.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

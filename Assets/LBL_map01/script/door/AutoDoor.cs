@@ -11,6 +11,12 @@ public class AutoDoor : MonoBehaviour
     public float slideDistance = 0f;
     public float openDuration  = 1.0f;
 
+    [Header("Âm thanh")]
+    [Tooltip("AudioClip phát khi cửa bắt đầu mở")]
+    public AudioClip openSound;
+    [Tooltip("Để trống → tự tạo AudioSource trên GameObject này")]
+    public AudioSource audioSource;
+
     private Vector3 _closedPos;
     private Vector3 _openPos;
     private bool    _opened = false;
@@ -25,6 +31,10 @@ public class AutoDoor : MonoBehaviour
 
         _closedPos = transform.position;
         _openPos   = _closedPos + Vector3.up * slideDistance;
+
+        // Tự tạo AudioSource nếu chưa gán
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -32,7 +42,14 @@ public class AutoDoor : MonoBehaviour
         if (_opened) return;
         if (!other.CompareTag("Player")) return;
         _opened = true;
+        PlayOpenSound();
         StartCoroutine(OpenDoor());
+    }
+
+    private void PlayOpenSound()
+    {
+        if (openSound != null && audioSource != null)
+            audioSource.PlayOneShot(openSound);
     }
 
     private IEnumerator OpenDoor()

@@ -24,20 +24,19 @@ public class PlayerCam : MonoBehaviour
 
     private void Update()
     {
-        // get mouse input
+        // Dừng camera khi UI mở — không đụng script player
+        if (ComputerInteraction.UIOpen) return;
+
         float mouseX = Input.GetAxisRaw("Mouse X") * Time.deltaTime * sensX;
         float mouseY = Input.GetAxisRaw("Mouse Y") * Time.deltaTime * sensY;
-        float tilt = -Input.GetAxisRaw("Horizontal") * moveTiltAmount;
 
         yRotation += mouseX;
-
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
 
-        // rotate cam and orientation
-        camHolder.rotation = Quaternion.Euler(xRotation, yRotation, 0);
+        camHolder.rotation   = Quaternion.Euler(xRotation, yRotation, 0);
         orientation.rotation = Quaternion.Euler(0, yRotation, 0);
-        transform.DOLocalRotate(new Vector3(0, 0, tilt), 0.15f);
+
         if (!disableMoveTilt)
         {
             float moveTilt = -Input.GetAxisRaw("Horizontal") * moveTiltAmount;
@@ -59,10 +58,10 @@ public class PlayerCam : MonoBehaviour
     {
         wallTiltZ = zTilt;
     }
-    
+
     public void DoSlideOffset(bool sliding)
     {
-        float targetY = sliding ? -0.5f : 0f; // was -0.5f, lower = more crouch feel
+        float targetY = sliding ? -0.5f : 0f;
         camHolder.DOLocalMoveY(targetY, 0.15f);
         DoTilt(sliding ? 3f : 0f);
         DoFov(sliding ? 90f : 85f);

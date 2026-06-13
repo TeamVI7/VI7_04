@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Package/UnityTechnologies/ParticlePack/TextMesh Pro/Resources.meta
 guid: ecd2a635486c2a644b7318929d1585a1
+========
+guid: 5ba4cf761c1563548b6444094e681459
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/sound.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

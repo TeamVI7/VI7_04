@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Package/URP_RetroCRTShader-master.meta
 guid: 028191eb8a0460f46aeecf2c843b590c
+========
+guid: 6f78d2a4a378f2d4d8fea1558f3fb1a1
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0.meta
 folderAsset: yes
 DefaultImporter:
   externalObjects: {}

@@ -9,6 +9,11 @@ public class ElevatorDoor : MonoBehaviour
     public float openDistance = 1.2f;
     public float speed = 2f;
 
+    [Header("Âm thanh")]
+    public AudioClip openSound;
+    public AudioClip closeSound;
+    public AudioSource audioSource;
+
     private Vector3 closedPos;
     private Vector3 openPos;
     private bool isOpen = false;
@@ -18,10 +23,22 @@ public class ElevatorDoor : MonoBehaviour
         closedPos = transform.localPosition;
         float dir = (side == Side.Left) ? -1f : 1f;
         openPos = closedPos + new Vector3(0f, 0f, dir * openDistance);
+
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
     }
 
-    public void Open()  { isOpen = true; }
-    public void Close() { isOpen = false; }
+    public void Open()
+    {
+        if (!isOpen) PlaySound(openSound);
+        isOpen = true;
+    }
+
+    public void Close()
+    {
+        if (isOpen) PlaySound(closeSound);
+        isOpen = false;
+    }
 
     void Update()
     {
@@ -30,13 +47,12 @@ public class ElevatorDoor : MonoBehaviour
             transform.localPosition, target, speed * Time.deltaTime);
     }
 
-    public bool IsClosed()
-    {
-        return Vector3.Distance(transform.localPosition, closedPos) < 0.01f;
-    }
+    public bool IsClosed()   => Vector3.Distance(transform.localPosition, closedPos) < 0.01f;
+    public bool IsFullyOpen() => Vector3.Distance(transform.localPosition, openPos)   < 0.01f;
 
-    public bool IsFullyOpen()
+    private void PlaySound(AudioClip clip)
     {
-        return Vector3.Distance(transform.localPosition, openPos) < 0.01f;
+        if (clip != null && audioSource != null)
+            audioSource.PlayOneShot(clip);
     }
 }

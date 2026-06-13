@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Texture/Weapons/Barrett.png.meta
 guid: bcd3f42eebe22064f80a05e6e54d8714
+========
+guid: 87b7fe36d4fb8424aabfbcb397cc75be
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CratesSet_COL.png.meta
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -30,16 +34,25 @@ TextureImporter:
   generateCubemap: 6
   cubemapConvolution: 0
   seamlessCubemap: 0
-  textureFormat: 1
+  textureFormat: -1
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
+<<<<<<<< HEAD:Assets/Texture/Weapons/Barrett.png.meta
     filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
     wrapV: 1
     wrapW: 0
+========
+    filterMode: -1
+    aniso: 16
+    mipBias: -1
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CratesSet_COL.png.meta
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
@@ -48,9 +61,8 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
-  spriteGenerateFallbackPhysicsShape: 1
+  spritePixelsToUnits: 100
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
@@ -67,8 +79,12 @@ TextureImporter:
   swizzle: 50462976
   cookieLightType: 0
   platformSettings:
+<<<<<<<< HEAD:Assets/Texture/Weapons/Barrett.png.meta
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
+========
+  - buildTarget: DefaultTexturePlatform
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CratesSet_COL.png.meta
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
@@ -79,9 +95,23 @@ TextureImporter:
     overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
+<<<<<<<< HEAD:Assets/Texture/Weapons/Barrett.png.meta
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
     buildTarget: Standalone
+========
+  - buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    androidETC2FallbackOverride: 0
+  - buildTarget: WebGL
+>>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CratesSet_COL.png.meta
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
