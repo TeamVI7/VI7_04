@@ -17,7 +17,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &5421247138691448698
 RectTransform:
@@ -194,7 +194,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &1753059822386449733
 RectTransform:
@@ -332,7 +332,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &72429044646080662
 RectTransform:
@@ -489,7 +489,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &8923028121154779727
 RectTransform:
@@ -622,12 +622,13 @@ GameObject:
   - component: {fileID: 6937977825289985072}
   - component: {fileID: 8368628589170072747}
   - component: {fileID: 5725288825798953432}
+  - component: {fileID: 9017441872709375507}
   m_Layer: 16
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 0
 --- !u!224 &1200885628457800114
 RectTransform:
@@ -714,6 +715,20 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &9017441872709375507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3666159533693340448}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 117005891c59fdd4aa5e439027193292, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UIInputBlocker
+  objectsToDisable:
+  - {fileID: 0}
 --- !u!1 &3806109201696816248
 GameObject:
   m_ObjectHideFlags: 0
@@ -734,7 +749,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &2900749861453095350
 Transform:
@@ -964,7 +979,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 4934
+  m_VersionIndex: 4940
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1084,28 +1099,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 32692467ecb1ff64db68017c4a1c03f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MorseMinigameManager
-  morseController: {fileID: 0}
+  password: 0451
   door: {fileID: 0}
-  answerInput: {fileID: 0}
-  enterButton: {fileID: 0}
-  replayButton: {fileID: 0}
-  feedbackText: {fileID: 0}
-  inputBackground: {fileID: 0}
-  normalColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
-  hoverColor: {r: 0.28, g: 0.28, b: 0.28, a: 1}
+  answerInput: {fileID: 2067196484101994132}
+  enterButton: {fileID: 8774765816837529183}
+  feedbackText: {fileID: 2214458209878269003}
+  inputBackground: {fileID: 5601185269602089777}
+  normalColor: {r: 0.7924528, g: 0.7849768, b: 0.7849768, a: 1}
+  hoverColor: {r: 0.63522005, g: 0.6092519, b: 0.6092519, a: 1}
   focusColor: {r: 0.12, g: 0.35, b: 0.55, a: 1}
   wrongColor: {r: 1, g: 0.3, b: 0.2, a: 1}
   correctTextColor: {r: 0.2, g: 1, b: 0.4, a: 1}
   wrongTextColor: {r: 1, g: 0.3, b: 0.3, a: 1}
-  passwordList:
-  - SOS
-  - UNITY
-  - MORSE
-  - LIGHT
-  - CODE
-  autoReplayDelay: 3
-  doorOpenDelay: 0.6
   wrongFlashDuration: 0.6
+  doorOpenDelay: 0.6
 --- !u!1 &5701239395085707435
 GameObject:
   m_ObjectHideFlags: 0
@@ -1120,12 +1127,13 @@ GameObject:
   - component: {fileID: 3659541575535406147}
   - component: {fileID: 1641367126868657161}
   - component: {fileID: 7484453063177821028}
+  - component: {fileID: 6248636345563550429}
   m_Layer: 0
   m_Name: computer
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &536983747041317221
 Transform:
@@ -1355,7 +1363,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 2918
+  m_VersionIndex: 2924
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1463,6 +1471,26 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
+--- !u!114 &6248636345563550429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5701239395085707435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f2ad33c7203ba64289679ad5a5343b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ComputerInteraction
+  playerCameraTransform: {fileID: 0}
+  interactionDistance: 2.5
+  interactableLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  minigameCanvas: {fileID: 6937977825289985072}
+  gameManager: {fileID: 8909117597013281785}
+  inputBlocker: {fileID: 9017441872709375507}
 --- !u!1 &7330419067236585272
 GameObject:
   m_ObjectHideFlags: 0
@@ -1478,7 +1506,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &3463052039753435832
 RectTransform:
@@ -1532,7 +1560,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &1468561536003359641
 RectTransform:
@@ -1652,7 +1680,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!224 &6394959898727381078
 RectTransform:
