@@ -15,4 +15,7 @@ public class WeaponDisplayInfo : MonoBehaviour
 
     [Tooltip("Ammo type label shown in the FMJ box: FMJ / HP / AP / FRAG")]
     public string ammoType    = "FMJ";
+
+    [Tooltip("Icon shown in the weapon HUD image slot.")]
+    public Sprite weaponSprite;
 }

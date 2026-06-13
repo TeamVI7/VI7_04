@@ -44,6 +44,10 @@ public class WeaponHUD : MonoBehaviour
     [Tooltip("Shows spare magazine count (reserve ÷ clipSize).")]
     public TextMeshProUGUI magCountText;
 
+    [Header("Weapon Image")]
+    [Tooltip("One Image per weapon slot, same order as weaponSwitcher.weapons.")]
+    public Image[] weaponImages;
+
     [Header("Player Health")]
     public TextMeshProUGUI healthText;
     public Image healthBarFill; 
@@ -172,6 +176,7 @@ public class WeaponHUD : MonoBehaviour
 
         if (ammoTypeText != null) ammoTypeText.text = ammoType.ToUpper();
 
+        RefreshWeaponImage(weaponSwitcher.weapons.IndexOf(w));
         RefreshAmmo(w.CurrentAmmo, w.ReserveAmmo);
         SetVisible(true);
         StartCoroutine(Co_LateRefresh());
@@ -195,6 +200,14 @@ public class WeaponHUD : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Display Refresh
     // ─────────────────────────────────────────────────────────────────────────
+
+    private void RefreshWeaponImage(int index)
+    {
+        if (weaponImages == null) return;
+        for (int i = 0; i < weaponImages.Length; i++)
+            if (weaponImages[i] != null)
+                weaponImages[i].gameObject.SetActive(i == index);
+    }
 
     private void RefreshName(string name, string caliber)
     {

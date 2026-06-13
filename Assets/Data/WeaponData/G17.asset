@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: G17
   caliber: 9x19
   ammoType: FMJ
+  weaponSprite: {fileID: 21300000, guid: 4e754a1f0d04c1b498ff1b11bd8fb44e, type: 3}
   isFullAuto: 0
   fireRate: 0.1
   clipSize: 17
@@ -25,9 +26,9 @@ MonoBehaviour:
   isBoltAction: 0
   boltOutDuration: 0.3
   boltInDuration: 0.25
-  boltOutSound: {fileID: 0}
-  boltOutVolume: 1
+  boltOutSounds: []
   boltInSound: {fileID: 0}
+  boltOutVolume: 1
   boltInVolume: 1
   baseSpread: 0.02
   adsSpreadMultiplier: 0.2

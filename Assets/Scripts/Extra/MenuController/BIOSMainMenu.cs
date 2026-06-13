@@ -78,7 +78,7 @@ public class BIOSMainMenu : MonoBehaviour
         tabDisconnect?.onClick.AddListener(() => SwitchTab(3));
 
         // Header lore text
-        if (lblCorpHeader  != null) lblCorpHeader.text  = "ADVANCE TERMINAL - COPYRIGHTED (C) 2016 - 2032,              ULTRA TECHNOLOGY CORPORATION.";
+        if (lblCorpHeader  != null) lblCorpHeader.text  = "ADVANCE TERMINAL - COPYRIGHTED (C) 2016 - 2032.";
 
 
         SwitchTab(0);

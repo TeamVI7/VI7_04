@@ -15,6 +15,7 @@ MonoBehaviour:
   displayName: DE
   caliber: .50
   ammoType: AE
+  weaponSprite: {fileID: 21300000, guid: 2346ff43b9d2d29469df1b79f17f144f, type: 3}
   isFullAuto: 0
   fireRate: 0.1
   clipSize: 7
@@ -22,6 +23,13 @@ MonoBehaviour:
   weaponDamage: 25
   maxRange: 999
   hitImpulseForce: 10
+  isBoltAction: 0
+  boltOutDuration: 0.3
+  boltInDuration: 0.25
+  boltOutSounds: []
+  boltInSound: {fileID: 0}
+  boltOutVolume: 1
+  boltInVolume: 1
   baseSpread: 0.02
   adsSpreadMultiplier: 0.2
   moveSpreadMultiplier: 2.5

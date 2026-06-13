@@ -11,7 +11,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] bool canRegen = false;
 
     [Header("Overlay")]
-    [SerializeField] Image damageOverlay;       // full-screen red Image on Canvas
+    [SerializeField] Image damageOverlay;
     [SerializeField] float overlayMaxAlpha = 0.5f;
     [SerializeField] float overlayFadeOut = 1f;
 
@@ -20,17 +20,30 @@ public class PlayerHealth : MonoBehaviour
     bool _dead;
     Sequence _overlaySeq;
 
-    public float HP  => _hp;
-    public float Pct => _hp / maxHP;
+    public float HP    => _hp;
+    public float Pct   => _hp / maxHP;
     public float MaxHP => maxHP;
+
+    // Static reference — enemies read these instead of FindGameObjectWithTag
+    public static Transform    Transform { get; private set; }
+    public static PlayerHealth Instance  { get; private set; }
 
     public static event System.Action<float, float> OnHealthChanged; // (current, max)
     public static event System.Action OnDied;
 
     void Awake()
     {
+        Transform = transform;
+        Instance  = this;
+
         _hp = maxHP;
         SetAlpha(damageOverlay, 0f);
+    }
+
+    void OnDestroy()
+    {
+        Transform = null;
+        Instance  = null;
     }
 
     void Update()
@@ -58,7 +71,6 @@ public class PlayerHealth : MonoBehaviour
     public void Heal(float amount)
     {
         if (_dead) return;
-        
         _hp = Mathf.Min(_hp + amount, maxHP);
         OnHealthChanged?.Invoke(_hp, maxHP);
     }

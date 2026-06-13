@@ -15,6 +15,7 @@ public class WeaponData : ScriptableObject
     public string displayName = "WEAPON";
     public string caliber     = "";
     public string ammoType    = "FMJ";
+    public Sprite weaponSprite;
 
     [Header("Core Stats")]
     [Tooltip("When true, weapon can fire automatically while trigger is held.")]
