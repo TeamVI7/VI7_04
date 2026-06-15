@@ -1,39 +1,138 @@
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
 
+/// <summary>
+/// Places the left hand on walls during wall-run, wall-slide, and sliding.
+///
+/// SETUP:
+///   Assign leftArmIK, ikTarget, handOrigin in Inspector.
+///   Call SetIK() from WeaponSwitcher after each weapon draw.
+///
+/// EXTEND:
+///   - Add right-hand IK target for two-handed wall bracing.
+///   - Subscribe to WallRunning events instead of polling pm.state for cleaner coupling.
+///
+/// DEBUG:
+///   - Toggle debugMode in Inspector. No logs fire in builds regardless.
+/// </summary>
 public class WallHandIK : MonoBehaviour
 {
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Inspector
+    // ─────────────────────────────────────────────────────────────────────────
+
     [Header("References")]
     public TwoBoneIKConstraint leftArmIK;
     public Transform ikTarget;
     public Transform handOrigin;
 
     [Header("Settings")]
-    public float ikSpeed = 8f;
-    public float wallRayDistance = 1.2f;
+    public float ikSpeed          = 8f;
+    public float wallRayDistance  = 1.2f;
     public float groundRayDistance = 2.5f;
 
     [Header("Debug")]
-    public bool debugMode = true;
+    public bool debugMode = false;
 
-    private WallRunning wr;
-    private PlayerMovement pm;
+    #endregion
 
-    private bool _lastRayHit;
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Private State
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private WallRunning    _wr;
+    private PlayerMovement _pm;
+
+    // Gizmo state — only written in editor
+    private bool    _lastRayHit;
     private Vector3 _lastRayOrigin;
     private Vector3 _lastRayHitPoint;
 
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Unity Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void Start()
     {
-        wr = GetComponent<WallRunning>();
-        pm = GetComponent<PlayerMovement>();
+        _wr = GetComponent<WallRunning>();
+        _pm = GetComponent<PlayerMovement>();
 
-        if (leftArmIK == null)  Debug.LogError("[WallHandIK] leftArmIK is NULL");
-        if (ikTarget == null)   Debug.LogError("[WallHandIK] ikTarget is NULL");
-        if (handOrigin == null) Debug.LogWarning("[WallHandIK] handOrigin is NULL — using player root");
-        if (wr == null)         Debug.LogError("[WallHandIK] WallRunning not found");
-        if (pm == null)         Debug.LogError("[WallHandIK] PlayerMovement not found");
+        if (leftArmIK  == null) Debug.LogError("[WallHandIK] leftArmIK not assigned.", this);
+        if (ikTarget   == null) Debug.LogError("[WallHandIK] ikTarget not assigned.", this);
+        if (handOrigin == null) Debug.LogWarning("[WallHandIK] handOrigin not assigned — using player root.", this);
+        if (_wr        == null) Debug.LogError("[WallHandIK] WallRunning component not found.", this);
+        if (_pm        == null) Debug.LogError("[WallHandIK] PlayerMovement component not found.", this);
     }
+
+    private void Update()
+    {
+        if (leftArmIK == null) return;
+
+        bool    active    = false;
+        Vector3 rayOrigin = transform.position + Vector3.up * 0.3f;
+
+        Log($"rayOrigin:{rayOrigin} state:{_pm.state}");
+
+        if (_pm.wallrunning || _pm.wallSliding)
+        {
+            active = TryWallRay();
+        }
+        else if (_pm.state == PlayerMovement.MovementState.sliding)
+        {
+            _lastRayOrigin = rayOrigin;
+            active = TryGroundRay(rayOrigin);
+        }
+
+        float targetWeight = active ? 1f : 0f;
+        leftArmIK.weight = Mathf.MoveTowards(leftArmIK.weight, targetWeight, Time.deltaTime * ikSpeed);
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Ray Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private bool TryWallRay()
+    {
+        Vector3 toWall = -_wr.WallNormal;
+        if (Physics.Raycast(transform.position, toWall, out RaycastHit hit, wallRayDistance, _wr.whatIsWall))
+        {
+            ikTarget.position = hit.point;
+            ikTarget.rotation = Quaternion.LookRotation(_wr.WallNormal, Vector3.up);
+            _lastRayHit       = true;
+            _lastRayHitPoint  = hit.point;
+            return true;
+        }
+
+        _lastRayHit = false;
+        return false;
+    }
+
+    private bool TryGroundRay(Vector3 origin)
+    {
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, groundRayDistance))
+        {
+            LogSlide($"slide ray HIT — {hit.collider.name} layer:{hit.collider.gameObject.layer}");
+            ikTarget.position = hit.point;
+            ikTarget.rotation = Quaternion.LookRotation(Vector3.up, Vector3.forward);
+            _lastRayHit       = true;
+            _lastRayHitPoint  = hit.point;
+            return true;
+        }
+
+        _lastRayHit = false;
+        LogSlide($"slide ray MISS — origin:{origin} dist:{groundRayDistance}");
+        return false;
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Public API
+    // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Call from WeaponSwitcher after new weapon is drawn.
@@ -45,72 +144,45 @@ public class WallHandIK : MonoBehaviour
         leftArmIK = newIK;
     }
 
-    private void Update()
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Debug
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void Log(string msg)
     {
-        if (leftArmIK == null) return;
+        if (debugMode) Debug.Log($"[WallHandIK] {msg}", this);
+    }
 
-        bool active = false;
-        Vector3 rayOrigin = transform.position + Vector3.up * 0.3f;
-        Debug.Log($"[WallHandIK] rayOrigin:{rayOrigin} state:{pm.state}");
-
-        if (pm.wallrunning || pm.wallSliding)
-        {
-            Vector3 toWall = -wr.WallNormal;
-            if (Physics.Raycast(transform.position, toWall, out RaycastHit hit, wallRayDistance, wr.whatIsWall))
-            {
-                ikTarget.position = hit.point;
-                ikTarget.rotation = Quaternion.LookRotation(wr.WallNormal, Vector3.up);
-                active = true;
-                _lastRayHit = true;
-                _lastRayHitPoint = hit.point;
-            }
-            else _lastRayHit = false;
-        }
-        else if (pm.state == PlayerMovement.MovementState.sliding)
-        {
-            _lastRayOrigin = rayOrigin;
-            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, groundRayDistance))
-            {
-                if (debugMode) Debug.Log($"[WallHandIK] slide ray HIT — {hit.collider.name} layer:{hit.collider.gameObject.layer}");
-                ikTarget.position = hit.point;
-                ikTarget.rotation = Quaternion.LookRotation(Vector3.up, Vector3.forward);
-                active = true;
-                _lastRayHit = true;
-                _lastRayHitPoint = hit.point;
-            }
-            else
-            {
-                _lastRayHit = false;
-                if (debugMode) Debug.Log($"[WallHandIK] slide ray MISS — origin:{rayOrigin} dist:{groundRayDistance} layer:{pm.whatIsGround.value}");
-            }
-        }
-
-        float targetWeight = active ? 1f : 0f;
-        leftArmIK.weight = Mathf.MoveTowards(leftArmIK.weight, targetWeight, Time.deltaTime * ikSpeed);
-
-        if (debugMode && pm.state == PlayerMovement.MovementState.sliding)
-            Debug.Log($"[WallHandIK] sliding — rayHit:{_lastRayHit}  weight:{leftArmIK.weight:F2}  ikTargetPos:{ikTarget.position}");
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void LogSlide(string msg)
+    {
+        if (debugMode && _pm != null && _pm.state == PlayerMovement.MovementState.sliding)
+            Debug.Log($"[WallHandIK] {msg}", this);
     }
 
     private void OnDrawGizmos()
     {
-        if (!debugMode) return;
-        if (pm == null || wr == null) return;
+        if (!debugMode || _pm == null || _wr == null) return;
 
-        Vector3 rayOrigin = handOrigin != null ? handOrigin.position : transform.position;
+        Vector3 origin = handOrigin != null ? handOrigin.position : transform.position;
 
-        if (pm.state == PlayerMovement.MovementState.sliding)
+        if (_pm.state == PlayerMovement.MovementState.sliding)
         {
             Gizmos.color = _lastRayHit ? Color.green : Color.red;
-            Gizmos.DrawLine(rayOrigin, rayOrigin + Vector3.down * groundRayDistance);
+            Gizmos.DrawLine(origin, origin + Vector3.down * groundRayDistance);
             if (_lastRayHit) Gizmos.DrawSphere(_lastRayHitPoint, 0.05f);
         }
 
-        if (pm.wallrunning || pm.wallSliding)
+        if (_pm.wallrunning || _pm.wallSliding)
         {
             Gizmos.color = _lastRayHit ? Color.green : Color.red;
-            Gizmos.DrawLine(transform.position, transform.position + (-wr.WallNormal) * wallRayDistance);
+            Gizmos.DrawLine(transform.position, transform.position + (-_wr.WallNormal) * wallRayDistance);
             if (_lastRayHit) Gizmos.DrawSphere(_lastRayHitPoint, 0.05f);
         }
     }
+
+    #endregion
 }
