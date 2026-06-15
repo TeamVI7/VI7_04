@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 /// <summary>
 /// Gắn vào Canvas. Khi UI mở, tự động:
 /// - Mở cursor
-/// - Chặn tất cả input từ player bằng cách dùng EventSystem + TimeScale trick
+/// - Tắt các GameObject player (súng, ability...)
 /// Không đụng vào bất kỳ script nhân vật nào.
 /// </summary>
 public class UIInputBlocker : MonoBehaviour
@@ -18,11 +18,9 @@ public class UIInputBlocker : MonoBehaviour
     {
         IsBlocking = true;
 
-        // Mở cursor
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible   = true;
 
-        // Tắt các object cần tắt (VD: GunHolder, Ability scripts)
         foreach (var obj in objectsToDisable)
             if (obj != null) obj.SetActive(false);
     }
@@ -31,11 +29,9 @@ public class UIInputBlocker : MonoBehaviour
     {
         IsBlocking = false;
 
-        // Khoá cursor lại
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible   = false;
 
-        // Bật lại các object
         foreach (var obj in objectsToDisable)
             if (obj != null) obj.SetActive(true);
     }

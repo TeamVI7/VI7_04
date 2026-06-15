@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 6500010}
   - component: {fileID: 6500008}
   - component: {fileID: 6500006}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_UShaped_Plates
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -170,7 +170,7 @@ GameObject:
   - component: {fileID: 6500004}
   - component: {fileID: 6500002}
   - component: {fileID: 6500000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_UShaped_Banister
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -321,7 +321,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400004}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_UShaped
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -355,7 +355,7 @@ GameObject:
   m_Component:
   - component: {fileID: 400006}
   - component: {fileID: 6400000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PF_FLO_Walkway_UShaped
   m_TagString: Untagged
   m_Icon: {fileID: 0}

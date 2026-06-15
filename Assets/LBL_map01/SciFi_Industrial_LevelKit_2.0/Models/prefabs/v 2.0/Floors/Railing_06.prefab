@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2358346}
   - component: {fileID: 6560902}
   - component: {fileID: 6592818}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Railing_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 4981543770929596}
   - component: {fileID: 33850075017436742}
   - component: {fileID: 23921711692844868}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Railing_04 (5)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -237,7 +237,7 @@ GameObject:
   - component: {fileID: 4342499547299100}
   - component: {fileID: 33743820175310510}
   - component: {fileID: 23963768504375774}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Railing_04 (6)
   m_TagString: Untagged
   m_Icon: {fileID: 0}

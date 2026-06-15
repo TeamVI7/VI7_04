@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 497296}
   - component: {fileID: 3306134}
   - component: {fileID: 2352374}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor_E_2'5qmts_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -102,7 +102,7 @@ GameObject:
   m_Component:
   - component: {fileID: 402968}
   - component: {fileID: 6518454}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: COL (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -155,7 +155,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4364506134391418}
   - component: {fileID: 65097944124859244}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: COL
   m_TagString: Untagged
   m_Icon: {fileID: 0}

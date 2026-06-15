@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3356528}
   - component: {fileID: 2331890}
   - component: {fileID: 6436326}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: grid_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -125,7 +125,7 @@ GameObject:
   - component: {fileID: 3351564}
   - component: {fileID: 2355538}
   - component: {fileID: 6477722}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: frame_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -237,7 +237,7 @@ GameObject:
   - component: {fileID: 488914}
   - component: {fileID: 3355700}
   - component: {fileID: 2341646}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: details_
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -325,7 +325,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 483298}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor_F_2'5qmts_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3320220}
   - component: {fileID: 2321716}
   - component: {fileID: 6551624}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_Grills_27m_Banister
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -121,7 +121,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 444880}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PF_FLO_Walkway_Grills_27m
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -153,7 +153,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 476698}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_Grills_27m
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -189,7 +189,7 @@ GameObject:
   - component: {fileID: 3335602}
   - component: {fileID: 2354682}
   - component: {fileID: 6550106}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Walkway_Grills_27m_Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}

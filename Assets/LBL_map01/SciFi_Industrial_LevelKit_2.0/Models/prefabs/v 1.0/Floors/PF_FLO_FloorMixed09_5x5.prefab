@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3300000}
   - component: {fileID: 2300000}
   - component: {fileID: 6500000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_FloorMixed09_5x5
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -122,7 +122,7 @@ GameObject:
   m_Component:
   - component: {fileID: 400002}
   - component: {fileID: 6400000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PF_FLO_FloorMixed09_5x5
   m_TagString: Untagged
   m_Icon: {fileID: 0}

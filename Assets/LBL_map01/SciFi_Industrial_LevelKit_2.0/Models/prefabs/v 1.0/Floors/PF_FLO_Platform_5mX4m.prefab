@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3300000}
   - component: {fileID: 2300000}
   - component: {fileID: 6400000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Platform_5mX4m_Plates
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -128,7 +128,7 @@ GameObject:
   - component: {fileID: 6500004}
   - component: {fileID: 6500002}
   - component: {fileID: 6500000}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Platform_5mX4m_Banister
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -300,7 +300,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400004}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: FLO_Platform_5mX4m
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -333,7 +333,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400006}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PF_FLO_Platform_5mX4m
   m_TagString: Untagged
   m_Icon: {fileID: 0}
