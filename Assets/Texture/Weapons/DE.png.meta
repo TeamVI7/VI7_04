@@ -1,11 +1,5 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Assets/Texture/Weapons/DE.png.meta
 guid: 2346ff43b9d2d29469df1b79f17f144f
-========
-guid: 975843dd172f6a0499a41ffff2f4f6db
-timeCreated: 1523824538
-licenseType: Store
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_Barrel_MET.tga.meta
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -40,7 +34,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -54,8 +48,9 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
@@ -68,17 +63,16 @@ TextureImporter:
   compressionQualitySet: 0
   textureFormatSet: 0
   ignorePngGamma: 0
-  applyGammaDecoding: 0
+  applyGammaDecoding: 1
   swizzle: 50462976
-  cookieLightType: 0
+  cookieLightType: 2
   platformSettings:
-<<<<<<<< HEAD:Assets/Texture/Weapons/DE.png.meta
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -88,13 +82,10 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
     buildTarget: Standalone
-========
-  - buildTarget: DefaultTexturePlatform
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_Barrel_MET.tga.meta
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0

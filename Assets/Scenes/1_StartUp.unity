@@ -729,11 +729,11 @@ MonoBehaviour:
   audioSource: {fileID: 2078352130}
   musicSource: {fileID: 337511407}
   musicTracks:
-  - {fileID: 8300000, guid: 1845ee680d1fed3419240c9160d156cd, type: 3}
-  introStartSound: {fileID: 8300000, guid: 21e1d64f962e1f84c843abe0c97286fe, type: 3}
-  lineBeepSound: {fileID: 8300000, guid: 93fe8b74e13fa6d408151115e879db7b, type: 3}
+  - {fileID: 8300000, guid: f8e2b5fe7c41bba4a95988e40f513836, type: 3}
+  introStartSound: {fileID: 0}
+  lineBeepSound: {fileID: 0}
   systemReadySound: {fileID: 8300000, guid: 17b5081136bbfe0498153511d2816b44, type: 3}
-  injectHoldSound: {fileID: 8300000, guid: 7a0ff80cc4ecc5849a0a98733bb8676a, type: 3}
+  injectHoldSound: {fileID: 0}
   injectDoneSound: {fileID: 8300000, guid: 21e1d64f962e1f84c843abe0c97286fe, type: 3}
   glitchSound: {fileID: 0}
   osStartupSound: {fileID: 8300000, guid: 30c4662684f86394ea65206677b08cec, type: 3}

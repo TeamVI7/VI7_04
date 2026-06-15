@@ -21,7 +21,6 @@ public class WeaponsController : MonoBehaviour
 
     [Header("References")]
     public Animator                   gunAnimator;
-    public AnimatorOverrideController weaponAnimOverride;
     public PlayerMovement             playerMovement;
     public LayerMask                  aimColliderLayerMask;
     public Transform leftHandBone;
@@ -34,10 +33,6 @@ public class WeaponsController : MonoBehaviour
     [Header("Prefabs")]
     public GameObject bulletTrailPrefab;
     public GameObject muzzleFlashPrefab;
-
-    [Header("Casing")]
-    [Tooltip("Assign the CasingEjector component on this weapon. Leave null to skip casing.")]
-    public CasingEjector casingEjector;
 
     [Header("Reload Mode")]
     public bool animationDrivenReload = true;
@@ -219,8 +214,6 @@ public class WeaponsController : MonoBehaviour
     #region Private State
     // ─────────────────────────────────────────────────────────────────────────
 
-    private Grappling  _grapplingModule;
-
     private int   _currentAmmoInClip;
     private int   _ammoInReserve;
     private bool  _roundInChamber;
@@ -256,9 +249,7 @@ public class WeaponsController : MonoBehaviour
 
     private void Start()
     {
-        _grapplingModule = GetComponentInParent<Grappling>();
         ValidateSetup();
-        ApplyAnimationOverride();
         InitAudio();
     }
 
@@ -275,16 +266,6 @@ public class WeaponsController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Initialisation
     // ─────────────────────────────────────────────────────────────────────────
-
-    private void ApplyAnimationOverride()
-    {
-        if (gunAnimator == null || weaponAnimOverride == null) return;
-        gunAnimator.runtimeAnimatorController = weaponAnimOverride;
-        for (int i = 1; i < gunAnimator.layerCount; i++)
-            gunAnimator.SetLayerWeight(i, 1f);
-    }
-
-    public void SwapAnimationClips() => ApplyAnimationOverride();
 
     private void InitAmmo()
     {
@@ -308,7 +289,6 @@ public class WeaponsController : MonoBehaviour
         if (playerMovement      == null) LogWarning("playerMovement is not assigned — spread multipliers won't apply.");
         if (spawnBulletPosition == null) LogWarning("spawnBulletPosition is not assigned — hitscan will use transform.position.");
         if (muzzleFlashPoint    == null) LogWarning("muzzleFlashPoint is not assigned — muzzle flash will be skipped.");
-        if (casingEjector       == null) LogWarning("casingEjector is not assigned — casings will not spawn.");
     }
 
     #endregion
@@ -357,7 +337,6 @@ public class WeaponsController : MonoBehaviour
 
     private void TryStartReload()
     {
-        if (_grapplingModule != null && _grapplingModule.IsGrappling()) return;
         if (playerMovement.sliding) return;
         if (playerMovement.wallrunning) return;
         if (playerMovement.wallSliding) return;
@@ -448,7 +427,6 @@ public class WeaponsController : MonoBehaviour
         SpawnMuzzleFlash();
 
         // ── Casing via pooled ejector ──────────────────────────────────────
-        casingEjector?.Eject();
 
         Vector3 aimDir   = CalculateAimWithSpread();
         Vector3 hitPoint = PerformHitscan(aimDir);
@@ -464,10 +442,6 @@ public class WeaponsController : MonoBehaviour
             Log("Clip empty.");
             OnWeaponEmpty?.Invoke();
             SetState(WeaponState.Empty);
-
-            bool isGrappling = _grapplingModule != null && _grapplingModule.IsGrappling();
-            if (_ammoInReserve > 0 && !isGrappling)
-                _reloadCoroutine = StartCoroutine(Co_Reload());
         }
         else
         {

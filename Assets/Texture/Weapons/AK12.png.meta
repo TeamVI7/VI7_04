@@ -1,11 +1,5 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Assets/Texture/Weapons/AK12.png.meta
 guid: e1431ad18e939164ca922f5a19c19de9
-========
-guid: 5d341bda3e2ef3b4a905df81c2207e28
-timeCreated: 1522666147
-licenseType: Store
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_Puddles_NRM.png.meta
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -40,23 +34,13 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-<<<<<<<< HEAD:Assets/Texture/Weapons/AK12.png.meta
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
     wrapV: 1
     wrapW: 0
   nPOTScale: 0
-========
-    filterMode: -1
-    aniso: -1
-    mipBias: -1
-    wrapU: -1
-    wrapV: -1
-    wrapW: -1
-  nPOTScale: 1
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_Puddles_NRM.png.meta
   lightmap: 0
   compressionQuality: 50
   spriteMode: 1
@@ -64,8 +48,9 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
@@ -78,16 +63,16 @@ TextureImporter:
   compressionQualitySet: 0
   textureFormatSet: 0
   ignorePngGamma: 0
-  applyGammaDecoding: 0
+  applyGammaDecoding: 1
   swizzle: 50462976
-  cookieLightType: 0
+  cookieLightType: 2
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -100,27 +85,14 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
-<<<<<<<< HEAD:Assets/Texture/Weapons/AK12.png.meta
     forceMaximumCompressionQuality_BC6H_BC7: 0
-========
-  - buildTarget: WebGL
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    androidETC2FallbackOverride: 0
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_Puddles_NRM.png.meta
   spriteSheet:
     serializedVersion: 2
     sprites: []

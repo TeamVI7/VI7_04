@@ -3,16 +3,21 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Core player movement controller.
-/// 
+/// Tactical FPS player movement controller.
+///
+/// STATES (priority order): freeze → dashing → vaulting → wallrunning →
+///   climbing → wallSliding → sliding → leaning → crouching → sprinting →
+///   walking → standing → air
+///
 /// EXTENDING:
-///   - Subscribe to events (OnLanded, OnJumped, OnStateChanged, etc.) from ability scripts
+///   - Subscribe to events (OnLanded, OnJumped, OnStateChanged, OnStaminaChanged, etc.)
 ///   - Add new MovementState values and a corresponding else-if block in StateHandler()
 ///   - New ability flags go in the "State flags" region — keep them [HideInInspector]
-/// 
+///   - Footstep sounds: subscribe to OnFootstep
+///
 /// DEBUG:
-///   - Set debugLog = true in Inspector to see state transitions
-///   - PlayerStateDisplay component gives an on-screen overlay
+///   - Enable debugLog in Inspector to see state transitions
+///   - Use PlayerStateDisplay component for on-screen overlay
 /// </summary>
 public class PlayerMovement : MonoBehaviour
 {
@@ -20,28 +25,49 @@ public class PlayerMovement : MonoBehaviour
     #region Inspector
     // ─────────────────────────────────────────────────────────────────────────
 
-    [Header("Movement")]
-    public float walkSpeed              = 7f;
-    public float crouchSpeed            = 3.5f;
-    public float slideSpeed             = 14f;
-    public float wallrunSpeed           = 12f;
-    public float climbSpeed             = 3f;
-    public float swingSpeed             = 12f;
-    public float dashSpeed              = 20f;
-    public float dashSpeedChangeFactor  = 5f;
-    public float airMultiplier          = 0.4f;
-    public float groundDrag             = 5f;
+    [Header("Movement Speeds")]
+    public float walkSpeed             = 5f;
+    public float sprintSpeed           = 8f;
+    public float crouchSpeed           = 2.5f;
+    public float slideSpeed            = 12f;
+    public float wallrunSpeed          = 10f;
+    public float climbSpeed            = 3f;
+    public float dashSpeed             = 20f;
+    public float dashSpeedChangeFactor = 5f;
+    public float airMultiplier         = 0.3f;
+    public float groundDrag            = 6f;
 
     [Header("Speed Smoothing")]
     public float speedIncreaseMultiplier = 1.5f;
     public float slopeIncreaseMultiplier = 2.5f;
 
+    [Header("Stamina")]
+    [Tooltip("Maximum stamina. Sprint and slide consume stamina; standing/walking restores it.")]
+    public float maxStamina            = 100f;
+    [Tooltip("Stamina drained per second while sprinting.")]
+    public float staminaDrainRate      = 20f;
+    [Tooltip("Stamina restored per second while not sprinting.")]
+    public float staminaRegenRate      = 15f;
+    [Tooltip("Delay after sprint before regen begins.")]
+    public float staminaRegenDelay     = 1.5f;
+    [Tooltip("Minimum stamina required to start a new sprint.")]
+    public float minStaminaToSprint    = 10f;
+
     [Header("Jumping")]
-    public float jumpForce    = 12f;
+    public float jumpForce    = 11f;
     public float jumpCooldown = 0.25f;
 
     [Header("Crouching")]
     public float crouchYScale = 0.5f;
+
+    [Header("Leaning")]
+    [Tooltip("How far (world units) the camera holder shifts sideways when leaning.")]
+    public float leanAmount        = 0.4f;
+    [Tooltip("Roll angle applied to camera when leaning.")]
+    public float leanRollDeg       = 5f;
+    public float leanLerpSpeed     = 10f;
+    public KeyCode leanLeftKey     = KeyCode.Q;
+    public KeyCode leanRightKey    = KeyCode.E;
 
     [Header("Ground Check")]
     public float     playerHeight = 2f;
@@ -59,16 +85,15 @@ public class PlayerMovement : MonoBehaviour
     [Header("Slope Handling")]
     public float maxSlopeAngle = 40f;
 
-    [Header("Grapple FOV")]
-    public PlayerCam cam;
-    public float grappleFov = 95f;
-
     [Header("Keybinds")]
-    public KeyCode jumpKey   = KeyCode.Space;
-    public KeyCode crouchKey = KeyCode.LeftControl;
+    public KeyCode jumpKey    = KeyCode.Space;
+    public KeyCode crouchKey  = KeyCode.LeftControl;
+    public KeyCode sprintKey  = KeyCode.LeftShift;
 
     [Header("References")]
-    public Transform orientation;
+    public Transform   orientation;
+    [Tooltip("The camera holder Transform for lean offset (usually the same one PlayerCam uses).")]
+    public Transform   cameraHolder;
 
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
@@ -94,6 +119,19 @@ public class PlayerMovement : MonoBehaviour
     /// <summary>Fired when vaulting ends.</summary>
     public event Action OnVaultEnd;
 
+    /// <summary>
+    /// Fired each time the bob cycle crosses zero while walking/sprinting.
+    /// Subscribe from a FootstepAudio component to play sounds.
+    /// Args: (isSprinting)
+    /// </summary>
+    public event Action<bool> OnFootstep;
+
+    /// <summary>
+    /// Fired when stamina value changes. Args: (current, max)
+    /// Subscribe from a UI HUD component.
+    /// </summary>
+    public event Action<float, float> OnStaminaChanged;
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -106,11 +144,21 @@ public class PlayerMovement : MonoBehaviour
     [HideInInspector] public bool  wallSliding;
     [HideInInspector] public bool  vaulting;
     [HideInInspector] public bool  dashing;
-    [HideInInspector] public bool  swinging;
-    [HideInInspector] public bool  activeGrapple;
     [HideInInspector] public bool  freeze;
     [HideInInspector] public float maxYSpeed;
     [HideInInspector] public bool  grounded;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Public Read-Only State
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public float Stamina    => _stamina;
+    public float StaminaPct => _stamina / maxStamina;
+    public bool  IsSprinting => state == MovementState.sprinting;
+    public bool  IsLeaning   => state == MovementState.leaning;
+    public float LeanDirection => _leanDir; // -1 left, 0 none, +1 right
 
     #endregion
 
@@ -124,14 +172,14 @@ public class PlayerMovement : MonoBehaviour
     {
         freeze,
         dashing,
-        grappling,
-        swinging,
         vaulting,
         wallrunning,
         climbing,
         wallSliding,
         sliding,
+        leaning,      // peek left/right while still — tactical
         crouching,
+        sprinting,    // replaces the old walking+shift check
         walking,
         standing,
         air
@@ -166,24 +214,37 @@ public class PlayerMovement : MonoBehaviour
     private float   verticalInput;
     private Vector3 moveDirection;
 
+    // Vaulting
     private Vector3 vaultStartPos;
     private Vector3 vaultEndPos;
     private float   vaultTimer;
 
+    // Slope / ground
     private RaycastHit slopeHit;
     private RaycastHit groundHit;
     private bool       exitingSlope;
     private bool       readyToJump = true;
 
+    // Scale/collider at start
     private float   startYScale;
     private float   startColHeight;
     private Vector3 startColCenter;
 
-    // grapple arc helpers
-    private Vector3 velocityToSet;
-    private bool    enableMovementOnNextTouch;
+    // Stamina
+    private float _stamina;
+    private float _lastSprintTime;
+    private bool  _canSprint;     // blocked when stamina depleted until threshold refills
 
-    // landing detection
+    // Leaning
+    private float   _leanDir;           // -1, 0, +1
+    private Vector3 _leanCurrentOffset; // smoothed camera offset
+    private float   _leanCurrentRoll;   // smoothed roll angle
+
+    // Footstep
+    private float _footstepTimer;
+    private bool  _lastFootstepPositive; // track sine sign flip
+
+    // Landing detection
     private bool _wasGrounded;
 
     #endregion
@@ -194,13 +255,16 @@ public class PlayerMovement : MonoBehaviour
 
     private void Start()
     {
-        col   = GetComponent<CapsuleCollider>();
-        rb    = GetComponent<Rigidbody>();
+        col = GetComponent<CapsuleCollider>();
+        rb  = GetComponent<Rigidbody>();
         rb.freezeRotation = true;
 
         startYScale    = transform.localScale.y;
         startColHeight = col.height;
         startColCenter = col.center;
+
+        _stamina   = maxStamina;
+        _canSprint = true;
     }
 
     private void Update()
@@ -218,17 +282,17 @@ public class PlayerMovement : MonoBehaviour
         TryVault();
         StateHandler();
         SpeedControl();
+        TickStamina();
+        TickLean();
+        TickFootstep();
 
         // Drag
-        if (!activeGrapple)
-        {
-            bool onGround = state == MovementState.walking || state == MovementState.crouching;
-            rb.linearDamping = onGround ? groundDrag : 0f;
-        }
-        else
-        {
-            rb.linearDamping = 0f;
-        }
+        bool onGround = state == MovementState.walking
+                     || state == MovementState.standing
+                     || state == MovementState.crouching
+                     || state == MovementState.sprinting
+                     || state == MovementState.leaning;
+        rb.linearDamping = onGround ? groundDrag : 0f;
     }
 
     private void FixedUpdate()
@@ -250,6 +314,7 @@ public class PlayerMovement : MonoBehaviour
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput   = Input.GetAxisRaw("Vertical");
 
+        // Jump
         if (Input.GetKey(jumpKey) && readyToJump && grounded)
         {
             readyToJump = false;
@@ -257,18 +322,25 @@ public class PlayerMovement : MonoBehaviour
             Invoke(nameof(ResetJump), jumpCooldown);
         }
 
+        // Crouch down
         if (Input.GetKeyDown(crouchKey))
         {
-            col.height = col.height * crouchYScale;
-            col.center = new Vector3(col.center.x, col.center.y * crouchYScale, col.center.z);
+            col.height = startColHeight * crouchYScale;
+            col.center = new Vector3(startColCenter.x, startColCenter.y * crouchYScale, startColCenter.z);
             rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
         }
 
+        // Crouch release
         if (Input.GetKeyUp(crouchKey))
         {
             col.height = startColHeight;
             col.center = startColCenter;
         }
+
+        // Lean direction (-1 / 0 / +1)
+        bool leanL = Input.GetKey(leanLeftKey);
+        bool leanR = Input.GetKey(leanRightKey);
+        _leanDir = leanL && !leanR ? -1f : (!leanL && leanR ? 1f : 0f);
     }
 
     #endregion
@@ -280,7 +352,7 @@ public class PlayerMovement : MonoBehaviour
     private void StateHandler()
     {
         // Priority order — highest to lowest.
-        // EXTEND: Add new ability states as else-if blocks before the walking/air block.
+        // EXTEND: Insert new ability states as else-if blocks before sprinting/walking.
 
         if (freeze)
         {
@@ -293,16 +365,6 @@ public class PlayerMovement : MonoBehaviour
             SetState(MovementState.dashing);
             desiredMoveSpeed  = dashSpeed;
             speedChangeFactor = dashSpeedChangeFactor;
-        }
-        else if (activeGrapple)
-        {
-            SetState(MovementState.grappling);
-            desiredMoveSpeed = walkSpeed;
-        }
-        else if (swinging)
-        {
-            SetState(MovementState.swinging);
-            desiredMoveSpeed = swingSpeed;
         }
         else if (vaulting)
         {
@@ -333,6 +395,19 @@ public class PlayerMovement : MonoBehaviour
         {
             SetState(MovementState.crouching);
             desiredMoveSpeed = crouchSpeed;
+        }
+        else if (CanSprint() && Input.GetKey(sprintKey) && grounded
+                 && (horizontalInput != 0f || verticalInput > 0f))
+        {
+            SetState(MovementState.sprinting);
+            desiredMoveSpeed = sprintSpeed;
+        }
+        else if (_leanDir != 0f && grounded
+                 && horizontalInput == 0f && verticalInput == 0f)
+        {
+            // Tactical lean — only while stationary
+            SetState(MovementState.leaning);
+            desiredMoveSpeed = 0f;
         }
         else if (grounded && horizontalInput == 0f && verticalInput == 0f)
         {
@@ -405,8 +480,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void MovePlayer()
     {
-        if (freeze || activeGrapple || swinging || dashing || vaulting ||
-            wallrunning || climbing || wallSliding)
+        if (freeze || dashing || vaulting || wallrunning || climbing || wallSliding)
             return;
 
         moveDirection = orientation.forward * verticalInput
@@ -422,10 +496,11 @@ public class PlayerMovement : MonoBehaviour
         {
             rb.AddForce(moveDirection.normalized * moveSpeed * 10f, ForceMode.Force);
 
-            if (horizontalInput == 0 && verticalInput == 0)
+            // Extra braking when no input — snappier tactical stops
+            if (horizontalInput == 0f && verticalInput == 0f)
             {
                 Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-                rb.AddForce(-flatVel * 15f, ForceMode.Force);
+                rb.AddForce(-flatVel * 18f, ForceMode.Force);
             }
         }
         else
@@ -438,8 +513,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void SpeedControl()
     {
-        if (activeGrapple) return;
-
         if (OnSlope() && !exitingSlope)
         {
             if (rb.linearVelocity.magnitude > moveSpeed)
@@ -488,13 +561,12 @@ public class PlayerMovement : MonoBehaviour
 
     private void TryVault()
     {
-        if (vaulting || !grounded || activeGrapple || sliding || wallrunning || climbing || dashing || freeze)
+        if (vaulting || !grounded || sliding || wallrunning || climbing || dashing || freeze)
             return;
-
         if (verticalInput <= 0f) return;
 
         LayerMask obstacleMask = whatIsWall.value == 0 ? whatIsGround : whatIsWall;
-        Vector3 origin = transform.position + Vector3.up * vaultCheckHeight;
+        Vector3   origin       = transform.position + Vector3.up * vaultCheckHeight;
         if (!Physics.Raycast(origin, orientation.forward, out RaycastHit hit, vaultCheckDistance, obstacleMask))
             return;
 
@@ -535,38 +607,108 @@ public class PlayerMovement : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Grapple Arc
+    #region Stamina
     // ─────────────────────────────────────────────────────────────────────────
 
-    public void JumpToPosition(Vector3 targetPosition, float trajectoryHeight)
+    private bool CanSprint()
     {
-        activeGrapple = true;
-        velocityToSet = CalculateJumpVelocity(transform.position, targetPosition, trajectoryHeight);
-        Invoke(nameof(SetVelocity), 0.1f);
-        Invoke(nameof(ResetRestrictions), 3f);
+        if (!_canSprint) return false;
+        return _stamina > 0f;
     }
 
-    private void SetVelocity()
+    private void TickStamina()
     {
-        enableMovementOnNextTouch = true;
-        rb.linearVelocity = velocityToSet;
-        if (cam != null) cam.DoFov(grappleFov);
-    }
+        bool isSprinting = state == MovementState.sprinting;
 
-    public void ResetRestrictions()
-    {
-        activeGrapple = false;
-        if (cam != null) cam.DoFov(85f);
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (enableMovementOnNextTouch)
+        if (isSprinting)
         {
-            enableMovementOnNextTouch = false;
-            ResetRestrictions();
-            GetComponent<Grappling>()?.StopGrapple();
+            _lastSprintTime = Time.time;
+            float prev = _stamina;
+            _stamina = Mathf.Max(_stamina - staminaDrainRate * Time.deltaTime, 0f);
+
+            if (_stamina <= 0f)
+            {
+                _canSprint = false;  // must refill to minStaminaToSprint before sprinting again
+                Log("Stamina depleted — sprint locked.");
+            }
+
+            if (!Mathf.Approximately(_stamina, prev))
+                OnStaminaChanged?.Invoke(_stamina, maxStamina);
         }
+        else if (Time.time - _lastSprintTime >= staminaRegenDelay)
+        {
+            float prev = _stamina;
+            _stamina = Mathf.Min(_stamina + staminaRegenRate * Time.deltaTime, maxStamina);
+
+            // Re-enable sprint once past the minimum threshold
+            if (!_canSprint && _stamina >= minStaminaToSprint)
+            {
+                _canSprint = true;
+                Log("Sprint re-enabled.");
+            }
+
+            if (!Mathf.Approximately(_stamina, prev))
+                OnStaminaChanged?.Invoke(_stamina, maxStamina);
+        }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Lean
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void TickLean()
+    {
+        if (cameraHolder == null) return;
+
+        // Target offset and roll based on lean direction
+        Vector3 targetOffset = orientation.right * (_leanDir * leanAmount);
+        float   targetRoll   = -_leanDir * leanRollDeg;
+
+        // Smooth toward target
+        _leanCurrentOffset = Vector3.Lerp(_leanCurrentOffset, targetOffset,
+                                          Time.deltaTime * leanLerpSpeed);
+        _leanCurrentRoll   = Mathf.Lerp(_leanCurrentRoll, targetRoll,
+                                         Time.deltaTime * leanLerpSpeed);
+
+        // Apply — offset is additive; roll is applied as a Z euler on the holder
+        // PlayerCam handles X/Y rotation; we only touch Z (roll) here.
+        // NOTE: if PlayerCam also drives localRotation.z (tilt), compose instead of override:
+        //       capture the cam's Z and add _leanCurrentRoll on top.
+        cameraHolder.localPosition = _leanCurrentOffset;
+
+        Vector3 euler = cameraHolder.localEulerAngles;
+        euler.z = _leanCurrentRoll;
+        cameraHolder.localEulerAngles = euler;
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Footstep
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Detects when the vertical component of the bob sine wave crosses zero
+    /// (positive-to-negative) and fires OnFootstep so an audio component can respond.
+    /// No sounds are played here — keep audio concerns in a separate subscriber.
+    /// </summary>
+    private void TickFootstep()
+    {
+        bool moving = (state == MovementState.walking || state == MovementState.sprinting)
+                   && grounded;
+
+        if (!moving) return;
+
+        float freq = state == MovementState.sprinting ? 12f : 7f;
+        _footstepTimer += Time.deltaTime * freq;
+        bool positive = Mathf.Sin(_footstepTimer) > 0f;
+
+        if (_lastFootstepPositive && !positive)
+            OnFootstep?.Invoke(state == MovementState.sprinting);
+
+        _lastFootstepPositive = positive;
     }
 
     #endregion
@@ -588,19 +730,6 @@ public class PlayerMovement : MonoBehaviour
 
     public Vector3 GetSlopeMoveDirection(Vector3 direction) =>
         Vector3.ProjectOnPlane(direction, slopeHit.normal).normalized;
-
-    public Vector3 CalculateJumpVelocity(Vector3 start, Vector3 end, float height)
-    {
-        float   gravity        = Physics.gravity.y;
-        float   displacementY  = end.y - start.y;
-        Vector3 displacementXZ = new Vector3(end.x - start.x, 0f, end.z - start.z);
-
-        Vector3 velocityY  = Vector3.up * Mathf.Sqrt(-2f * gravity * height);
-        Vector3 velocityXZ = displacementXZ /
-                             (Mathf.Sqrt(-2f * height / gravity)
-                            + Mathf.Sqrt(2f * (displacementY - height) / gravity));
-        return velocityXZ + velocityY;
-    }
 
     #endregion
 
