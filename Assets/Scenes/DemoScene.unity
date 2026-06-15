@@ -1554,7 +1554,7 @@ Transform:
   m_GameObject: {fileID: 263840210}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.53, z: 0}
+  m_LocalPosition: {x: 0, y: 0.55, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1643,7 +1643,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.1
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 90
   orthographic: 0
@@ -7717,7 +7717,12 @@ MonoBehaviour:
   blockDuringReload: 1
   proceduralAnimator: {fileID: 1360636417}
   recoilModule: {fileID: 1360636418}
-  wallHandIK: {fileID: 1073370822}
+  wallHandIK: {fileID: 0}
+  adsProfiles:
+  - {fileID: 11400000, guid: bc75ff6c0e87a034a91b8fa0c8fd1d9d, type: 2}
+  - {fileID: 11400000, guid: ae837ce63d310634892edd6fac0d27ee, type: 2}
+  - {fileID: 11400000, guid: a72e82916f397b1469d690f482fbdc03, type: 2}
+  - {fileID: 11400000, guid: a7fcdbd88c79a7d488df5a79a9d41f19, type: 2}
   debugLog: 1
 --- !u!1 &1319652010
 GameObject:
@@ -7961,10 +7966,11 @@ MonoBehaviour:
   playerMovement: {fileID: 1073370818}
   recoilModule: {fileID: 1360636418}
   playerCamera: {fileID: 263840214}
-  basePosOffset: {x: 0, y: 0, z: 0}
-  adsBaseOffset: {x: 0, y: 0, z: 0}
+  adsProfile: {fileID: 0}
   adsKey: 324
-  adsLerpSpeed: 10
+  fallbackHipPos: {x: 0.15, y: -0.18, z: 0.35}
+  fallbackADSPos: {x: 0, y: -0.12, z: 0.25}
+  fallbackADSLerp: 10
   breathAmplitudeY: 0.002
   breathAmplitudeX: 0.001
   breathFrequency: 0.8
@@ -10994,7 +11000,7 @@ Transform:
   m_GameObject: {fileID: 1931250897}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.069, y: 0.40199995, z: 0}
+  m_LocalPosition: {x: -0, y: 0.448, z: -0.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -11020,7 +11026,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GunController
   weaponData: {fileID: 11400000, guid: 4efdf9ba9d9cda949a74ed464eec8c16, type: 2}
-  recoilProfile: {fileID: 0}
+  recoilProfile: {fileID: 11400000, guid: e0274b0204e1404468ac3c7015028a2c, type: 2}
   gunAnimator: {fileID: 1931250902}
   playerMovement: {fileID: 1073370818}
   aimColliderLayerMask:
@@ -14630,8 +14636,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 305515728885976436}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.03923639, z: -0, w: 0.99923}
-  m_LocalPosition: {x: 0.076, y: 0.396, z: -0.091}
+  m_LocalRotation: {x: -0.0005700382, y: -0.03923225, z: 0.0145171145, w: 0.9991245}
+  m_LocalPosition: {x: 0.095, y: 0.387, z: -0.108}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -14644,7 +14650,7 @@ Transform:
   - {fileID: 7678576421754276345}
   - {fileID: 265270958}
   m_Father: {fileID: 1360636416}
-  m_LocalEulerAnglesHint: {x: 0, y: -4.497, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -4.497, z: 1.665}
 --- !u!4 &1119418488749912887
 Transform:
   m_ObjectHideFlags: 0
@@ -19817,7 +19823,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponsController
   weaponData: {fileID: 11400000, guid: 76831eeb8d626d24eaaa1be68b6797ce, type: 2}
-  recoilProfile: {fileID: 0}
+  recoilProfile: {fileID: 11400000, guid: 455475e6177023b4e9b7866b85df726c, type: 2}
   gunAnimator: {fileID: 3156729171943349677}
   playerMovement: {fileID: 1073370818}
   aimColliderLayerMask:
@@ -30974,12 +30980,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7175602380105876432}
-  - component: {fileID: 7556772943357335918}
-  - component: {fileID: 7556772943357335917}
   - component: {fileID: 7556772943357335916}
+  - component: {fileID: 7556772943357335917}
   - component: {fileID: 7556772943357335915}
   - component: {fileID: 7556772943357335919}
   - component: {fileID: 7556772943357335920}
+  - component: {fileID: 7556772943357335918}
   m_Layer: 0
   m_Name: AK12
   m_TagString: Untagged
@@ -31037,7 +31043,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponsController
   weaponData: {fileID: 11400000, guid: ce44d6db4f77c7946ab570e86efdac46, type: 2}
-  recoilProfile: {fileID: 0}
+  recoilProfile: {fileID: 11400000, guid: 0e91b7859f8484942bcedcbdacc69838, type: 2}
   gunAnimator: {fileID: 7556772943357335916}
   playerMovement: {fileID: 1073370818}
   aimColliderLayerMask:
@@ -33188,7 +33194,7 @@ Transform:
   m_GameObject: {fileID: 9219567816182043407}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.018, y: 0.306, z: -0.037}
+  m_LocalPosition: {x: 0.124, y: 0.375, z: -0.037}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -35202,11 +35208,11 @@ GameObject:
   m_Component:
   - component: {fileID: 8410943686448761269}
   - component: {fileID: 9219567816182043410}
-  - component: {fileID: 9219567816182043409}
   - component: {fileID: 9219567816182043411}
   - component: {fileID: 9219567816182043412}
   - component: {fileID: 9219567816182043413}
   - component: {fileID: 9219567816182043414}
+  - component: {fileID: 9219567816182043409}
   m_Layer: 0
   m_Name: SBFGB
   m_TagString: Untagged

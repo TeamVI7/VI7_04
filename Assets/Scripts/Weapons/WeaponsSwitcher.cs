@@ -3,32 +3,60 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Drop-in replacement for WeaponSwitcher that uses procedural Transform lerp
+/// to switch weapons — no animation events, no holster/draw clips required.
+///
+/// WHAT IT DOES:
+///   Outgoing weapon lerps down-and-tilted out of frame, then the incoming
+///   weapon rises up from below into the rest pose.  Inspired by the smooth
+///   procedural switching in Battlefield/CoD.
+///
+/// SETUP:
+///   1. Replace WeaponSwitcher with this component on the WeaponHolder object.
+///   2. Assign the same weapons list (WeaponsControllers).
+///   3. Assign weaponPivot (the WeaponPivot Transform that ProceduralWeaponAnimator sits on).
+///   4. The outgoing weapon's GameObject is hidden at the MIDPOINT of the switch,
+///      not immediately — this is what gives the "dip out, rise in" feel.
+/// </summary>
 public class WeaponSwitcherProcedural : MonoBehaviour
 {
     #region Inspector
 
-    [Header("Weapons")]
+    [Header("Weapons — slot order = key 1/2/…")]
     public List<WeaponsController> weapons = new();
 
     [Header("Pivot Reference")]
+    [Tooltip("The WeaponPivot Transform that ProceduralWeaponAnimator + ProceduralRecoil live on.")]
     public Transform weaponPivot;
 
     [Header("Switch Animation")]
+    [Tooltip("Local Y position the weapon drops to when leaving.")]
     public float dropY          = -0.35f;
+    [Tooltip("Local Z rotation the weapon tilts to when leaving.")]
     public float dropTiltZ      = -15f;
+    [Tooltip("Time to animate the outgoing weapon out of frame.")]
     public float dropDuration   = 0.14f;
+    [Tooltip("Local Y position the incoming weapon rises from.")]
     public float riseFromY      = -0.45f;
+    [Tooltip("Time to animate the incoming weapon into the rest pose.")]
     public float riseDuration   = 0.18f;
 
     [Header("Input")]
     public bool useScrollWheel  = true;
     public bool useNumberKeys   = true;
+    [Tooltip("Block switching while the current weapon is mid-reload.")]
     public bool blockDuringReload = true;
 
     [Header("References")]
     public ProceduralWeaponAnimator proceduralAnimator;
     public ProceduralRecoil         recoilModule;
-    public WallHandIK               wallHandIK;         // ← ADD: assign in Inspector
+    public WallHandIK               wallHandIK;
+
+    [Header("ADS Profiles")]
+    [Tooltip("One entry per weapon slot, matching the weapons list order. " +
+             "Leave an element null to use the fallback pose in ProceduralWeaponAnimator.")]
+    public WeaponADSProfile[] adsProfiles = Array.Empty<WeaponADSProfile>();
 
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
@@ -76,17 +104,11 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         if (first != null)
         {
             first.NotifyEquipped();
-            wallHandIK?.SetIK(first.leftArmIK);     // ← ADD: init IK for first weapon
+            wallHandIK?.SetIK(first.leftArmIK);
         }
 
-        GetComponent<WallRunning>().OnWallRunStart += () =>
-        {
-            var w = GetWeapon(_currentIndex);
-            if (w == null) return;
-            if (w.IsReloading)  w.CancelReload();
-            if (w.IsInspecting) w.CancelInspect();
-        };
         recoilModule?.RebindController(first);
+        proceduralAnimator?.LoadProfile(GetProfile(0));
 
         Log($"Ready — active: [{0}] {first?.name}");
     }
@@ -179,9 +201,14 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         if (outgoing != null) outgoing.gameObject.SetActive(false);
         _currentIndex = nextIndex;
         incoming.gameObject.SetActive(true);
+        
         recoilModule?.RebindController(incoming);
-        wallHandIK?.SetIK(incoming.leftArmIK);       // ← ADD: update IK on swap
+        wallHandIK?.SetIK(incoming.leftArmIK);
         proceduralAnimator?.SnapToHip();
+        
+        var profile = GetProfile(nextIndex);
+        proceduralAnimator?.LoadProfile(profile);
+        if (profile?.recoilProfile != null) recoilModule?.ApplyProfile(profile.recoilProfile);
 
         if (weaponPivot != null)
         {
@@ -193,10 +220,10 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         // ── Rise in ───────────────────────────────────────────────────────
         if (weaponPivot != null)
         {
-            Vector3    riseStartPos = weaponPivot.localPosition;
-            Quaternion riseStartRot = weaponPivot.localRotation;
+            Vector3    riseStartPos  = weaponPivot.localPosition;
+            Quaternion riseStartRot  = weaponPivot.localRotation;
             Vector3    riseTargetPos = proceduralAnimator != null
-                                     ? proceduralAnimator.basePosOffset
+                                     ? proceduralAnimator.ActiveHipPos
                                      : riseStartPos + new Vector3(0f, -riseFromY, 0f);
             yield return AnimatePivot(riseStartPos, riseTargetPos, riseStartRot,
                                       Quaternion.identity, riseDuration, Easing.EaseOutBack);
@@ -235,6 +262,9 @@ public class WeaponSwitcherProcedural : MonoBehaviour
     private WeaponsController GetWeapon(int i) =>
         (i >= 0 && i < weapons.Count) ? weapons[i] : null;
 
+    private WeaponADSProfile GetProfile(int i) =>
+        (i >= 0 && i < adsProfiles.Length) ? adsProfiles[i] : null;
+
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
     private void Log(string msg)
     {
@@ -252,6 +282,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         public static float EaseOutQuad(float t) => 1f - (1f - t) * (1f - t);
         public static float EaseInOutQuad(float t) =>
             t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) * 0.5f;
+
         public static float EaseOutBack(float t)
         {
             const float c1 = 1.70158f;

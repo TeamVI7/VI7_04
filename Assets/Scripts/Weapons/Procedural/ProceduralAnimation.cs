@@ -23,18 +23,22 @@ public class ProceduralWeaponAnimator : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     [Header("References")]
-    public PlayerMovement   playerMovement;
-    public ProceduralRecoil recoilModule;
-    public Camera           playerCamera;
+    public PlayerMovement    playerMovement;
+    public ProceduralRecoil  recoilModule;
+    public Camera            playerCamera;
 
-    [Header("Base Position (rest pose)")]
-    public Vector3 basePosOffset   = new Vector3(0.15f, -0.18f, 0.35f);
-    public Vector3 adsBaseOffset   = new Vector3(0f,   -0.12f, 0.25f);
+    [Header("ADS Profile")]
+    [Tooltip("Active per-weapon profile. Swap via LoadProfile() when switching weapons.")]
+    public WeaponADSProfile  adsProfile;
 
-    [Header("ADS")]
-    public KeyCode adsKey          = KeyCode.Mouse1;
-    [Range(1f, 20f)]
-    public float adsLerpSpeed      = 10f;
+    [Header("ADS Input")]
+    public KeyCode adsKey           = KeyCode.Mouse1;
+
+    [Header("Fallback Pose (used when no profile is assigned)")]
+    public Vector3 fallbackHipPos   = new Vector3(0.15f, -0.18f, 0.35f);
+    public Vector3 fallbackADSPos   = new Vector3(0f,   -0.12f, 0.25f);
+    [Range(1f, 25f)]
+    public float   fallbackADSLerp  = 10f;
 
     [Header("Idle Breathing")]
     public float breathAmplitudeY  = 0.002f;
@@ -122,26 +126,33 @@ public class ProceduralWeaponAnimator : MonoBehaviour
 
     private void UpdateADS()
     {
-        _isADS = Input.GetKey(adsKey) && CanADS();
+        bool wantADS = Input.GetKey(adsKey) && CanADS();
+        _isADS = wantADS;
+
         float targetBlend = _isADS ? 1f : 0f;
-        _adsBlend = Mathf.Lerp(_adsBlend, targetBlend, Time.deltaTime * adsLerpSpeed);
+        float speed       = adsProfile != null ? adsProfile.adsLerpSpeed : fallbackADSLerp;
+        _adsBlend = Mathf.Lerp(_adsBlend, targetBlend, Time.deltaTime * speed);
 
         recoilModule?.SetADS(_isADS);
 
-        // Narrow FOV slightly when ADS (optional — comment out if you want per-weapon ADSCam)
+        // Per-weapon FOV
         if (playerCamera != null)
         {
-            float targetFov = _isADS ? 55f : 80f;
+            float hipFOV = adsProfile != null ? adsProfile.hipFOV : 80f;
+            float adsFOV = adsProfile != null ? adsProfile.adsFOV : 55f;
+            float targetFov = Mathf.Lerp(hipFOV, adsFOV, _adsBlend);
             playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFov,
-                                                   Time.deltaTime * adsLerpSpeed);
+                                                   Time.deltaTime * speed);
         }
     }
 
     private bool CanADS()
     {
         if (playerMovement == null) return true;
-        // Block ADS while sprinting or mid-air with low control
-        return playerMovement.state != PlayerMovement.MovementState.dashing;
+        if (playerMovement.state == PlayerMovement.MovementState.dashing) return false;
+        bool blockSprint = adsProfile == null || adsProfile.blockSprintWhileADS;
+        if (blockSprint && playerMovement.state == PlayerMovement.MovementState.sprinting) return false;
+        return true;
     }
 
     #endregion
@@ -176,17 +187,15 @@ public class ProceduralWeaponAnimator : MonoBehaviour
         float mouseX = Input.GetAxisRaw("Mouse X");
         float mouseY = Input.GetAxisRaw("Mouse Y");
 
-        // Clamp raw deltas so heavy mouse throws don't look broken
         mouseX = Mathf.Clamp(mouseX, -swayMaxDelta, swayMaxDelta);
         mouseY = Mathf.Clamp(mouseY, -swayMaxDelta, swayMaxDelta);
 
-        float adsScale = Mathf.Lerp(1f, 0.25f, _adsBlend);
+        float swayDamp = adsProfile != null ? adsProfile.adsSwayDamping : 0.75f;
+        float adsScale = Mathf.Lerp(1f, 1f - swayDamp, _adsBlend);
 
-        // Positional sway — weapon lags behind look direction
         Vector3 targetSway = new Vector3(-mouseX * swayAmountX, -mouseY * swayAmountY, 0f) * adsScale;
         _currentSway = Vector3.Lerp(_currentSway, targetSway, Time.deltaTime * swaySmoothing);
 
-        // Rotational sway — weapon tilts on mouse look
         Quaternion targetRotSway = Quaternion.Euler(
              mouseY * rotSwayAmountX * adsScale,
              mouseX * rotSwayAmountY * adsScale,
@@ -205,20 +214,22 @@ public class ProceduralWeaponAnimator : MonoBehaviour
     {
         _breathTimer += Time.deltaTime * breathFrequency * Mathf.PI * 2f;
 
-        bool isSprinting = playerMovement.state == PlayerMovement.MovementState.walking
-                        && Input.GetKey(KeyCode.LeftShift);
+        bool isSprinting = playerMovement.state == PlayerMovement.MovementState.sprinting;
 
-        // Select bob parameters based on movement state
         float bobFreq, bobAmpY, bobAmpX;
 
         switch (playerMovement.state)
         {
             case PlayerMovement.MovementState.walking:
-                bobFreq = isSprinting ? bobFrequencySprint : bobFrequencyWalk;
-                bobAmpY = isSprinting ? bobAmplitudeYSprint : bobAmplitudeY;
-                bobAmpX = isSprinting ? bobAmplitudeXSprint : bobAmplitudeX;
+                bobFreq = bobFrequencyWalk;
+                bobAmpY = bobAmplitudeY;
+                bobAmpX = bobAmplitudeX;
                 break;
-
+            case PlayerMovement.MovementState.sprinting:
+                bobFreq = bobFrequencySprint;
+                bobAmpY = bobAmplitudeYSprint;
+                bobAmpX = bobAmplitudeXSprint;
+                break;
             default:
                 bobFreq = bobFrequencyWalk;
                 bobAmpY = 0f;
@@ -226,7 +237,8 @@ public class ProceduralWeaponAnimator : MonoBehaviour
                 break;
         }
 
-        bool isMoving = playerMovement.state == PlayerMovement.MovementState.walking;
+        bool isMoving = playerMovement.state == PlayerMovement.MovementState.walking
+                     || playerMovement.state == PlayerMovement.MovementState.sprinting;
 
         if (isMoving && playerMovement.grounded)
         {
@@ -260,20 +272,23 @@ public class ProceduralWeaponAnimator : MonoBehaviour
 
     private void ApplyFinalPose()
     {
-        float scaleADS = Mathf.Lerp(1f, 0.2f, _adsBlend);
+        float bobDamp = adsProfile != null ? adsProfile.adsBobDamping : 0.8f;
+        float scaleADS = Mathf.Lerp(1f, 1f - bobDamp, _adsBlend);
 
-        bool isSprinting = playerMovement.state == PlayerMovement.MovementState.walking
-                        && Input.GetKey(KeyCode.LeftShift);
-        bool isMoving    = playerMovement.state == PlayerMovement.MovementState.walking
+        bool isSprinting = playerMovement.state == PlayerMovement.MovementState.sprinting;
+        bool isMoving    = (playerMovement.state == PlayerMovement.MovementState.walking
+                         || playerMovement.state == PlayerMovement.MovementState.sprinting)
                         && playerMovement.grounded;
 
         float bobY = Mathf.Sin(_bobTimer)        * (isMoving ? (isSprinting ? bobAmplitudeYSprint : bobAmplitudeY) : 0f) * scaleADS;
         float bobX = Mathf.Sin(_bobTimer * 0.5f) * (isMoving ? (isSprinting ? bobAmplitudeXSprint : bobAmplitudeX) : 0f) * scaleADS;
-        float breathY = Mathf.Sin(_breathTimer)  * breathAmplitudeY * scaleADS;
-        float breathX = Mathf.Cos(_breathTimer * 0.6f) * breathAmplitudeX * scaleADS;
+        float breathY = Mathf.Sin(_breathTimer)          * breathAmplitudeY * scaleADS;
+        float breathX = Mathf.Cos(_breathTimer * 0.6f)   * breathAmplitudeX * scaleADS;
 
         // ── Position ──────────────────────────────────────────────────────
-        Vector3 basePos  = Vector3.Lerp(basePosOffset, adsBaseOffset, _adsBlend);
+        Vector3 hipPos = adsProfile != null ? adsProfile.hipPosOffset : fallbackHipPos;
+        Vector3 adsPos = adsProfile != null ? adsProfile.adsPosOffset : fallbackADSPos;
+        Vector3 basePos  = Vector3.Lerp(hipPos, adsPos, _adsBlend);
         Vector3 dynamicP = new Vector3(
             bobX + breathX + _currentSway.x,
             bobY + breathY + _currentSway.y + _landingDip,
@@ -282,8 +297,11 @@ public class ProceduralWeaponAnimator : MonoBehaviour
         transform.localPosition = basePos + dynamicP;
 
         // ── Rotation ──────────────────────────────────────────────────────
-        Quaternion tiltRot = Quaternion.Euler(0f, 0f, _currentSprintTilt);
-        transform.localRotation = _currentRotSway * tiltRot;
+        Vector3 hipRot = adsProfile != null ? adsProfile.hipRotOffset : Vector3.zero;
+        Vector3 adsRot = adsProfile != null ? adsProfile.adsRotOffset : Vector3.zero;
+        Quaternion baseRot   = Quaternion.Euler(Vector3.Lerp(hipRot, adsRot, _adsBlend));
+        Quaternion tiltRot   = Quaternion.Euler(0f, 0f, _currentSprintTilt);
+        transform.localRotation = _currentRotSway * baseRot * tiltRot;
     }
 
     #endregion
@@ -295,6 +313,24 @@ public class ProceduralWeaponAnimator : MonoBehaviour
     /// <returns>True if ADS is currently active.</returns>
     public bool IsADS => _isADS;
 
+    /// <summary>
+    /// The current hip-fire localPosition target — reads from active profile or fallback.
+    /// Used by WeaponSwitcherProcedural to know where to animate the rise-in toward.
+    /// </summary>
+    public Vector3 ActiveHipPos =>
+        adsProfile != null ? adsProfile.hipPosOffset : fallbackHipPos;
+
+    /// <summary>
+    /// Swap to a new per-weapon ADS profile.
+    /// Call from WeaponSwitcherProcedural.FinishSwitch() after the incoming
+    /// weapon is active. Pass null to fall back to the hardcoded fallback pose.
+    /// </summary>
+    public void LoadProfile(WeaponADSProfile profile)
+    {
+        adsProfile = profile;
+        Log($"Loaded ADS profile: {(profile != null ? profile.name : "null (using fallback)")}");
+    }
+
     /// <summary>Force-snap back to hip pose instantly (call after weapon switch).</summary>
     public void SnapToHip()
     {
@@ -302,6 +338,14 @@ public class ProceduralWeaponAnimator : MonoBehaviour
         _currentSway    = Vector3.zero;
         _currentRotSway = Quaternion.identity;
         _isADS          = false;
+
+        // Reset pivot to hip pose immediately so there's no 1-frame artifact
+        if (adsProfile != null)
+            transform.localPosition = adsProfile.hipPosOffset;
+        else
+            transform.localPosition = fallbackHipPos;
+
+        transform.localRotation = Quaternion.identity;
     }
 
     #endregion
