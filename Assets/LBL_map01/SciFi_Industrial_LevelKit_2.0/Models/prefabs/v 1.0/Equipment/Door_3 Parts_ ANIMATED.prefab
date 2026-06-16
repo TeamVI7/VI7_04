@@ -882,7 +882,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 6902
+  m_VersionIndex: 6743
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1718,7 +1718,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 8309
+  m_VersionIndex: 8315
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -2705,7 +2705,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 6902
+  m_VersionIndex: 6743
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -2821,9 +2821,33 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4550823962767070}
     m_Modifications:
+    - target: {fileID: 100000, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100002, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100004, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100006, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100008, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 100010, guid: 3dead9d833444f842bde974513393351, type: 3}
       propertyPath: m_Name
       value: PF_EQP_Control_SmallPanelMonitor
+      objectReference: {fileID: 0}
+    - target: {fileID: 100010, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 400010, guid: 3dead9d833444f842bde974513393351, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2883,9 +2907,33 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 4550823962767070}
     m_Modifications:
+    - target: {fileID: 100000, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100002, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100004, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100006, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 100008, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     - target: {fileID: 100010, guid: 3dead9d833444f842bde974513393351, type: 3}
       propertyPath: m_Name
       value: PF_EQP_Control_SmallPanelMonitor (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 100010, guid: 3dead9d833444f842bde974513393351, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 400010, guid: 3dead9d833444f842bde974513393351, type: 3}
       propertyPath: m_LocalPosition.x
