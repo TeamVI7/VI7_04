@@ -19,7 +19,7 @@ MonoBehaviour:
   adsLerpSpeed: 10
   hipFOV: 80
   adsFOV: 55
-  adsSwayDamping: 0.75
-  adsBobDamping: 0.8
+  adsSwayDamping: 1
+  adsBobDamping: 1
   blockSprintWhileADS: 1
   recoilProfile: {fileID: 11400000, guid: 455475e6177023b4e9b7866b85df726c, type: 2}

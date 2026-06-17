@@ -23,7 +23,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
 {
     #region Inspector
 
-    [Header("Weapons — slot order = key 1/2/…")]
+    [Header("Weapons")]
     public List<WeaponsController> weapons = new();
 
     [Header("Pivot Reference")]

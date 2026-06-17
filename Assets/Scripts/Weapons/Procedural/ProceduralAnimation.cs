@@ -234,6 +234,7 @@ public class ProceduralWeaponAnimator : MonoBehaviour
 
     private void UpdateSway()
     {
+
         float mouseX = Mathf.Clamp(Input.GetAxisRaw("Mouse X"), -swayMaxDelta, swayMaxDelta);
         float mouseY = Mathf.Clamp(Input.GetAxisRaw("Mouse Y"), -swayMaxDelta, swayMaxDelta);
 
