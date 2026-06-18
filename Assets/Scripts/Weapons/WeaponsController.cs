@@ -7,6 +7,18 @@ using UnityEngine.Animations.Rigging;
 /// <summary>
 /// Primary weapon controller for an FPS character.
 /// All tunable values live in a <see cref="WeaponData"/> ScriptableObject.
+///
+/// EXTENDING:
+///   - Subscribe to any public event (OnWeaponFired, OnMagOut, OnAmmoChanged, etc.)
+///     from external components — no modifications needed here.
+///   - Add new input locks by checking <see cref="IsInputBlocked"/> before any action.
+///   - New fire modes: add a FireMode enum to WeaponData and branch inside Co_Fire().
+///   - New reload phases: extend Co_Reload() with additional anim-signal wait steps.
+///
+/// DEBUG:
+///   - Toggle showDebugLogs in Inspector to see state transitions and events.
+///   - showSpreadGizmo / showRaycastGizmo visualize spread cone and hit ray in Scene view.
+///   - Use FPSDebug.GlobalEnabled to silence all FPS logs in builds.
 /// </summary>
 [RequireComponent(typeof(AudioSource))]
 public class WeaponsController : MonoBehaviour
@@ -23,8 +35,8 @@ public class WeaponsController : MonoBehaviour
     public Animator                   gunAnimator;
     public PlayerMovement             playerMovement;
     public LayerMask                  aimColliderLayerMask;
-    public Transform leftHandBone;
-    public TwoBoneIKConstraint leftArmIK;
+    public Transform                  leftHandBone;
+    public TwoBoneIKConstraint        leftArmIK;
 
     [Header("Transform Points")]
     public Transform muzzleFlashPoint;
@@ -39,7 +51,7 @@ public class WeaponsController : MonoBehaviour
     public bool IsEmpty => _currentAmmoInClip <= 0 && !_roundInChamber;
 
     [Header("Inspect")]
-    public KeyCode inspectKey    = KeyCode.I;
+    public KeyCode inspectKey     = KeyCode.I;
     public float   inspectDuration = 2.5f;
 
     [Header("Switch Animations")]
@@ -59,27 +71,73 @@ public class WeaponsController : MonoBehaviour
     #region Events
     // ─────────────────────────────────────────────────────────────────────────
 
-    public event Action              OnReloadStart;
-    public event Action              OnMagOut;
-    public event Action              OnMagIn;
-    public event Action              OnChamberRound;
-    public event Action              OnReloadComplete;
-    public event Action              OnReloadCancelled;
-    public event Action              OnEquipped;
-    public event Action              OnUnequipped;
-    public event Action<Vector3>     OnWeaponFired;
-    public event Action<int, int>    OnAmmoChanged;   // (clip, reserve)
-    public event Action              OnDryFire;
-    public event Action              OnWeaponEmpty;
-    public event Action              OnInspectStart;
-    public event Action              OnInspectEnd;
-    public event Action              OnBoltOut;
-    public event Action              OnBoltIn;
+    // ── Reload ────────────────────────────────────────────────────────────────
+    public event Action           OnReloadStart;
+    public event Action           OnMagOut;
+    public event Action           OnMagIn;
+    public event Action           OnChamberRound;
+    public event Action           OnReloadComplete;
+    public event Action           OnReloadCancelled;
+
+    // ── Equip / Unequip ───────────────────────────────────────────────────────
+    public event Action           OnEquipped;
+    public event Action           OnUnequipped;
+
+    // ── Firing ────────────────────────────────────────────────────────────────
+    public event Action<Vector3>  OnWeaponFired;     // hitPoint
+    public event Action<int, int> OnAmmoChanged;     // (clip, reserve)
+    public event Action           OnDryFire;
+    public event Action           OnWeaponEmpty;
+
+    // ── Inspect ───────────────────────────────────────────────────────────────
+    public event Action           OnInspectStart;
+    public event Action           OnInspectEnd;
+
+    // ── Bolt Action ───────────────────────────────────────────────────────────
+    public event Action           OnBoltOut;
+    public event Action           OnBoltIn;
+
+    // ── Switch (fired by WeaponSwitcherProcedural, not internally) ────────────
+    // No internal events here — switcher owns the switch lifecycle.
 
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Animation-Driven Entry Points
+    #region Weapon State Machine
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public enum WeaponState
+    {
+        Idle,
+        Firing,
+        Reloading,
+        Empty,
+        Switching,      // weapon is holstering or being drawn — ALL input blocked
+        BoltCycling,
+        Inspecting,     // separated from _isInspecting bool for clarity
+    }
+
+    public WeaponState CurrentState { get; private set; } = WeaponState.Idle;
+
+    private void SetState(WeaponState next)
+    {
+        if (CurrentState == next) return;
+        Log($"WeaponState: {CurrentState} → {next}");
+        CurrentState = next;
+    }
+
+    /// <summary>
+    /// True whenever the player cannot interact with the weapon.
+    /// Gate ALL new input paths through this instead of duplicating checks.
+    /// </summary>
+    public bool IsInputBlocked =>
+        _isSwitching
+        || CurrentState == WeaponState.Switching;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Animation-Driven Entry Points  (called by AnimationEventReceiver)
     // ─────────────────────────────────────────────────────────────────────────
 
     private bool _animSignal_MagOut;
@@ -94,7 +152,7 @@ public class WeaponsController : MonoBehaviour
 
     public void OnBoltOut_AnimDriven()       { _animSignal_BoltOut      = true; OnBoltOut?.Invoke(); }
     public void OnBoltIn_AnimDriven()        { _animSignal_BoltIn       = true; OnBoltIn?.Invoke(); }
-    public void OnReloadStart_AnimDriven()   { }
+    public void OnReloadStart_AnimDriven()   { /* hook point — subscribe via event if needed */ }
     public void OnMagOut_AnimDriven()        { _animSignal_MagOut       = true; }
     public void OnMagIn_AnimDriven()         { _animSignal_MagIn        = true; }
     public void OnChamberRound_AnimDriven()  { _animSignal_ChamberRound = true; }
@@ -103,8 +161,9 @@ public class WeaponsController : MonoBehaviour
     public void OnHolsterEnd_AnimDriven()    { _animSignal_HolsterEnd   = true; }
     public void OnDrawEnd_AnimDriven()       { _animSignal_DrawEnd      = true; }
 
-    public void OnInspectMagOut_AnimDriven() => PlaySound(weaponData.magOutSound,  weaponData.reloadVolume);
-    public void OnInspectMagIn_AnimDriven()  => PlaySound(weaponData.magInSound,   weaponData.reloadVolume);
+    // Inspect-specific sound hooks
+    public void OnInspectMagOut_AnimDriven() => PlaySound(weaponData.magOutSound, weaponData.reloadVolume);
+    public void OnInspectMagIn_AnimDriven()  => PlaySound(weaponData.magInSound,  weaponData.reloadVolume);
 
     private void ResetAnimSignals()
     {
@@ -119,6 +178,10 @@ public class WeaponsController : MonoBehaviour
         _animSignal_BoltIn       = false;
     }
 
+    /// <summary>
+    /// Waits until <paramref name="signal"/> returns true, or until
+    /// <paramref name="timeout"/> seconds pass (safety net when no anim events are wired).
+    /// </summary>
     private IEnumerator WaitForAnimSignal(Func<bool> signal, float timeout, string signalName)
     {
         float elapsed = 0f;
@@ -129,69 +192,6 @@ public class WeaponsController : MonoBehaviour
         }
         if (elapsed >= timeout)
             LogWarning($"Timed out waiting for anim signal '{signalName}'.");
-    }
-
-    /// <summary>
-    /// Bolt cycle: waits for anim-driven signals when available,
-    /// falls back to timed delays if no animation events are set up.
-    /// </summary>
-    private IEnumerator Co_BoltCycle()
-    {
-        SetState(WeaponState.BoltCycling);
-
-        // ── Bolt out ──────────────────────────────────────────────────────
-        if (animationDrivenReload)
-        {
-            yield return WaitForAnimSignal(
-                () => _animSignal_BoltOut,
-                weaponData.boltOutDuration + 0.5f,
-                "AnimEvent_BoltOut");
-            _animSignal_BoltOut = false;
-        }
-        else
-        {
-            yield return new WaitForSeconds(weaponData.boltOutDuration);
-        }
-
-        PlayRandomSound(weaponData.boltOutSounds, weaponData.boltOutVolume);
-        OnBoltOut?.Invoke();
-
-        // ── Bolt in ───────────────────────────────────────────────────────
-        if (animationDrivenReload)
-        {
-            yield return WaitForAnimSignal(
-                () => _animSignal_BoltIn,
-                weaponData.boltInDuration + 0.5f,
-                "AnimEvent_BoltIn");
-            _animSignal_BoltIn = false;
-        }
-        else
-        {
-            yield return new WaitForSeconds(weaponData.boltInDuration);
-        }
-
-        PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
-        OnBoltIn?.Invoke();
-
-        _canShoot = true;
-        SetState((_currentAmmoInClip <= 0 && !_roundInChamber) ? WeaponState.Empty : WeaponState.Idle);
-    }
-
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
-    #region Weapon State Machine
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public enum WeaponState { Idle, Firing, Reloading, Empty, Switching, BoltCycling }
-
-    public WeaponState CurrentState { get; private set; } = WeaponState.Idle;
-
-    private void SetState(WeaponState next)
-    {
-        if (CurrentState == next) return;
-        Log($"WeaponState: {CurrentState} → {next}");
-        CurrentState = next;
     }
 
     #endregion
@@ -219,12 +219,10 @@ public class WeaponsController : MonoBehaviour
     private bool  _roundInChamber;
     private bool  _canShoot;
     private bool  _isInspecting;
-    private bool  _isSwitching;
+    private bool  _isSwitching;         // set by StartHolster / StartDraw / ForceIdle
     private bool  _holsterComplete;
     private bool  _drawComplete;
-
-    // ADS state — set externally by ProceduralWeaponAnimator via SetADS()
-    private bool  _isADS;
+    private bool  _isADS;               // set externally by ProceduralWeaponAnimator
 
     private float _currentSpreadBuildup;
     private float _dryFireCooldown;
@@ -235,6 +233,7 @@ public class WeaponsController : MonoBehaviour
     private AudioSource _weaponAudioSource;
     private Camera      _mainCamera;
 
+    // Gizmo data (editor only)
     private Vector3 _gizmoRayOrigin;
     private Vector3 _gizmoRayEnd;
     private float   _gizmoSpread;
@@ -245,7 +244,7 @@ public class WeaponsController : MonoBehaviour
     #region Unity Lifecycle
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void Awake()  => InitAmmo();
+    private void Awake() => InitAmmo();
 
     private void Start()
     {
@@ -284,11 +283,11 @@ public class WeaponsController : MonoBehaviour
 
     private void ValidateSetup()
     {
-        if (weaponData          == null) LogWarning("weaponData is not assigned!");
-        if (gunAnimator         == null) LogWarning("gunAnimator is not assigned — animations will be skipped.");
-        if (playerMovement      == null) LogWarning("playerMovement is not assigned — spread multipliers won't apply.");
-        if (spawnBulletPosition == null) LogWarning("spawnBulletPosition is not assigned — hitscan will use transform.position.");
-        if (muzzleFlashPoint    == null) LogWarning("muzzleFlashPoint is not assigned — muzzle flash will be skipped.");
+        if (weaponData          == null) LogWarning("weaponData not assigned.");
+        if (gunAnimator         == null) LogWarning("gunAnimator not assigned — animations skipped.");
+        if (playerMovement      == null) LogWarning("playerMovement not assigned — spread multipliers won't apply.");
+        if (spawnBulletPosition == null) LogWarning("spawnBulletPosition not assigned — hitscan uses transform.position.");
+        if (muzzleFlashPoint    == null) LogWarning("muzzleFlashPoint not assigned — muzzle flash skipped.");
     }
 
     #endregion
@@ -297,9 +296,7 @@ public class WeaponsController : MonoBehaviour
     #region Public ADS Bridge
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Called by ProceduralWeaponAnimator every frame to keep spread in sync with ADS state.
-    /// </summary>
+    /// <summary>Called by ProceduralWeaponAnimator every frame to sync ADS state.</summary>
     public void SetADS(bool isADS) => _isADS = isADS;
 
     #endregion
@@ -310,15 +307,29 @@ public class WeaponsController : MonoBehaviour
 
     private void HandleInput()
     {
-        if (_isSwitching) return;
+        // ── MASTER GATE — no input while switching ──────────────────────────
+        // IsInputBlocked covers both _isSwitching and WeaponState.Switching,
+        // so a single check here locks everything below.
+        if (IsInputBlocked) return;
 
+        HandleFireInput();
+        HandleReloadInput();
+        HandleInspectInput();
+    }
+
+    private void HandleFireInput()
+    {
         bool fireInput = weaponData.isFullAuto
             ? Input.GetMouseButton(0)
             : Input.GetMouseButtonDown(0);
 
         if (fireInput)
         {
-            if (_canShoot && CurrentState == WeaponState.Idle && (_currentAmmoInClip > 0 || _roundInChamber))
+            bool canFire = _canShoot
+                        && CurrentState == WeaponState.Idle
+                        && (_currentAmmoInClip > 0 || _roundInChamber);
+
+            if (canFire)
             {
                 _canShoot = false;
                 StartCoroutine(Co_Fire());
@@ -330,18 +341,31 @@ public class WeaponsController : MonoBehaviour
                 TriggerDryFire();
             }
         }
-
-        if (Input.GetKeyDown(KeyCode.R))       TryStartReload();
-        if (Input.GetKeyDown(inspectKey))       TryStartInspect();
     }
+
+    private void HandleReloadInput()
+    {
+        if (Input.GetKeyDown(KeyCode.R)) TryStartReload();
+    }
+
+    private void HandleInspectInput()
+    {
+        if (Input.GetKeyDown(inspectKey)) TryStartInspect();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void TryStartReload()
     {
-        if (playerMovement.sliding) return;
-        if (playerMovement.wallrunning) return;
-        if (playerMovement.wallSliding) return;
-        if (CurrentState == WeaponState.BoltCycling)  return;
-        if (CurrentState == WeaponState.Reloading)    return;
+        if (playerMovement != null)
+        {
+            if (playerMovement.sliding)     return;
+            if (playerMovement.wallrunning) return;
+            if (playerMovement.wallSliding) return;
+        }
+
+        if (CurrentState == WeaponState.BoltCycling) return;
+        if (CurrentState == WeaponState.Reloading)   return;
         if (_currentAmmoInClip >= weaponData.clipSize) return;
         if (_ammoInReserve <= 0)                       return;
 
@@ -359,7 +383,7 @@ public class WeaponsController : MonoBehaviour
 
     private void TryStartInspect()
     {
-        if (_isInspecting) return;
+        if (_isInspecting)               return;
         if (CurrentState != WeaponState.Idle) return;
         _inspectCoroutine = StartCoroutine(Co_Inspect());
     }
@@ -374,10 +398,17 @@ public class WeaponsController : MonoBehaviour
         OnInspectEnd?.Invoke();
     }
 
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Inspect Coroutine
+    // ─────────────────────────────────────────────────────────────────────────
+
     private IEnumerator Co_Inspect()
     {
         _isInspecting          = true;
         _animSignal_InspectEnd = false;
+        SetState(WeaponState.Inspecting);
         Log("Inspect start.");
         SetAnimatorTrigger(AnimInspect);
         OnInspectStart?.Invoke();
@@ -398,6 +429,7 @@ public class WeaponsController : MonoBehaviour
         OnInspectEnd?.Invoke();
         _isInspecting     = false;
         _inspectCoroutine = null;
+        SetState(WeaponState.Idle);
     }
 
     #endregion
@@ -426,8 +458,6 @@ public class WeaponsController : MonoBehaviour
         SetAnimatorTrigger(AnimIsShooting);
         SpawnMuzzleFlash();
 
-        // ── Casing via pooled ejector ──────────────────────────────────────
-
         Vector3 aimDir   = CalculateAimWithSpread();
         Vector3 hitPoint = PerformHitscan(aimDir);
 
@@ -437,16 +467,9 @@ public class WeaponsController : MonoBehaviour
         OnWeaponFired?.Invoke(hitPoint);
         NotifyAmmoChanged();
 
-        if (_currentAmmoInClip <= 0 && !_roundInChamber)
-        {
-            Log("Clip empty.");
-            OnWeaponEmpty?.Invoke();
-            SetState(WeaponState.Empty);
-        }
-        else
-        {
-            SetState(WeaponState.Idle);
-        }
+        bool clipEmpty = _currentAmmoInClip <= 0 && !_roundInChamber;
+        SetState(clipEmpty ? WeaponState.Empty : WeaponState.Idle);
+        if (clipEmpty) OnWeaponEmpty?.Invoke();
 
         if (weaponData.isBoltAction)
             yield return Co_BoltCycle();
@@ -455,6 +478,85 @@ public class WeaponsController : MonoBehaviour
             yield return new WaitForSeconds(weaponData.fireRate);
             _canShoot = true;
         }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Bolt Cycle
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Handles the bolt-action cycle after firing.
+    /// If the player starts sliding AFTER the bolt-out signal, the animator
+    /// freezes at that frame and resumes the moment the slide ends.
+    /// </summary>
+    private IEnumerator Co_BoltCycle()
+    {
+        SetState(WeaponState.BoltCycling);
+
+        // ── Bolt out ───────────────────────────────────────────────────────
+        if (animationDrivenReload)
+        {
+            yield return WaitForAnimSignal(
+                () => _animSignal_BoltOut,
+                weaponData.boltOutDuration + 0.5f, "AnimEvent_BoltOut");
+            _animSignal_BoltOut = false;
+        }
+        else
+        {
+            yield return new WaitForSeconds(weaponData.boltOutDuration);
+        }
+
+        PlayRandomSound(weaponData.boltOutSounds, weaponData.boltOutVolume);
+        OnBoltOut?.Invoke();
+
+        // ── Slide freeze — hold animation at bolt-out frame ────────────────
+        // If sliding, freeze the animator exactly here (bolt is visually open)
+        // and wait until the slide ends before continuing to bolt-in.
+        if (playerMovement != null && playerMovement.sliding)
+        {
+            Log("Bolt frozen at bolt-out — waiting for slide to end.");
+            FreezeAnimator();
+
+            while (playerMovement.sliding)
+                yield return null;
+
+            ResumeAnimator();
+            Log("Slide ended — resuming bolt-in.");
+        }
+
+        // ── Bolt in ────────────────────────────────────────────────────────
+        if (animationDrivenReload)
+        {
+            yield return WaitForAnimSignal(
+                () => _animSignal_BoltIn,
+                weaponData.boltInDuration + 0.5f, "AnimEvent_BoltIn");
+            _animSignal_BoltIn = false;
+        }
+        else
+        {
+            yield return new WaitForSeconds(weaponData.boltInDuration);
+        }
+
+        PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
+        OnBoltIn?.Invoke();
+
+        _canShoot = true;
+        bool isEmpty = _currentAmmoInClip <= 0 && !_roundInChamber;
+        SetState(isEmpty ? WeaponState.Empty : WeaponState.Idle);
+    }
+
+    /// <summary>Freezes the gun Animator in place (Animator.speed = 0).</summary>
+    private void FreezeAnimator()
+    {
+        if (gunAnimator != null) gunAnimator.speed = 0f;
+    }
+
+    /// <summary>Restores the gun Animator to normal playback speed.</summary>
+    private void ResumeAnimator()
+    {
+        if (gunAnimator != null) gunAnimator.speed = 1f;
     }
 
     #endregion
@@ -471,34 +573,33 @@ public class WeaponsController : MonoBehaviour
         SetState(WeaponState.Reloading);
         ResetAnimSignals();
 
-        bool wasEmpty       = !_roundInChamber && _currentAmmoInClip == 0;
-        bool needsChamber   = wasEmpty || weaponData.requiresManualChamber;
-        float safetyTimeout = weaponData.reloadTotalTime + 1f;
+        bool wasEmpty     = !_roundInChamber && _currentAmmoInClip == 0;
+        bool needsChamber = wasEmpty || weaponData.requiresManualChamber;
+        float timeout     = weaponData.reloadTotalTime + 1f;
 
-        Log($"Reload started | mode={(animationDrivenReload ? "AnimEvent" : "Timed")} | wasEmpty={wasEmpty}");
-
+        Log($"Reload start | anim={animationDrivenReload} | empty={wasEmpty}");
         SetAnimatorTrigger(wasEmpty ? AnimReloadEmpty : AnimReload);
         OnReloadStart?.Invoke();
 
         if (animationDrivenReload)
         {
-            yield return WaitForAnimSignal(() => _animSignal_MagOut, safetyTimeout, "AnimEvent_MagOut");
+            yield return WaitForAnimSignal(() => _animSignal_MagOut, timeout, "AnimEvent_MagOut");
             _animSignal_MagOut = false;
-            Log("Mag out (anim-driven).");
+            Log("Mag out (anim).");
             PlaySound(weaponData.magOutSound, weaponData.reloadVolume);
             OnMagOut?.Invoke();
 
-            yield return WaitForAnimSignal(() => _animSignal_MagIn, safetyTimeout, "AnimEvent_MagIn");
+            yield return WaitForAnimSignal(() => _animSignal_MagIn, timeout, "AnimEvent_MagIn");
             _animSignal_MagIn = false;
-            Log("Mag in (anim-driven).");
+            Log("Mag in (anim).");
             PlaySound(weaponData.magInSound, weaponData.reloadVolume);
             OnMagIn?.Invoke();
 
             if (needsChamber)
             {
-                yield return WaitForAnimSignal(() => _animSignal_ChamberRound, safetyTimeout, "AnimEvent_ChamberRound");
+                yield return WaitForAnimSignal(() => _animSignal_ChamberRound, timeout, "AnimEvent_ChamberRound");
                 _animSignal_ChamberRound = false;
-                Log("Chamber round (anim-driven).");
+                Log("Chamber (anim).");
                 PlaySound(weaponData.chamberRoundSound, weaponData.chamberVolume);
                 OnChamberRound?.Invoke();
             }
@@ -518,27 +619,26 @@ public class WeaponsController : MonoBehaviour
             if (needsChamber && weaponData.reloadChamberDelay > 0f)
             {
                 yield return new WaitForSeconds(weaponData.reloadChamberDelay);
-                Log("Chamber round (timed).");
+                Log("Chamber (timed).");
                 PlaySound(weaponData.chamberRoundSound, weaponData.chamberVolume);
                 OnChamberRound?.Invoke();
             }
         }
 
-        // Wait out whatever time remains in the animation
-        float consumed = weaponData.reloadMagOutDelay
-                       + weaponData.reloadMagInDelay
-                       + (needsChamber ? weaponData.reloadChamberDelay : 0f);
+        // Wait out any remaining animation time
+        float consumed  = weaponData.reloadMagOutDelay + weaponData.reloadMagInDelay
+                        + (needsChamber ? weaponData.reloadChamberDelay : 0f);
         float remaining = weaponData.reloadTotalTime - consumed;
         if (remaining > 0f) yield return new WaitForSeconds(remaining);
 
-        int ammoNeeded     = weaponData.clipSize - _currentAmmoInClip;
-        int ammoToAdd      = Mathf.Min(ammoNeeded, _ammoInReserve);
-        _currentAmmoInClip += ammoToAdd;
-        _ammoInReserve     -= ammoToAdd;
+        // Apply ammo
+        int needed         = weaponData.clipSize - _currentAmmoInClip;
+        int toAdd          = Mathf.Min(needed, _ammoInReserve);
+        _currentAmmoInClip += toAdd;
+        _ammoInReserve     -= toAdd;
         _roundInChamber     = _currentAmmoInClip > 0;
 
         Log($"Reload complete. Clip={_currentAmmoInClip}/{weaponData.clipSize}  Reserve={_ammoInReserve}");
-
         NotifyAmmoChanged();
         OnReloadComplete?.Invoke();
         SetState(_currentAmmoInClip > 0 || _roundInChamber ? WeaponState.Idle : WeaponState.Empty);
@@ -548,6 +648,7 @@ public class WeaponsController : MonoBehaviour
     {
         if (CurrentState != WeaponState.Reloading) return;
         if (_reloadCoroutine != null) { StopCoroutine(_reloadCoroutine); _reloadCoroutine = null; }
+        ResumeAnimator();       // safety in case reload also gets a freeze mechanic later
         ResetAnimSignals();
         Log("Reload cancelled.");
         OnReloadCancelled?.Invoke();
@@ -566,11 +667,10 @@ public class WeaponsController : MonoBehaviour
         if (spawnBulletPosition == null) return Vector3.zero;
 
         Vector3 origin = spawnBulletPosition.position;
-
         if (Physics.Raycast(origin, aimDir, out RaycastHit hit, weaponData.maxRange,
                             aimColliderLayerMask, QueryTriggerInteraction.Ignore))
         {
-            Log($"Hit: {hit.collider.name}  distance={hit.distance:F1}m");
+            Log($"Hit: {hit.collider.name}  dist={hit.distance:F1}m");
 
             if (hit.collider.TryGetComponent(out IDamageable damageable))
                 damageable.TakeDamage(weaponData.weaponDamage, aimDir, hit.point);
@@ -604,7 +704,7 @@ public class WeaponsController : MonoBehaviour
         Vector3 origin = spawnBulletPosition != null ? spawnBulletPosition.position : transform.position;
         Vector3 aimDir = (targetPoint - origin).normalized;
 
-        // ── Spread — movement state + ADS ─────────────────────────────────
+        // ── Spread ────────────────────────────────────────────────────────
         float spread = weaponData.baseSpread + _currentSpreadBuildup;
 
         if (playerMovement != null)
@@ -618,7 +718,6 @@ public class WeaponsController : MonoBehaviour
             };
         }
 
-        // ADS tightens spread — now actually wired up
         if (_isADS) spread *= weaponData.adsSpreadMultiplier;
 
         _gizmoSpread = spread;
@@ -658,14 +757,14 @@ public class WeaponsController : MonoBehaviour
     {
         if (bulletTrailPrefab == null || spawnBulletPosition == null) return;
 
-        Vector3 startPos = spawnBulletPosition.position;
-        Vector3 endPos   = hitPoint != Vector3.zero ? hitPoint : startPos + aimDir * weaponData.maxRange;
+        Vector3 start = spawnBulletPosition.position;
+        Vector3 end   = hitPoint != Vector3.zero ? hitPoint : start + aimDir * weaponData.maxRange;
 
-        GameObject trailObj = Instantiate(bulletTrailPrefab, startPos, Quaternion.identity);
+        GameObject trailObj = Instantiate(bulletTrailPrefab, start, Quaternion.identity);
         if (trailObj.TryGetComponent(out TrailRenderer trail))
-            StartCoroutine(Co_MoveTrail(trail, startPos, endPos));
+            StartCoroutine(Co_MoveTrail(trail, start, end));
         else
-            LogWarning("bulletTrailPrefab has no TrailRenderer component.");
+            LogWarning("bulletTrailPrefab has no TrailRenderer.");
     }
 
     private IEnumerator Co_MoveTrail(TrailRenderer trail, Vector3 start, Vector3 end)
@@ -685,7 +784,7 @@ public class WeaponsController : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Animation
+    #region Animation Tick
     // ─────────────────────────────────────────────────────────────────────────
 
     private void TickAnimations()
@@ -743,72 +842,31 @@ public class WeaponsController : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Utility
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void IgnorePlayerColliders(GameObject obj)
-    {
-        if (obj == null) return;
-        Collider[] objCols    = obj.GetComponentsInChildren<Collider>();
-        Collider[] playerCols = transform.root.GetComponentsInChildren<Collider>();
-        foreach (var a in objCols)
-            foreach (var b in playerCols)
-                Physics.IgnoreCollision(a, b);
-    }
-
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
-    #region Debug
-    // ─────────────────────────────────────────────────────────────────────────
-
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void Log(string msg)
-    {
-        if (showDebugLogs) Debug.Log($"[{name}] {msg}", this);
-    }
-
-    [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    private void LogWarning(string msg) => Debug.LogWarning($"[{name}] ⚠ {msg}", this);
-
-#if UNITY_EDITOR
-    private void OnDrawGizmosSelected()
-    {
-        if (showRaycastGizmo && _gizmoRayEnd != Vector3.zero)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(_gizmoRayOrigin, _gizmoRayEnd);
-        }
-        if (showSpreadGizmo && _gizmoSpread > 0f && spawnBulletPosition != null)
-        {
-            Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
-            Gizmos.DrawWireSphere(spawnBulletPosition.position, _gizmoSpread);
-        }
-    }
-#endif
-
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
     #region Public API
     // ─────────────────────────────────────────────────────────────────────────
 
-    public int   CurrentAmmo    => _currentAmmoInClip;
-    public int   ReserveAmmo    => _ammoInReserve;
-    public bool  RoundInChamber => _roundInChamber;
-    public bool  IsReloading    => CurrentState == WeaponState.Reloading;
-    public bool  IsInspecting   => _isInspecting;
-    public float SpreadBuildup  => _currentSpreadBuildup;
-    public bool  IsADS          => _isADS;
+    public int   CurrentAmmo     => _currentAmmoInClip;
+    public int   ReserveAmmo     => _ammoInReserve;
+    public bool  RoundInChamber  => _roundInChamber;
+    public bool  IsReloading     => CurrentState == WeaponState.Reloading;
+    public bool  IsInspecting    => _isInspecting;
+    public bool  IsSwitching     => _isSwitching;
+    public float SpreadBuildup   => _currentSpreadBuildup;
+    public bool  IsADS           => _isADS;
     public bool  HolsterComplete => _holsterComplete;
     public bool  DrawComplete    => _drawComplete;
 
     public void PlayBoltOutSound() => PlayRandomSound(weaponData.boltOutSounds, weaponData.boltOutVolume);
     public void PlayBoltInSound()  => PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
 
+    /// <summary>
+    /// Hard-resets all state — called by WeaponSwitcherProcedural on outgoing weapon.
+    /// Also restores animator speed in case it was frozen during a bolt-slide hold.
+    /// </summary>
     public void ForceIdle()
     {
         StopAllCoroutines();
+        ResumeAnimator();       // safety — restore speed if frozen mid-bolt
         _isInspecting    = false;
         _isSwitching     = false;
         _holsterComplete = false;
@@ -819,6 +877,22 @@ public class WeaponsController : MonoBehaviour
         Log("ForceIdle.");
     }
 
+    /// <summary>
+    /// Immediately locks all input without stopping coroutines or resetting ammo state.
+    /// Call from WeaponSwitcherProcedural the instant a switch is requested — this is
+    /// the very first thing that happens so there is zero frame gap before input is blocked.
+    /// </summary>
+    public void SetSwitching(bool on)
+    {
+        _isSwitching = on;
+        if (on)
+        {
+            SetState(WeaponState.Switching);
+            Log("Input locked — switch initiated.");
+        }
+    }
+
+    /// <summary>Begins holster sequence. Blocks all input until <see cref="NotifyEquipped"/> is called.</summary>
     public void StartHolster()
     {
         _isSwitching     = true;
@@ -829,6 +903,7 @@ public class WeaponsController : MonoBehaviour
         Log("Holster started.");
     }
 
+    /// <summary>Begins draw sequence. Input remains blocked until <see cref="NotifyEquipped"/> is called.</summary>
     public void StartDraw()
     {
         _isSwitching  = true;
@@ -839,6 +914,10 @@ public class WeaponsController : MonoBehaviour
         Log("Draw started.");
     }
 
+    /// <summary>
+    /// Call after the weapon is fully drawn and ready to use.
+    /// Clears the switch lock and fires <see cref="OnEquipped"/>.
+    /// </summary>
     public void NotifyEquipped()
     {
         _isSwitching = false;
@@ -848,6 +927,7 @@ public class WeaponsController : MonoBehaviour
         Log("Equipped.");
     }
 
+    /// <summary>Call when this weapon is no longer the active weapon.</summary>
     public void NotifyUnequipped()
     {
         _isSwitching = false;
@@ -882,6 +962,37 @@ public class WeaponsController : MonoBehaviour
         _drawComplete = true;
         Log("Draw complete.");
     }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Debug
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void Log(string msg)
+    {
+        if (showDebugLogs) Debug.Log($"[{name}] {msg}", this);
+    }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void LogWarning(string msg) => Debug.LogWarning($"[{name}] ⚠ {msg}", this);
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        if (showRaycastGizmo && _gizmoRayEnd != Vector3.zero)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(_gizmoRayOrigin, _gizmoRayEnd);
+        }
+        if (showSpreadGizmo && _gizmoSpread > 0f && spawnBulletPosition != null)
+        {
+            Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
+            Gizmos.DrawWireSphere(spawnBulletPosition.position, _gizmoSpread);
+        }
+    }
+#endif
 
     #endregion
 }
