@@ -1,12 +1,8 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Assets/GeneralMix.mixer.meta
 guid: d26981511b625b544bd7e8af8aa1d54d
-========
-guid: eaf896545f088b8479d1e0af54abb854
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/lighting map1.lighting.meta
 NativeFormatImporter:
   externalObjects: {}
-  mainObjectFileID: 24100000
+  mainObjectFileID: 0
   userData: 
   assetBundleName: 
   assetBundleVariant: 

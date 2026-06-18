@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
 
-public class GTFOMenuScreen : MonoBehaviour
+public class MenuScreen : MonoBehaviour
 {
     [Header("UI References")]
     public TextMeshProUGUI terminalText;
@@ -16,7 +16,7 @@ public class GTFOMenuScreen : MonoBehaviour
     public CanvasGroup osWelcomeGroup;
     public Image osLogo;
     public TextMeshProUGUI welcomeText;
-    public float welcomeDuration = 5.0f; // Add this line to control the timing
+    public float welcomeDuration = 5.0f;
 
     [Header("Settings")]
     public float holdDuration = 2.0f;
@@ -33,7 +33,7 @@ public class GTFOMenuScreen : MonoBehaviour
     public AudioClip injectHoldSound;
     public AudioClip injectDoneSound;
     public AudioClip glitchSound;
-    public AudioClip osStartupSound; // Win95 startup chime
+    public AudioClip osStartupSound;
 
     private bool injecting = false;
     private float holdTimer = 0f;
@@ -190,6 +190,20 @@ public class GTFOMenuScreen : MonoBehaviour
         musicSource.clip = musicTracks[Random.Range(0, musicTracks.Length)];
         musicSource.loop = true;
         musicSource.Play();
+    }
+
+    IEnumerator FadeOutMusic(float duration)
+    {
+        if (musicSource == null) yield break;
+        float startVolume = musicSource.volume;
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            musicSource.volume = Mathf.Lerp(startVolume, 0f, t / duration);
+            yield return null;
+        }
+        musicSource.Stop();
     }
 
     IEnumerator RunIntro()
@@ -377,7 +391,7 @@ public class GTFOMenuScreen : MonoBehaviour
                 audioSource.PlayOneShot(osStartupSound, 1f);
             }
 
-            // Fade in the OS Logo and Welcome Text
+            // Fade in
             float fadeTime = 0f;
             while (fadeTime < 1f)
             {
@@ -386,10 +400,10 @@ public class GTFOMenuScreen : MonoBehaviour
                 yield return null;
             }
 
-            // Hold on the welcome screen for your custom duration
             yield return new WaitForSeconds(welcomeDuration);
-            
-            // Fade out smoothly before switching scenes
+
+            // Fade out music + visuals together
+            StartCoroutine(FadeOutMusic(1.2f));
             float fadeOutTime = 0f;
             while (fadeOutTime < 1f)
             {
@@ -398,7 +412,12 @@ public class GTFOMenuScreen : MonoBehaviour
                 yield return null;
             }
         }
-    
+        else
+        {
+            // No OS screen — fade music before load
+            StartCoroutine(FadeOutMusic(0.6f));
+            yield return new WaitForSeconds(0.6f);
+        }
 
         SceneManager.LoadScene(mainMenuSceneName);
     }

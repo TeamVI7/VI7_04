@@ -24,8 +24,6 @@ public class PlayerCam : MonoBehaviour
 
     private void Update()
     {
-        // Dừng camera khi UI mở — không đụng script player
-        if (ComputerInteraction.UIOpen) return;
 
         float mouseX = Input.GetAxisRaw("Mouse X") * Time.deltaTime * sensX;
         float mouseY = Input.GetAxisRaw("Mouse Y") * Time.deltaTime * sensY;

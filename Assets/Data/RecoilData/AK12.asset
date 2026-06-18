@@ -14,7 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RecoilProfile
   kickbackAmount: 0.04
   kickUpAmount: 0.01
-  recoilX: 3
+  kickSideAmount: 0.005
+  recoilX: 0.8
   recoilY: 0.8
+  recoilZ: 0.5
   positionStiffness: 200
+  positionDamping: 20
   rotationStiffness: 300
+  rotationDamping: 25

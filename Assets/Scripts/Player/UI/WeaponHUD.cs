@@ -224,7 +224,6 @@ public class WeaponHUD : MonoBehaviour
         if (ammoClipText != null)
         {
             ammoClipText.text  = clip.ToString("D3");
-            ammoClipText.color = isLow ? ammoLowColor : ammoNormalColor;
         }
 
         if (magCountText != null)

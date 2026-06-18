@@ -495,7 +495,7 @@ MonoBehaviour:
   lblRank: {fileID: 317964813}
   missions:
   - displayName: Operation R.A.I
-    sceneName: Cutscene_1
+    sceneName: Cutscene_2
     unlockedByDefault: 1
   - displayName: Unavailable
     sceneName: Level_02
