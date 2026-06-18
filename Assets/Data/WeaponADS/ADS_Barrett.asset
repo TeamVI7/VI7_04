@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponADSProfile
   hipPosOffset: {x: 0, y: 0, z: 0}
   hipRotOffset: {x: 0, y: 0, z: 0}
-  adsPosOffset: {x: -0.215, y: -0.05, z: 0}
+  adsPosOffset: {x: -0.15, y: 0, z: 0}
   adsRotOffset: {x: 0, y: 0, z: 0}
   adsLerpSpeed: 10
   hipFOV: 80
-  adsFOV: 55
+  adsFOV: 40
   adsSwayDamping: 0.75
   adsBobDamping: 0.8
   blockSprintWhileADS: 1

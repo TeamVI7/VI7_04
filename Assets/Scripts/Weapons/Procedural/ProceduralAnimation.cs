@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using System;
 /// <summary>
 /// Drives all procedural weapon movement: idle breathing, walk bob, sway,
 /// sprint tilt, and ADS lerp. Works exclusively through localPosition /
@@ -122,7 +122,7 @@ public class ProceduralWeaponAnimator : MonoBehaviour
     private bool   _wasGrounded;
     private bool   _isADS;
     private float  _adsBlend; // 0 = hip, 1 = ADS
-
+    public event Action<bool> OnADSChanged;
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -176,6 +176,11 @@ public class ProceduralWeaponAnimator : MonoBehaviour
 
     private void UpdateADS()
     {
+        bool wasADS = _isADS;
+        _isADS = Input.GetKey(adsKey) && CanADS();
+        
+        if (_isADS != wasADS)
+            OnADSChanged?.Invoke(_isADS);
         bool wantADS = Input.GetKey(adsKey) && CanADS();
         _isADS = wantADS;
 
