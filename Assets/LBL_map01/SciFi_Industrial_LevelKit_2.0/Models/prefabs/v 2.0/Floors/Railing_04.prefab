@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 412694}
   - component: {fileID: 3361214}
   - component: {fileID: 2377840}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Railing_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}

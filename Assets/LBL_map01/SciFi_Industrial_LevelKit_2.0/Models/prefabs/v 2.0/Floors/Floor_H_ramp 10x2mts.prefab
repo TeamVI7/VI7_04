@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 33250895536662574}
   - component: {fileID: 23163767106421826}
   - component: {fileID: 64895703233603834}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor_H_ramp 10x2mts
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -8719,10 +8719,9 @@ GameObject:
   - component: {fileID: 863811046410520664}
   - component: {fileID: 8024306669479360098}
   - component: {fileID: 6061685551903920113}
-  - component: {fileID: 44526994177509638}
   m_Layer: 0
   m_Name: Camera
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -8941,23 +8940,6 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
---- !u!114 &44526994177509638
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4659285733429591161}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
-  m_IgnoreReversedGraphics: 1
-  m_BlockingObjects: 0
-  m_BlockingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!1 &4689743506137637526
 GameObject:
   m_ObjectHideFlags: 0
@@ -16712,7 +16694,7 @@ GameObject:
   - component: {fileID: 7074866152428578180}
   m_Layer: 6
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -16725,8 +16707,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8935987747473257536}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalRotation: {x: -0, y: 0.9124193, z: -0, w: 0.40925667}
+  m_LocalPosition: {x: -651.92, y: 1.03, z: -24.17}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -16736,7 +16718,7 @@ Transform:
   - {fileID: 1303618599959231227}
   - {fileID: 7879530878186437846}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 131.684, z: 0}
 --- !u!114 &1154494179531792610
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16808,7 +16790,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Dashing
   orientation: {fileID: 7407119502591646019}
-  playerCam: {fileID: 0}
+  playerCam: {fileID: 6886862588822281631}
   cam: {fileID: 7538237934783260289}
   dashForce: 17
   dashUpwardForce: 0
@@ -16853,7 +16835,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8935987747473257536}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b77bbd820043cad49b2f66ade6cf9640, type: 3}
   m_Name: 

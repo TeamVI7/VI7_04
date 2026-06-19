@@ -137,7 +137,7 @@ public class PlayerMovement : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region State Flags  (set by ability scripts)
     // ─────────────────────────────────────────────────────────────────────────
-
+    [HideInInspector] public bool  groundStick;   // ← add this
     [HideInInspector] public bool  sliding;
     [HideInInspector] public bool  wallrunning;
     [HideInInspector] public bool  climbing;

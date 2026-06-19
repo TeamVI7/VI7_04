@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dcba0f89b6a52a4bbcb627e8d86dc29, type: 3}
   m_Name: AK12
   m_EditorClassIdentifier: Assembly-CSharp::RecoilProfile
-  kickbackAmount: 0.04
-  kickUpAmount: 0.01
-  kickSideAmount: 0.005
-  recoilX: 0.8
-  recoilY: 0.8
-  recoilZ: 0.5
-  positionStiffness: 200
-  positionDamping: 20
-  rotationStiffness: 300
-  rotationDamping: 25
+  kickbackAmount: 0
+  kickUpAmount: 0
+  kickSideAmount: 0
+  recoilX: 0
+  recoilY: 0
+  recoilZ: 0
+  positionStiffness: 0
+  positionDamping: 0
+  rotationStiffness: 0
+  rotationDamping: 0

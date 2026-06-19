@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 426976}
   - component: {fileID: 6565826}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: COL
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -63,7 +63,7 @@ GameObject:
   m_Component:
   - component: {fileID: 493760}
   - component: {fileID: 6591812}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: COL (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -117,7 +117,7 @@ GameObject:
   - component: {fileID: 485432}
   - component: {fileID: 3363196}
   - component: {fileID: 2330476}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Railing_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}

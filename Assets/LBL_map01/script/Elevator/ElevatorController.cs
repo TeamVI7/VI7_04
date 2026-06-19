@@ -15,13 +15,11 @@ public class ElevatorController : MonoBehaviour
 
     [Header("Hint UI")]
     public GameObject hintInsideUI;
-    public GameObject hintOutsideUI;
 
     [Header("Cài đặt")]
     public float moveSpeed = 2f;
     public float doorOpenWaitTime = 5f;
-    public KeyCode callKey = KeyCode.F;
-    public KeyCode goKey   = KeyCode.G;
+    public KeyCode goKey = KeyCode.G;
 
     [Header("Âm thanh")]
     [Tooltip("Tiếng máy chạy — loop khi thang đang di chuyển")]
@@ -34,18 +32,13 @@ public class ElevatorController : MonoBehaviour
     private Floor currentFloor = Floor.Ground;
     private Floor targetFloor;
     private float waitTimer = 0f;
-    private Transform player;
     private bool playerInsideElevator = false;
 
     void Start()
     {
         SetFloorY(groundFloorY);
 
-        GameObject p = GameObject.FindWithTag("Player");
-        if (p != null) player = p.transform;
-
-        if (hintInsideUI)  hintInsideUI.SetActive(false);
-        if (hintOutsideUI) hintOutsideUI.SetActive(false);
+        if (hintInsideUI) hintInsideUI.SetActive(false);
 
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
@@ -54,8 +47,15 @@ public class ElevatorController : MonoBehaviour
         audioSource.playOnAwake = false;
     }
 
-    void OnTriggerEnter(Collider other) { if (other.CompareTag("Player")) playerInsideElevator = true; }
-    void OnTriggerExit(Collider other)  { if (other.CompareTag("Player")) playerInsideElevator = false; }
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player")) playerInsideElevator = true;
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player")) playerInsideElevator = false;
+    }
 
     void Update()
     {
@@ -64,12 +64,14 @@ public class ElevatorController : MonoBehaviour
         switch (state)
         {
             case State.Idle:
-                if (Input.GetKeyDown(callKey)) { OpenDoors(); state = State.OpeningDoor; }
                 break;
 
             case State.OpeningDoor:
                 if (doorLeft.IsFullyOpen() && doorRight.IsFullyOpen())
-                { waitTimer = doorOpenWaitTime; state = State.WaitingForGo; }
+                {
+                    waitTimer = doorOpenWaitTime;
+                    state = State.WaitingForGo;
+                }
                 break;
 
             case State.WaitingForGo:
@@ -83,8 +85,15 @@ public class ElevatorController : MonoBehaviour
                 waitTimer -= Time.deltaTime;
                 if (waitTimer <= 0f)
                 {
-                    if (!playerInsideElevator) { CloseDoors(); state = State.ClosingDoor_Timeout; }
-                    else waitTimer = doorOpenWaitTime;
+                    if (!playerInsideElevator)
+                    {
+                        CloseDoors();
+                        state = State.ClosingDoor_Timeout;
+                    }
+                    else
+                    {
+                        waitTimer = doorOpenWaitTime;
+                    }
                 }
                 break;
 
@@ -96,22 +105,31 @@ public class ElevatorController : MonoBehaviour
                     state = State.OpeningDoor_ThenGo;
                     break;
                 }
-                if (doorLeft.IsClosed() && doorRight.IsClosed()) state = State.Idle;
+                if (doorLeft.IsClosed() && doorRight.IsClosed())
+                {
+                    state = State.Idle;
+                }
                 break;
 
             case State.OpeningDoor_ThenGo:
                 if (doorLeft.IsFullyOpen() && doorRight.IsFullyOpen())
-                { CloseDoors(); state = State.ClosingDoor; }
+                {
+                    CloseDoors();
+                    state = State.ClosingDoor;
+                }
                 break;
 
             case State.ClosingDoor:
                 if (doorLeft.IsClosed() && doorRight.IsClosed())
-                { StartMoving(); state = State.Moving; }
+                {
+                    StartMoving();
+                    state = State.Moving;
+                }
                 break;
 
             case State.Moving:
                 float destY = (targetFloor == Floor.Ground) ? groundFloorY : undergroundFloorY;
-                float newY  = Mathf.MoveTowards(transform.position.y, destY, moveSpeed * Time.deltaTime);
+                float newY = Mathf.MoveTowards(transform.position.y, destY, moveSpeed * Time.deltaTime);
                 transform.position = new Vector3(transform.position.x, newY, transform.position.z);
 
                 if (Mathf.Abs(transform.position.y - destY) < 0.01f)
@@ -127,7 +145,21 @@ public class ElevatorController : MonoBehaviour
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────
+    // Gọi từ ElevatorProximityZone
+    public void OnPlayerEnterZone()
+    {
+        if (state == State.Idle)
+        {
+            OpenDoors();
+            state = State.OpeningDoor;
+        }
+    }
+
+    public void OnPlayerExitZone()
+    {
+        // cửa tự đóng theo timer, không cần làm gì
+    }
+
     void SetTargetFloor() =>
         targetFloor = (currentFloor == Floor.Ground) ? Floor.Underground : Floor.Ground;
 
@@ -164,12 +196,6 @@ public class ElevatorController : MonoBehaviour
 
     void UpdateHints()
     {
-        if (player == null) return;
-        float dist = Vector3.Distance(player.position, transform.position);
-        bool nearElevator = dist < 3f;
-
-        if (hintOutsideUI)
-            hintOutsideUI.SetActive(nearElevator && !playerInsideElevator && state == State.Idle);
         if (hintInsideUI)
             hintInsideUI.SetActive(playerInsideElevator &&
                 (state == State.WaitingForGo || state == State.ClosingDoor_Timeout));

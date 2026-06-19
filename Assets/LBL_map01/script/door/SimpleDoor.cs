@@ -10,10 +10,13 @@ public class SimpleDoor : MonoBehaviour
     public AudioClip openSound;
     public AudioSource audioSource;
 
-    private bool      _isOpen  = false;
-    private bool      _moving  = false;
-    private Vector3   _openPos;
-    private bool      _playerInZone = false;
+    [Header("Hint Settings")]
+    public GameObject hintCanvas;
+
+    private bool    _isOpen       = false;
+    private bool    _moving       = false;
+    private Vector3 _openPos;
+    private bool    _playerInZone = false;
 
     void Start()
     {
@@ -21,11 +24,19 @@ public class SimpleDoor : MonoBehaviour
 
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+
+        SetHintVisible(false);
     }
 
     void Update()
     {
-        if (_isOpen || _moving) return;
+        if (_isOpen || _moving)
+        {
+            SetHintVisible(false);
+            return;
+        }
+
+        SetHintVisible(_playerInZone);
 
         if (_playerInZone && Input.GetKeyDown(KeyCode.E))
             StartCoroutine(OpenDoor());
@@ -40,12 +51,22 @@ public class SimpleDoor : MonoBehaviour
     void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("Player"))
+        {
             _playerInZone = false;
+            SetHintVisible(false);
+        }
+    }
+
+    void SetHintVisible(bool visible)
+    {
+        if (hintCanvas != null && hintCanvas.activeSelf != visible)
+            hintCanvas.SetActive(visible);
     }
 
     IEnumerator OpenDoor()
     {
         _moving = true;
+        SetHintVisible(false);
 
         if (openSound != null)
             audioSource.PlayOneShot(openSound);
