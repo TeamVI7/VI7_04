@@ -7,7 +7,6 @@ public class PlayerCam : MonoBehaviour
 {
     public float sensX;
     public float sensY;
-
     public Transform orientation;
     public Transform camHolder;
     public float moveTiltAmount = 2f;
