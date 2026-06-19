@@ -1102,6 +1102,8 @@ GameObject:
   - component: {fileID: 491952588994080764}
   - component: {fileID: 6887908914919869899}
   - component: {fileID: 1108609553469284380}
+  - component: {fileID: 1388254953881683993}
+  - component: {fileID: 6405271077526152913}
   m_Layer: 7
   m_Name: Enemy_Drone
   m_TagString: Enemy
@@ -1167,6 +1169,9 @@ MonoBehaviour:
   StaggerDuration: 1.5
   StaggerWindow: 3
   DeathImpulseScale: 8
+  ExplosionCount: 3
+  DelayBetweenExplosions: 0.4
+  ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
   DropUpwardForce: 4
   DeathVFXPrefab: {fileID: 1337198075554910, guid: 25c7aa9ad705fe143a4d71c1c8deb7d4, type: 3}
@@ -1231,10 +1236,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7594cac5c80287488f83344de4b76d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySoundController
-  HasWalking: 0
-  HasLaser: 1
-  HasBombs: 0
   WalkClip: {fileID: 0}
+  MinMoveSpeed: 0.1
+  LaserClip: {fileID: 8300000, guid: 2239f773405ff2d4cbe83380265d6823, type: 3}
+  BombClip: {fileID: 0}
+  SMGClip: {fileID: 0}
+  ShotgunClip: {fileID: 0}
+  SniperClip: {fileID: 0}
+  DeathClip: {fileID: 8300000, guid: 29c5b0b4ab1df9c42a5a9bd101d8ad2d, type: 3}
+  SpatialBlend: 1
+  MinDistance: 5
+  MaxDistance: 30
 --- !u!114 &8978574717290653588
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1310,6 +1322,35 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.28139624
   m_Center: {x: 0, y: 0.45567942, z: 0}
+--- !u!114 &1388254953881683993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8806050273790647874}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3806f0b91075dc4790d206ac2da4677, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyStateDebugger
+  ShowDebug: 1
+  Offset: {x: 0, y: 2.2, z: 0}
+  TextColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  FontSize: 16
+--- !u!114 &6405271077526152913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8806050273790647874}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca9ec1fe2b4d9eb48b156ce1b4cf5084, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySetup
+  Stats: {fileID: 11400000, guid: 63f8bb301e047374295967f323d02b90, type: 2}
 --- !u!1 &8998205145386818806
 GameObject:
   m_ObjectHideFlags: 0

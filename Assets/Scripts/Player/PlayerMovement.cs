@@ -67,7 +67,7 @@ public class PlayerMovement : MonoBehaviour
     public float leanRollDeg       = 5f;
     public float leanLerpSpeed     = 10f;
     public KeyCode leanLeftKey     = KeyCode.Q;
-    public KeyCode leanRightKey    = KeyCode.E;
+    public KeyCode leanRightKey    = KeyCode.Z; // FIX: was KeyCode.E — conflicted with ComputerInteraction
 
     [Header("Ground Check")]
     public float     playerHeight = 2f;
@@ -137,7 +137,7 @@ public class PlayerMovement : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region State Flags  (set by ability scripts)
     // ─────────────────────────────────────────────────────────────────────────
-    [HideInInspector] public bool  groundStick;   // ← add this
+    [HideInInspector] public bool  groundStick;
     [HideInInspector] public bool  sliding;
     [HideInInspector] public bool  wallrunning;
     [HideInInspector] public bool  climbing;
@@ -177,9 +177,9 @@ public class PlayerMovement : MonoBehaviour
         climbing,
         wallSliding,
         sliding,
-        leaning,      // peek left/right while still — tactical
+        leaning,
         crouching,
-        sprinting,    // replaces the old walking+shift check
+        sprinting,
         walking,
         standing,
         air
@@ -233,16 +233,16 @@ public class PlayerMovement : MonoBehaviour
     // Stamina
     private float _stamina;
     private float _lastSprintTime;
-    private bool  _canSprint;     // blocked when stamina depleted until threshold refills
+    private bool  _canSprint;
 
     // Leaning
-    private float   _leanDir;           // -1, 0, +1
-    private Vector3 _leanCurrentOffset; // smoothed camera offset
-    private float   _leanCurrentRoll;   // smoothed roll angle
+    private float   _leanDir;
+    private Vector3 _leanCurrentOffset;
+    private float   _leanCurrentRoll;
 
     // Footstep
     private float _footstepTimer;
-    private bool  _lastFootstepPositive; // track sine sign flip
+    private bool  _lastFootstepPositive;
 
     // Landing detection
     private bool _wasGrounded;
@@ -311,6 +311,17 @@ public class PlayerMovement : MonoBehaviour
 
     private void ReadInput()
     {
+        // FIX: zero out input and bail when UI is open.
+        // PlayerCam already guards with UIOpen; PlayerMovement was missing this,
+        // letting the player move/jump/crouch freely during the minigame.
+        if (ComputerInteraction.UIOpen || UIInputBlocker.IsBlocking)
+        {
+            horizontalInput = 0f;
+            verticalInput   = 0f;
+            _leanDir        = 0f;
+            return;
+        }
+
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput   = Input.GetAxisRaw("Vertical");
 
@@ -351,9 +362,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void StateHandler()
     {
-        // Priority order — highest to lowest.
-        // EXTEND: Insert new ability states as else-if blocks before sprinting/walking.
-
         if (freeze)
         {
             SetState(MovementState.freeze);
@@ -405,7 +413,6 @@ public class PlayerMovement : MonoBehaviour
         else if (_leanDir != 0f && grounded
                  && horizontalInput == 0f && verticalInput == 0f)
         {
-            // Tactical lean — only while stationary
             SetState(MovementState.leaning);
             desiredMoveSpeed = 0f;
         }
@@ -496,7 +503,6 @@ public class PlayerMovement : MonoBehaviour
         {
             rb.AddForce(moveDirection.normalized * moveSpeed * 10f, ForceMode.Force);
 
-            // Extra braking when no input — snappier tactical stops
             if (horizontalInput == 0f && verticalInput == 0f)
             {
                 Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
@@ -521,6 +527,7 @@ public class PlayerMovement : MonoBehaviour
         else
         {
             Vector3 flatVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
             if (flatVel.magnitude > moveSpeed)
             {
                 Vector3 capped = flatVel.normalized * moveSpeed;
@@ -628,7 +635,7 @@ public class PlayerMovement : MonoBehaviour
 
             if (_stamina <= 0f)
             {
-                _canSprint = false;  // must refill to minStaminaToSprint before sprinting again
+                _canSprint = false;
                 Log("Stamina depleted — sprint locked.");
             }
 
@@ -640,7 +647,6 @@ public class PlayerMovement : MonoBehaviour
             float prev = _stamina;
             _stamina = Mathf.Min(_stamina + staminaRegenRate * Time.deltaTime, maxStamina);
 
-            // Re-enable sprint once past the minimum threshold
             if (!_canSprint && _stamina >= minStaminaToSprint)
             {
                 _canSprint = true;
@@ -662,20 +668,14 @@ public class PlayerMovement : MonoBehaviour
     {
         if (cameraHolder == null) return;
 
-        // Target offset and roll based on lean direction
         Vector3 targetOffset = orientation.right * (_leanDir * leanAmount);
         float   targetRoll   = -_leanDir * leanRollDeg;
 
-        // Smooth toward target
         _leanCurrentOffset = Vector3.Lerp(_leanCurrentOffset, targetOffset,
                                           Time.deltaTime * leanLerpSpeed);
         _leanCurrentRoll   = Mathf.Lerp(_leanCurrentRoll, targetRoll,
                                          Time.deltaTime * leanLerpSpeed);
 
-        // Apply — offset is additive; roll is applied as a Z euler on the holder
-        // PlayerCam handles X/Y rotation; we only touch Z (roll) here.
-        // NOTE: if PlayerCam also drives localRotation.z (tilt), compose instead of override:
-        //       capture the cam's Z and add _leanCurrentRoll on top.
         cameraHolder.localPosition = _leanCurrentOffset;
 
         Vector3 euler = cameraHolder.localEulerAngles;
@@ -689,11 +689,6 @@ public class PlayerMovement : MonoBehaviour
     #region Footstep
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Detects when the vertical component of the bob sine wave crosses zero
-    /// (positive-to-negative) and fires OnFootstep so an audio component can respond.
-    /// No sounds are played here — keep audio concerns in a separate subscriber.
-    /// </summary>
     private void TickFootstep()
     {
         bool moving = (state == MovementState.walking || state == MovementState.sprinting)
@@ -714,7 +709,7 @@ public class PlayerMovement : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
-    #region Slope & Physics Helpers  (public — used by ability scripts)
+    #region Slope & Physics Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
     public bool OnSlope()
