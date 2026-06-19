@@ -28,7 +28,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.05, y: 0.05, z: 0.2}
+  m_LocalScale: {x: 0.02, y: 0.02, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6761846678216050807}
@@ -101,9 +101,9 @@ GameObject:
   - component: {fileID: 6761846678216050807}
   - component: {fileID: 3899166697631826047}
   - component: {fileID: 459650280568605557}
-  - component: {fileID: 8937040274997111296}
+  - component: {fileID: 4362188511666277237}
   m_Layer: 0
-  m_Name: Projectile
+  m_Name: Sniper_Projectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -173,7 +173,7 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &8937040274997111296
+--- !u!114 &4362188511666277237
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -182,14 +182,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 6012499545426984752}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8dbed530d5649924daa5920539aceab6, type: 3}
+  m_Script: {fileID: 11500000, guid: 43fccbd78c518964d930c5bdc0140298, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::OutOfBullet.Enemy.AcidProjectile
-  Damage: 10
-  Speed: 12
-  LifeTime: 3
-  HomingStrength: 5
-  DelayHomingTime: 0.4
+  m_EditorClassIdentifier: Assembly-CSharp::SniperProjectile
+  Damage: 25
+  Speed: 50
+  LifeTime: 4
   HitEffectPrefab: {fileID: 1337198075554910, guid: 25c7aa9ad705fe143a4d71c1c8deb7d4, type: 3}
   HitLayers:
     serializedVersion: 2

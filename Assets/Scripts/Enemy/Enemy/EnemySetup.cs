@@ -100,6 +100,31 @@ public class EnemySetup : MonoBehaviour
             ragdoll.UpwardKick         = Stats.UpwardKick;
             ragdoll.LifetimeAfterDeath = Stats.RagdollLifetime;
         }
+
+        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SHOTGUN ──────────────────
+        if (TryGetComponent(out ShotgunAttackBehaviour shotgun))
+        {
+            shotgun.AttackRange     = Stats.ShotgunAttackRange;
+            shotgun.DamagePerPellet = Stats.ShotgunDamagePerPellet;
+            shotgun.PelletsPerShot  = Stats.ShotgunPelletsPerShot;
+            shotgun.SpreadAngle     = Stats.ShotgunSpreadAngle;
+            shotgun.FireRate        = Stats.ShotgunFireRate;
+        }
+
+        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SMG ──────────────────────
+        if (TryGetComponent(out SMGAttackBehaviour smg))
+        {
+            smg.AttackRange    = Stats.SMGAttackRange;
+            smg.DamagePerShot  = Stats.SMGDamagePerShot;
+            smg.FireRate       = Stats.SMGFireRate;
+        }
+
+        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SNIPER ───────────────────
+        if (TryGetComponent(out SniperAttackBehaviour sniper))
+        {
+            sniper.AttackRange   = Stats.SniperAttackRange;
+            sniper.FireCooldown  = Stats.SniperFireCooldown;
+        }
     }
 
 #if UNITY_EDITOR
