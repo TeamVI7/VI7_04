@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Sticky surface system. Player auto-sticks when standing on a layer
 /// assigned to stickyLayer. Can move freely, cannot jump, pulled down if airborne.
+/// Inherits moving platform velocity to prevent bouncing.
 ///
 /// SETUP:
 ///   1. Add to same GameObject as PlayerMovement.
@@ -28,8 +29,8 @@ public class GroundStick : MonoBehaviour
     public LayerMask stickyLayer;
 
     [Header("Settings")]
-    public float rayDistance     = 1.2f;   // slightly beyond playerHeight * 0.5
-    public float groundPullForce = 25f;    // applied while airborne on sticky surface
+    public float rayDistance     = 1.2f;
+    public float groundPullForce = 25f;
 
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
@@ -60,6 +61,7 @@ public class GroundStick : MonoBehaviour
     private Rigidbody      rb;
     private PlayerMovement pm;
     private bool           _isOnStickyLayer;
+    private Rigidbody      _platformRb;   // rigidbody of the platform under player (null if static)
 
     #endregion
 
@@ -75,21 +77,33 @@ public class GroundStick : MonoBehaviour
 
     private void Update()
     {
-        bool onSticky = Physics.Raycast(transform.position, Vector3.down, rayDistance, stickyLayer);
+        bool onSticky = Physics.Raycast(transform.position, Vector3.down,
+                            out RaycastHit hit, rayDistance, stickyLayer);
 
-        if (onSticky && !_isOnStickyLayer)
+        if (onSticky)
         {
-            _isOnStickyLayer = true;
-            pm.groundStick   = true;
-            OnStickEnter?.Invoke();
-            Log("Entered sticky layer.");
+            // Track whatever Rigidbody is underfoot (null for static geometry)
+            _platformRb = hit.collider.attachedRigidbody;
+
+            if (!_isOnStickyLayer)
+            {
+                _isOnStickyLayer = true;
+                pm.groundStick   = true;
+                OnStickEnter?.Invoke();
+                Log("Entered sticky layer.");
+            }
         }
-        else if (!onSticky && _isOnStickyLayer)
+        else
         {
-            _isOnStickyLayer = false;
-            pm.groundStick   = false;
-            OnStickExit?.Invoke();
-            Log("Left sticky layer.");
+            _platformRb = null;
+
+            if (_isOnStickyLayer)
+            {
+                _isOnStickyLayer = false;
+                pm.groundStick   = false;
+                OnStickExit?.Invoke();
+                Log("Left sticky layer.");
+            }
         }
     }
 
@@ -101,9 +115,17 @@ public class GroundStick : MonoBehaviour
         if (rb.linearVelocity.y > 0f)
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
-        // Pull down if airborne (walked off edge)
-        if (!pm.grounded)
+        if (_platformRb != null)
+        {
+            // Inherit platform Y velocity — prevents bounce on moving platforms
+            float platformY = _platformRb.linearVelocity.y;
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, platformY, rb.linearVelocity.z);
+        }
+        else if (!pm.grounded)
+        {
+            // Static geometry — pull down if walked off edge
             rb.AddForce(Vector3.down * groundPullForce, ForceMode.Acceleration);
+        }
     }
 
     #endregion
