@@ -19,8 +19,8 @@ MonoBehaviour:
     - hasProbeVolume: 1
       bakeScene: 1
       bounds:
-        m_Center: {x: -607.5, y: 40.5, z: -121.5}
-        m_Extent: {x: 283.5, y: 121.5, z: 283.5}
+        m_Center: {x: -688.5, y: 40.5, z: -121.5}
+        m_Extent: {x: 364.5, y: 121.5, z: 283.5}
   singleSceneMode: 1
   dialogNoProbeVolumeInSetShown: 1
   settings:
@@ -80,10 +80,10 @@ MonoBehaviour:
     m_Asset: {fileID: 0}
   chunkSizeInBricks: 128
   maxCellPosition: {x: -4, y: 2, z: 2}
-  minCellPosition: {x: -11, y: -1, z: -5}
+  minCellPosition: {x: -13, y: -1, z: -5}
   globalBounds:
-    m_Center: {x: -607.5, y: 40.5, z: -121.5}
-    m_Extent: {x: 283.5, y: 121.5, z: 283.5}
+    m_Center: {x: -688.5, y: 40.5, z: -121.5}
+    m_Extent: {x: 364.5, y: 121.5, z: 283.5}
   bakedSimplificationLevels: 3
   bakedMinDistanceBetweenProbes: 1
   bakedProbeOcclusion: 1
@@ -96,7 +96,7 @@ MonoBehaviour:
     y: 0
     z: 0
     w: 0
-  maxSHChunkCount: 32
+  maxSHChunkCount: 45
   L0ChunkSize: 65536
   L1ChunkSize: 32768
   L2TextureChunkSize: 32768
