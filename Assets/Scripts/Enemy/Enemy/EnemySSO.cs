@@ -75,4 +75,20 @@ public class EnemyStatsSO : ScriptableObject
     public float VelocitySeedScale   = 1.4f;
     public float UpwardKick          = 2f;
     public float RagdollLifetime     = 8f;
+
+    [Header("New Weapons — Shotgun Setup")]
+    public float ShotgunAttackRange  = 15f;
+    public float ShotgunDamagePerPellet = 3f;
+    public int   ShotgunPelletsPerShot  = 6;
+    public float ShotgunSpreadAngle  = 0.12f;
+    public float ShotgunFireRate     = 2f;
+
+    [Header("New Weapons — SMG Setup")]
+    public float SMGAttackRange      = 20f;
+    public float SMGDamagePerShot    = 2f;
+    public float SMGFireRate         = 0.1f;
+
+    [Header("New Weapons — Sniper Setup")]
+    public float SniperAttackRange   = 40f;
+    public float SniperFireCooldown  = 3.5f;
 }

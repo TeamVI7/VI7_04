@@ -1,11 +1,5 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Assets/Texture/Weapons/G17.png.meta
 guid: 4e754a1f0d04c1b498ff1b11bd8fb44e
-========
-guid: 0c202b91389fad2488bd92df2bbe3416
-timeCreated: 1513179330
-licenseType: Store
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CeilingPanel01_MET.tga.meta
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -36,27 +30,17 @@ TextureImporter:
   generateCubemap: 6
   cubemapConvolution: 0
   seamlessCubemap: 0
-  textureFormat: -1
+  textureFormat: 1
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-<<<<<<<< HEAD:Assets/Texture/Weapons/G17.png.meta
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
     wrapV: 1
     wrapW: 0
   nPOTScale: 0
-========
-    filterMode: -1
-    aniso: -1
-    mipBias: -1
-    wrapU: 0
-    wrapV: 0
-    wrapW: 0
-  nPOTScale: 1
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CeilingPanel01_MET.tga.meta
   lightmap: 0
   compressionQuality: 50
   spriteMode: 1
@@ -64,8 +48,9 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
   spriteTessellationDetail: -1
@@ -78,57 +63,29 @@ TextureImporter:
   compressionQualitySet: 0
   textureFormatSet: 0
   ignorePngGamma: 0
-  applyGammaDecoding: 0
+  applyGammaDecoding: 1
   swizzle: 50462976
-  cookieLightType: 0
+  cookieLightType: 2
   platformSettings:
-<<<<<<<< HEAD:Assets/Texture/Weapons/G17.png.meta
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-========
-  - buildTarget: DefaultTexturePlatform
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CeilingPanel01_MET.tga.meta
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
-<<<<<<<< HEAD:Assets/Texture/Weapons/G17.png.meta
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
     buildTarget: Standalone
-========
-  - buildTarget: Standalone
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    androidETC2FallbackOverride: 0
-  - buildTarget: Android
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    androidETC2FallbackOverride: 0
-  - buildTarget: WebGL
->>>>>>>> origin/Main_lbl_map04:Assets/LBL_map01/SciFi_Industrial_LevelKit_2.0/Textures/SCF_CeilingPanel01_MET.tga.meta
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0

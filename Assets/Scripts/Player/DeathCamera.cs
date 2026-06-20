@@ -8,36 +8,38 @@ public class DeathCamera : MonoBehaviour
     [SerializeField] MonoBehaviour mouseLook;
     [SerializeField] float         colliderRadius = 0.15f;
     [SerializeField] float         rollTorque     = 3f;
-    [SerializeField] float         fadeDelay      = 2f;    // black fade after settle
-    [SerializeField] CanvasGroup   deathFade;              // full-screen black CanvasGroup
+    [SerializeField] float         fadeDelay      = 2f;
+    [SerializeField] CanvasGroup   deathFade;
 
-    void OnEnable()  => PlayerHealth.OnDied += Play;
-    void OnDisable() => PlayerHealth.OnDied -= Play;
+    // FIX: Start/OnDestroy — stays subscribed even when camera GameObject is disabled.
+    // OnEnable/OnDisable was wrong: ComputerInteraction disables the camera GO,
+    // which fired OnDisable and silently unsubscribed from OnDied.
+    void Start()     => PlayerHealth.OnDied += Play;
+    void OnDestroy() => PlayerHealth.OnDied -= Play;
 
     void Play()
     {
         if (!cam) cam = Camera.main;
+
+        // FIX: Re-enable camera in case ComputerInteraction had it disabled.
+        if (cam != null && !cam.gameObject.activeSelf)
+            cam.gameObject.SetActive(true);
+
         if (mouseLook) mouseLook.enabled = false;
 
-        // Detach cam from player hierarchy
         cam.transform.SetParent(null);
 
-        // Add physics
         var rb = cam.gameObject.AddComponent<Rigidbody>();
         var sc = cam.gameObject.AddComponent<SphereCollider>();
         sc.radius = colliderRadius;
 
-        // Inherit player velocity so camera carries momentum
         var playerRb = player ? player.GetComponent<Rigidbody>() : null;
         if (playerRb) rb.linearVelocity = playerRb.linearVelocity;
 
-        // Roll torque — tilts camera as it falls
         rb.angularVelocity = cam.transform.right * rollTorque;
 
-        // Disable player
         if (player) player.SetActive(false);
 
-        // Optional: fade to black after delay
         if (deathFade)
             deathFade.DOFade(1f, 0.8f).SetDelay(fadeDelay);
     }

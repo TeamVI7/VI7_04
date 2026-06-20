@@ -1528,6 +1528,8 @@ GameObject:
   - component: {fileID: 4751639497187300080}
   - component: {fileID: 3089079331708006852}
   - component: {fileID: 5907054472260164963}
+  - component: {fileID: 4980078358181547805}
+  - component: {fileID: 1186415106304552917}
   m_Layer: 7
   m_Name: Enemy_Shield
   m_TagString: Enemy
@@ -1543,8 +1545,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4776679405120566735}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 9.3, y: 0.00537519, z: -3.61}
+  m_LocalRotation: {x: -0, y: -0.9999171, z: -0, w: -0.01287804}
+  m_LocalPosition: {x: 7.6684985, y: 0.0053751767, z: -3.673966}
   m_LocalScale: {x: 0.25047, y: 0.25047, z: 0.25047}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1552,7 +1554,7 @@ Transform:
   - {fileID: 6374846755300969125}
   - {fileID: 4091953732191933149}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -181.476, z: 0}
 --- !u!195 &8679777383642926471
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1593,8 +1595,8 @@ MonoBehaviour:
   ColorFull: {r: 0.2, g: 0.6, b: 1, a: 0.4}
   ColorLow: {r: 1, g: 0.2, b: 0.2, a: 0.6}
   LowArmorThreshold: 0.3
-  DissolveDuration: 1.5
-  BrokenShieldMaterial: {fileID: 2100000, guid: 54bb7066a4ea72c4f833f9113a38c9e7, type: 2}
+  DissolveDuration: 2
+  BrokenShieldMaterial: {fileID: 2100000, guid: 6fdc8d1bc1da3464c8f7364c4dc893a6, type: 2}
   BreakFlashMaterial: {fileID: 0}
   BreakFlashDuration: 3
   StunDuration: 1.2
@@ -1618,6 +1620,9 @@ MonoBehaviour:
   StaggerDuration: 1.5
   StaggerWindow: 3
   DeathImpulseScale: 8
+  ExplosionCount: 3
+  DelayBetweenExplosions: 0.4
+  ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
   DropUpwardForce: 4
   DeathVFXPrefab: {fileID: 1121192042590650, guid: e1b08032bec16ba4eb1ae23cbd572664, type: 3}
@@ -1720,10 +1725,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7594cac5c80287488f83344de4b76d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySoundController
-  HasWalking: 1
-  HasLaser: 0
-  HasBombs: 1
-  WalkClip: {fileID: 0}
+  WalkClip: {fileID: 8300000, guid: ae8bcfb701bc82b4e8470f3f841014aa, type: 3}
+  MinMoveSpeed: 0.1
+  LaserClip: {fileID: 0}
+  BombClip: {fileID: 8300000, guid: 80ba987836d46534caaf3397b61f6f15, type: 3}
+  SMGClip: {fileID: 0}
+  ShotgunClip: {fileID: 0}
+  SniperClip: {fileID: 0}
+  DeathClip: {fileID: 8300000, guid: 29c5b0b4ab1df9c42a5a9bd101d8ad2d, type: 3}
+  SpatialBlend: 1
+  MinDistance: 5
+  MaxDistance: 30
 --- !u!65 &5907054472260164963
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1745,6 +1757,35 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.5052018, y: 4.1524057, z: 4.89519}
   m_Center: {x: -0.010841074, y: 1.5762033, z: 0.4191039}
+--- !u!114 &4980078358181547805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4776679405120566735}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3806f0b91075dc4790d206ac2da4677, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyStateDebugger
+  ShowDebug: 1
+  Offset: {x: 0, y: 2.2, z: 0}
+  TextColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  FontSize: 16
+--- !u!114 &1186415106304552917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4776679405120566735}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca9ec1fe2b4d9eb48b156ce1b4cf5084, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySetup
+  Stats: {fileID: 11400000, guid: 7bbd7a007c19b594da5485d51bdf2053, type: 2}
 --- !u!1 &5254972550467434485
 GameObject:
   m_ObjectHideFlags: 0

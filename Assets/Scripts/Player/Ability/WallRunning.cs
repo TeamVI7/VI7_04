@@ -54,8 +54,6 @@ public class WallRunning : MonoBehaviour
     [Header("References")]
     public Transform          orientation;
     public PlayerCam          cam;
-    public WeaponsController  activeWeapon;
-
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
 
@@ -64,9 +62,6 @@ public class WallRunning : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Animation Hashes
     // ─────────────────────────────────────────────────────────────────────────
-
-    private static readonly int AnimGrapple = Animator.StringToHash("Grapple");
-    private static readonly int AnimStopGrapple = Animator.StringToHash("StopGrapple");
 
     #endregion
 
@@ -93,6 +88,7 @@ public class WallRunning : MonoBehaviour
     public Vector3  WallNormal     => wallRight ? rightWallhit.normal : leftWallhit.normal;
     public bool     WallOnLeft     => wallLeft;
     public bool     WallOnRight    => wallRight;
+    public Vector3 WallHitPoint => wallRight ? rightWallhit.point : leftWallhit.point;
 
     #endregion
 
@@ -228,18 +224,6 @@ public class WallRunning : MonoBehaviour
         pm.climbing         = false;
         wallRunTimer        = maxWallRunTime;
         rb.linearVelocity   = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-
-        if (activeWeapon != null)
-        {
-            if (activeWeapon.IsReloading)  activeWeapon.CancelReload();
-            if (activeWeapon.IsInspecting) activeWeapon.CancelInspect();
-
-            if (activeWeapon.gunAnimator != null)
-            {
-                activeWeapon.gunAnimator.ResetTrigger(AnimStopGrapple);
-                activeWeapon.gunAnimator.SetTrigger(AnimGrapple);
-            }
-        }
 
         cam.DoFov(wallRunFov);
         cam.DoTilt(wallLeft ? -wallTiltAngle : wallTiltAngle);
