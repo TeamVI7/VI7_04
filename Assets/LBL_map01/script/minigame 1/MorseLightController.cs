@@ -223,11 +223,11 @@ public class MorseLightController : MonoBehaviour
 
     private void SetTarget(Color c) => _targetEmission = c;
 
-#if UNITY_EDITOR
+/*#if UNITY_EDITOR
     private void OnValidate()
     {
         if (!string.IsNullOrEmpty(messageToEncode))
             Debug.Log($"[Morse] \"{messageToEncode}\" → {TextToMorseString(messageToEncode)}");
     }
-#endif
+#endif*/
 }
