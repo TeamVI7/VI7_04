@@ -1,20 +1,20 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// Nhìn vào computer + bấm E → mở UI World Space.
-/// Khi mở, chuyển sang minigameCamera riêng thay vì dùng camera player.
-/// Click chuột hoạt động nhờ WorldSpaceUISetup + PhysicsRaycaster.
+/// Khi mở, switch sang minigameCamera riêng.
+/// Tự tắt collider 3D chặn UI (kể cả PF_EQP_Control_SmallPanelMonitor).
 /// </summary>
 public class ComputerInteraction : MonoBehaviour
 {
-    [Header("Raycast (dùng camera player để detect)")]
-    [SerializeField] private Transform  playerCameraTransform;
-    [SerializeField] private float      interactionDistance = 2.5f;
-    [SerializeField] private LayerMask  interactableLayer;
+    [Header("Raycast detect (camera player)")]
+    [SerializeField] private Transform playerCameraTransform;
+    [SerializeField] private float     interactionDistance = 2.5f;
+    [SerializeField] private LayerMask interactableLayer;
 
     [Header("Minigame Camera")]
-    [Tooltip("Camera riêng của minigame. Nếu để trống sẽ fallback về camera player.")]
     [SerializeField] private Camera minigameCamera;
 
     [Header("References")]
@@ -22,11 +22,25 @@ public class ComputerInteraction : MonoBehaviour
     [SerializeField] private MorseMinigameManager gameManager;
     [SerializeField] private UIInputBlocker       inputBlocker;
 
+    [Header("Colliders cần tắt khi UI mở")]
+    [Tooltip("Kéo vào đây TẤT CẢ collider 3D nằm trước Canvas:\n" +
+             "- PF_EQP_Control_SmallPanelMonitor\n- Computer\n- Table\n- v.v.\n\n" +
+             "Để trống = chỉ tắt children của object này (không đủ nếu monitor là object riêng).")]
+    [SerializeField] private Collider[] collidersToDisable;
+
+    [Tooltip("Tự tắt tất cả Collider trong children của Computer object này.")]
+    [SerializeField] private bool autoDisableChildColliders = true;
+
+    [Tooltip("Tên chứa chuỗi này sẽ bị tắt collider tự động trong toàn scene.\n" +
+             "Mặc định: 'PF_EQP_Control_SmallPanelMonitor'")]
+    [SerializeField] private string[] autoFindByNameContains = { "PF_EQP_Control_SmallPanelMonitor" };
+
     public static bool UIOpen { get; private set; } = false;
 
-    private bool   _isInteracting = false;
-    private bool   _solved        = false;
-    private Camera _playerCam;
+    private bool      _isInteracting = false;
+    private bool      _solved        = false;
+    private Camera    _playerCam;
+    private Collider[] _runtimeDisabled; // lưu để bật lại
 
     private void Start()
     {
@@ -40,7 +54,6 @@ public class ComputerInteraction : MonoBehaviour
             ? playerCameraTransform.GetComponent<Camera>()
             : Camera.main;
 
-        // Tắt minigame camera ngay từ đầu
         if (minigameCamera != null)
             minigameCamera.gameObject.SetActive(false);
 
@@ -68,7 +81,6 @@ public class ComputerInteraction : MonoBehaviour
             ExitComputer();
     }
 
-    // Dùng camera player để raycast detect (player chưa vào UI)
     private void TryInteract()
     {
         if (playerCameraTransform == null) return;
@@ -82,25 +94,23 @@ public class ComputerInteraction : MonoBehaviour
         _isInteracting = true;
         UIOpen         = true;
 
-        // Bật minigame camera, tắt player camera
-        Camera activeCam = GetMinigameCamera();
-        SetPlayerCameraActive(false);
+        // Tắt collider TRƯỚC khi mở UI
+        DisableColliders();
+
         if (minigameCamera != null)
             minigameCamera.gameObject.SetActive(true);
+
+        if (_playerCam != null)
+            _playerCam.gameObject.SetActive(false);
 
         if (minigameCanvas != null)
         {
             minigameCanvas.gameObject.SetActive(true);
-            // Gán Event Camera là minigame camera
+            Camera activeCam = minigameCamera != null ? minigameCamera : _playerCam;
             minigameCanvas.worldCamera = activeCam;
+            EnsureGraphicRaycaster(minigameCanvas);
+            EnsureEventSystem(activeCam);
         }
-
-        // Đồng bộ WorldSpaceUISetup nếu có
-        var wsSetup = minigameCanvas != null
-            ? minigameCanvas.GetComponent<WorldSpaceUISetup>()
-            : null;
-        if (wsSetup != null)
-            wsSetup.SwitchCamera(activeCam);
 
         inputBlocker?.BlockInput();
         gameManager?.StartNewRound();
@@ -114,10 +124,14 @@ public class ComputerInteraction : MonoBehaviour
         if (minigameCanvas != null)
             minigameCanvas.gameObject.SetActive(false);
 
-        // Tắt minigame camera, bật lại player camera
         if (minigameCamera != null)
             minigameCamera.gameObject.SetActive(false);
-        SetPlayerCameraActive(true);
+
+        if (_playerCam != null)
+            _playerCam.gameObject.SetActive(true);
+
+        // Bật lại collider
+        EnableColliders();
 
         inputBlocker?.UnblockInput();
     }
@@ -128,18 +142,83 @@ public class ComputerInteraction : MonoBehaviour
         ExitComputer();
     }
 
-    /// <summary>
-    /// Trả về minigameCamera nếu có, fallback về player camera.
-    /// </summary>
-    private Camera GetMinigameCamera()
+    // ─── Collider management ─────────────────────────────────────────
+
+    private void DisableColliders()
     {
-        return (minigameCamera != null) ? minigameCamera : _playerCam;
+        var toDisable = new System.Collections.Generic.List<Collider>();
+
+        // 1. Danh sách thủ công
+        if (collidersToDisable != null)
+            foreach (var c in collidersToDisable)
+                if (c != null && c.enabled) toDisable.Add(c);
+
+        // 2. Children của object này
+        if (autoDisableChildColliders)
+            foreach (var c in GetComponentsInChildren<Collider>(true))
+                if (c.enabled && !toDisable.Contains(c)) toDisable.Add(c);
+
+        // 3. Tìm theo tên trong toàn scene
+        if (autoFindByNameContains != null)
+        {
+            var allColliders = FindObjectsOfType<Collider>(true);
+            foreach (var c in allColliders)
+            {
+                if (!c.enabled) continue;
+                foreach (var keyword in autoFindByNameContains)
+                {
+                    if (!string.IsNullOrEmpty(keyword) &&
+                        c.gameObject.name.Contains(keyword) &&
+                        !toDisable.Contains(c))
+                    {
+                        toDisable.Add(c);
+                        Debug.Log($"[ComputerInteraction] Auto-found & disabled: '{c.gameObject.name}'");
+                        break;
+                    }
+                }
+            }
+        }
+
+        _runtimeDisabled = toDisable.ToArray();
+        foreach (var c in _runtimeDisabled)
+            c.enabled = false;
     }
 
-    private void SetPlayerCameraActive(bool active)
+    private void EnableColliders()
     {
-        if (_playerCam != null)
-            _playerCam.gameObject.SetActive(active);
+        if (_runtimeDisabled == null) return;
+        foreach (var c in _runtimeDisabled)
+            if (c != null) c.enabled = true;
+        _runtimeDisabled = null;
+    }
+
+    // ─── Raycaster / EventSystem ─────────────────────────────────────
+
+    private void EnsureGraphicRaycaster(Canvas canvas)
+    {
+        var existing = canvas.GetComponent<GraphicRaycaster>();
+        if (existing != null && !(existing is MinigameCameraRaycaster))
+        {
+            Destroy(existing);
+            canvas.gameObject.AddComponent<MinigameCameraRaycaster>();
+        }
+        else if (existing == null)
+        {
+            canvas.gameObject.AddComponent<MinigameCameraRaycaster>();
+        }
+    }
+
+    private void EnsureEventSystem(Camera cam)
+    {
+        if (EventSystem.current == null)
+        {
+            var esGO = new GameObject("EventSystem");
+            esGO.AddComponent<EventSystem>();
+            esGO.AddComponent<StandaloneInputModule>();
+        }
+
+        if (cam != null && cam.GetComponent<PhysicsRaycaster>() == null)
+            cam.gameObject.AddComponent<PhysicsRaycaster>();
     }
 
     private void OnDrawGizmosSelected()
