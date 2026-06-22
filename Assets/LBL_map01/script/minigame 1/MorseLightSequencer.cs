@@ -20,15 +20,50 @@ public class MorseLightSequencer : MonoBehaviour
     [Tooltip("Lặp lại vô tận")]
     public bool looping = true;
 
+    [Tooltip("Nếu false: KHÔNG tự chạy lúc Start(). Phải gọi BeginSequence() từ script khác " +
+             "(ví dụ WireBoxInteraction khi puzzle nối dây hoàn thành).")]
+    public bool activateOnStart = true;
+
+    private Coroutine _loopCoroutine;
+    private bool      _isRunning = false;
+
     private void Start()
     {
+        if (activateOnStart)
+            BeginSequence();
+    }
+
+    /// <summary>
+    /// Bắt đầu chạy chuỗi đèn Morse. Gọi thủ công nếu activateOnStart = false
+    /// (ví dụ sau khi minigame nối dây hoàn thành).
+    /// </summary>
+    public void BeginSequence()
+    {
+        if (_isRunning) return;
+
         if (lights == null || lights.Length == 0)
         {
             Debug.LogWarning("[MorseLightSequencer] Chưa gán đèn nào!");
             return;
         }
 
-        StartCoroutine(SequenceLoop());
+        _isRunning = true;
+        _loopCoroutine = StartCoroutine(SequenceLoop());
+    }
+
+    /// <summary>Dừng chuỗi đèn (về trạng thái idle ở lần Update tiếp theo của từng đèn).</summary>
+    public void StopSequence()
+    {
+        if (_loopCoroutine != null)
+        {
+            StopCoroutine(_loopCoroutine);
+            _loopCoroutine = null;
+        }
+        _isRunning = false;
+
+        if (lights != null)
+            foreach (var light in lights)
+                light?.StopMorse();
     }
 
     private IEnumerator SequenceLoop()
