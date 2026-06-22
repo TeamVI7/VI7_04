@@ -108,6 +108,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         }
 
         recoilModule?.RebindController(first);
+        proceduralAnimator?.RebindWeaponData(first != null ? first.weaponData : null);   // ← ADD: needed for scope to activate
         proceduralAnimator?.LoadProfile(GetProfile(0));
 
         Log($"Ready — active: [{0}] {first?.name}");
@@ -203,6 +204,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         incoming.gameObject.SetActive(true);
         
         recoilModule?.RebindController(incoming);
+        proceduralAnimator?.RebindWeaponData(incoming.weaponData);   // ← ADD: needed for scope to activate on swap
         wallHandIK?.SetIK(incoming.leftArmIK);
         proceduralAnimator?.SnapToHip();
         
@@ -223,7 +225,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
             Vector3    riseStartPos  = weaponPivot.localPosition;
             Quaternion riseStartRot  = weaponPivot.localRotation;
             Vector3    riseTargetPos = proceduralAnimator != null
-                                     ? proceduralAnimator.ActiveHipPos
+                                     ? proceduralAnimator.CurrentHipPos   // ← FIX: was ActiveHipPos, doesn't exist on your animator
                                      : riseStartPos + new Vector3(0f, -riseFromY, 0f);
             yield return AnimatePivot(riseStartPos, riseTargetPos, riseStartRot,
                                       Quaternion.identity, riseDuration, Easing.EaseOutBack);
