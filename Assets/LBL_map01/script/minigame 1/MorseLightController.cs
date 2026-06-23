@@ -40,6 +40,10 @@ public class MorseLightController : MonoBehaviour
     public bool   playOnStart     = true;
     public bool   looping         = true;
 
+    // ─── Trạng thái nguồn điện ──────────────────────────────────
+    // true = đang có điện (idle đỏ tối / đang nháy). false = MẤT ĐIỆN HẲN (đen, 0 emission).
+    private bool _powered = true;
+
     // ─── Morse Table ─────────────────────────────────────────────
     private static readonly Dictionary<char, string> MorseTable = new()
     {
@@ -75,7 +79,9 @@ public class MorseLightController : MonoBehaviour
         _mat.EnableKeyword("_EMISSION");
         targetRenderer.materials = mats;
 
-        // Bắt đầu bằng màu idle (đỏ tối)
+        // Bắt đầu bằng màu idle (đỏ tối). Nếu cần tắt hẳn ngay từ đầu,
+        // gọi SetPowerOn(false) từ script điều khiển (ví dụ WireBoxInteraction)
+        // trong Start() của nó — Awake luôn chạy trước Start nên không bị chớp sáng.
         _currentEmission = glowIdleColor;
         _targetEmission  = glowIdleColor;
         _mat.SetColor(EmissionProp, glowIdleColor);
@@ -90,7 +96,7 @@ public class MorseLightController : MonoBehaviour
 
     private void Update()
     {
-        if (_mat == null) return;
+        if (_mat == null || !_powered) return; // mất điện thì không fade, giữ nguyên màu đen đã set
         _currentEmission = Color.Lerp(_currentEmission, _targetEmission,
                                       Time.deltaTime * (_targetEmission == glowOnColor ? fadeInSpeed : fadeOutSpeed));
         _mat.SetColor(EmissionProp, _currentEmission);
@@ -98,8 +104,37 @@ public class MorseLightController : MonoBehaviour
 
     // ─── Public API ───────────────────────────────────────────────
 
+    /// <summary>
+    /// TẮT/MỞ ĐIỆN THẬT cho đèn — khác với StopMorse() (chỉ về idle đỏ tối).
+    /// false  = dừng mọi coroutine, set emission về ĐEN tuyệt đối (0 sáng), khoá Update().
+    /// true   = mở lại, về trạng thái idle (đỏ tối), cho phép Play lại bình thường.
+    /// Gọi hàm này thay cho việc set `enabled = false` — vì enabled=false KHÔNG
+    /// ngăn được các lệnh gọi trực tiếp như PlayOnce()/PlayMessage() từ script khác
+    /// (ví dụ MorseLightSequencer), chỉ ngăn Update()/coroutine tự sinh ra.
+    /// </summary>
+    public void SetPowerOn(bool on)
+    {
+        if (_playCoroutine != null) { StopCoroutine(_playCoroutine); _playCoroutine = null; }
+
+        _powered = on;
+
+        if (!on)
+        {
+            _currentEmission = Color.black;
+            _targetEmission  = Color.black;
+            _mat?.SetColor(EmissionProp, Color.black);
+        }
+        else
+        {
+            _currentEmission = glowIdleColor;
+            _targetEmission  = glowIdleColor;
+            _mat?.SetColor(EmissionProp, glowIdleColor);
+        }
+    }
+
     public void PlayMessage(string message)
     {
+        if (!_powered) return; // mất điện thì không cho phát
         StopMorse();
         _playCoroutine = StartCoroutine(PlayCoroutine(message.ToUpper()));
     }
@@ -109,6 +144,7 @@ public class MorseLightController : MonoBehaviour
     /// </summary>
     public void PlayOnce(string message, System.Action onDone)
     {
+        if (!_powered) { onDone?.Invoke(); return; } // mất điện thì coi như xong ngay, không sáng
         StopMorse();
         _playCoroutine = StartCoroutine(PlayOnceCoroutine(message.ToUpper(), onDone));
     }
@@ -116,6 +152,7 @@ public class MorseLightController : MonoBehaviour
     public void StopMorse()
     {
         if (_playCoroutine != null) { StopCoroutine(_playCoroutine); _playCoroutine = null; }
+        if (!_powered) return; // đang mất điện thì giữ đen, không nhảy về đỏ tối
         SetTarget(glowIdleColor); // về idle (đỏ tối)
         _currentEmission = glowIdleColor;
         _mat?.SetColor(EmissionProp, glowIdleColor);

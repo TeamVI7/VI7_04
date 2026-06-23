@@ -2,23 +2,19 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Gắn vào MỖI điểm nối dây (cả bên trái "nguồn" và bên phải "đích").
-/// Là 1 UI Image hình tròn nhỏ, có Raycast Target = true.
+/// Gắn vào MỖI điểm nối dây (UI Image hình tròn).
 ///
-/// Cách dùng:
-///   - Bên trái (nguồn): kéo SwireColor, isSourceSide = true
-///   - Bên phải (đích):  kéo wireColor,  isSourceSide = false
-///   - WirePuzzleManager sẽ tự tìm tất cả điểm này qua GetComponentsInChildren
+/// FIX: OnPointerUp bị xoá — EndDrag() nay chạy trong Update() của WirePuzzleManager
+/// dùng Raycast tìm target, tránh bug "kéo đúng màu nhưng không dính".
 /// </summary>
 [RequireComponent(typeof(RectTransform))]
-public class WireConnectionPoint : MonoBehaviour,
-    IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
+public class WireConnectionPoint : MonoBehaviour, IPointerDownHandler, IPointerEnterHandler, IPointerExitHandler
 {
-    [Header("Định danh dây")]
-    [Tooltip("Màu/ID của dây này. Bên trái và bên phải có cùng wireId sẽ là 1 cặp đúng.")]
+    [Header("Định danh")]
+    [Tooltip("ID màu dây. Trái và phải cùng wireId = 1 cặp đúng. VD: 'red', 'blue', 'green', 'yellow'")]
     public string wireId = "red";
 
-    [Tooltip("True = đây là điểm BÊN TRÁI (nơi bắt đầu kéo). False = điểm BÊN PHẢI (nơi thả vào).")]
+    [Tooltip("True = điểm BÊN TRÁI (nguồn, nơi bắt đầu kéo). False = điểm BÊN PHẢI (đích, nơi thả vào).")]
     public bool isSourceSide = true;
 
     [HideInInspector] public bool isConnected = false;
@@ -33,27 +29,19 @@ public class WireConnectionPoint : MonoBehaviour,
         _rect = GetComponent<RectTransform>();
     }
 
-    /// <summary>Gọi bởi WirePuzzleManager khi khởi tạo.</summary>
     public void Init(WirePuzzleManager manager)
     {
         _manager = manager;
     }
 
+    // Bắt đầu kéo dây từ điểm TRÁI
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (isConnected) return;
-
-        // Chỉ bắt đầu kéo dây từ điểm BÊN TRÁI (nguồn)
-        if (isSourceSide)
-            _manager?.BeginDrag(this);
+        if (isConnected || !isSourceSide) return;
+        _manager?.BeginDrag(this);
     }
 
-    public void OnPointerUp(PointerEventData eventData)
-    {
-        // Thả chuột ở bất kỳ đâu -> báo cho manager xử lý (manager tự kiểm tra đang thả lên điểm nào)
-        _manager?.EndDrag();
-    }
-
+    // Hint hover (không dùng để xác định kết nối nữa)
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (!isSourceSide && !isConnected)
@@ -65,4 +53,6 @@ public class WireConnectionPoint : MonoBehaviour,
         if (!isSourceSide)
             _manager?.ClearHoverTarget(this);
     }
+
+    // OnPointerUp đã XOÁ — EndDrag() chạy ở Update() của Manager qua Raycast
 }

@@ -5,47 +5,48 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Quản lý toàn bộ puzzle nối dây kiểu Among Us.
-/// Gắn vào Canvas (Screen Space) chứa UI nối dây, hoặc 1 panel con của Canvas đó.
+/// Quản lý puzzle nối dây — hỗ trợ World Space Canvas với camera riêng.
 ///
-/// SETUP TRONG EDITOR (xem chi tiết ở cuối file / note đi kèm):
-///   1. Tạo Canvas Screen Space - Overlay (hoặc Camera), đặt tên "WirePuzzleCanvas"
-///   2. Trong Canvas, tạo Panel "WirePanel" làm container chính, gắn script này vào Panel
-///   3. Tạo các điểm nối trái/phải bằng UI Image (hình tròn), gắn WireConnectionPoint vào mỗi điểm
-///   4. Tạo 1 RectTransform rỗng tên "LinePreviewContainer" làm cha chứa các dây được vẽ ra (UI.Image kéo dài)
-///   5. Kéo tất cả vào các field bên dưới trong Inspector
+/// FIX BUG "không dính":
+///   Thay vì dùng OnPointerEnter/Exit (bị mất khi Image dây chặn event),
+///   EndDrag() tự raycast tại vị trí chuột để tìm điểm đích — chắc chắn 100%.
 /// </summary>
 public class WirePuzzleManager : MonoBehaviour
 {
     [Header("Điểm nối dây")]
-    [Tooltip("Để trống = tự động tìm tất cả WireConnectionPoint trong children")]
+    [Tooltip("Để trống = tự động tìm tất cả WireConnectionPoint trong children.")]
     public WireConnectionPoint[] connectionPoints;
 
     [Header("Vẽ dây")]
-    [Tooltip("RectTransform cha để chứa các Image dây được vẽ ra (kéo dài theo kiểu line).")]
+    [Tooltip("RectTransform cha chứa các Image dây. Tạo Empty GO tên 'LineContainer' trong Canvas.")]
     public RectTransform lineContainer;
 
-    [Tooltip("Prefab UI Image dùng làm 1 đoạn dây (Image đơn giản, pivot 0,0.5, sẽ bị stretch theo chiều dài).")]
+    [Tooltip("Prefab UI Image làm đoạn dây. Pivot = (0, 0.5). Anchor = top-left.")]
     public RectTransform wireLinePrefab;
 
-    [Tooltip("Độ dày của dây vẽ ra (pixel).")]
+    [Tooltip("Độ dày dây (pixel trong Canvas space).")]
     public float wireThickness = 8f;
 
     [Header("Màu sắc theo wireId")]
     public WireColorEntry[] wireColors =
     {
-        new WireColorEntry { wireId = "red",    color = Color.red },
+        new WireColorEntry { wireId = "red",    color = Color.red    },
         new WireColorEntry { wireId = "yellow", color = Color.yellow },
-        new WireColorEntry { wireId = "blue",   color = Color.blue },
-        new WireColorEntry { wireId = "green",  color = Color.green },
+        new WireColorEntry { wireId = "blue",   color = new Color(0.2f,0.5f,1f) },
+        new WireColorEntry { wireId = "green",  color = Color.green  },
     };
 
-    [Header("UI phụ trợ")]
-    public GameObject completePanel; // bảng "Hoàn thành!" hiện khi xong (tuỳ chọn)
+    [Header("Camera riêng của minigame (World Space)")]
+    [Tooltip("Kéo minigame camera vào. Dùng để chuyển toạ độ chuột đúng trong World Space Canvas.")]
+    public Camera minigameCamera;
 
-    [Header("Canvas tham chiếu (để chuyển toạ độ chuột)")]
-    [Tooltip("Để trống sẽ tự tìm Canvas cha gần nhất.")]
+    [Header("Canvas tham chiếu")]
+    [Tooltip("Để trống = tự tìm Canvas cha. Cần gán đúng Canvas chứa wire puzzle.")]
     public Canvas parentCanvas;
+
+    [Header("UI phụ trợ")]
+    [Tooltip("Panel 'Hoàn thành!' hiện khi xong (tuỳ chọn).")]
+    public GameObject completePanel;
 
     public event Action OnPuzzleCompleted;
 
@@ -56,24 +57,27 @@ public class WirePuzzleManager : MonoBehaviour
         public Color  color;
     }
 
-    // ── State ────────────────────────────────────────────────────
-    private readonly Dictionary<string, Color> _colorMap = new();
-    private readonly Dictionary<string, RectTransform> _activeLines = new(); // wireId -> line đang vẽ (đã nối xong)
+    // ── Internal state ──────────────────────────────────────────────
+    private readonly Dictionary<string, Color>         _colorMap    = new();
+    private readonly Dictionary<string, RectTransform> _activeLines = new();
 
-    private WireConnectionPoint _dragSource;     // điểm trái đang kéo
-    private WireConnectionPoint _hoverTarget;    // điểm phải đang hover trong lúc kéo
-    private RectTransform       _previewLine;    // dây đang kéo (chưa thả)
+    private WireConnectionPoint _dragSource;
+    private RectTransform       _previewLine;
 
     private int  _totalWires;
     private int  _connectedCount;
-    private bool _completed = false;
+    private bool _completed;
 
-    // ─────────────────────────────────────────────────────────────
+    // ───────────────────────────────────────────────────────────────
 
     private void Awake()
     {
         if (parentCanvas == null)
             parentCanvas = GetComponentInParent<Canvas>();
+
+        // Tự tìm minigame camera từ Canvas nếu chưa gán
+        if (minigameCamera == null && parentCanvas != null)
+            minigameCamera = parentCanvas.worldCamera;
 
         foreach (var entry in wireColors)
             _colorMap[entry.wireId] = entry.color;
@@ -84,9 +88,16 @@ public class WirePuzzleManager : MonoBehaviour
         foreach (var p in connectionPoints)
             p.Init(this);
 
+        var seenIds = new HashSet<string>();
         _totalWires = 0;
         foreach (var p in connectionPoints)
-            if (p.isSourceSide) _totalWires++;
+        {
+            if (p == null || !p.isSourceSide) continue;
+            // Đếm theo wireId duy nhất — nếu có điểm nguồn bị trùng/dư (object cũ
+            // còn sót lại trong scene, đang ẩn) thì cũng KHÔNG bị tính dư, tránh bug "4/5".
+            if (seenIds.Add(p.wireId))
+                _totalWires++;
+        }
 
         ApplyColors();
     }
@@ -98,57 +109,53 @@ public class WirePuzzleManager : MonoBehaviour
 
     private void Update()
     {
-        // Cập nhật vị trí dây đang kéo (preview) theo chuột mỗi frame
+        // Cập nhật dây preview theo chuột
         if (_dragSource != null && _previewLine != null)
         {
-            Vector2 endPos = ScreenToLocalPointInLineContainer(Input.mousePosition);
-            DrawLine(_previewLine, GetLocalPos(_dragSource.RectTransform), endPos, _colorMap.GetValueOrDefault(_dragSource.wireId, Color.white));
+            Vector2 mouseLocal = ScreenToLocal(Input.mousePosition);
+            Color   col        = _colorMap.GetValueOrDefault(_dragSource.wireId, Color.white);
+            DrawLine(_previewLine, GetLocalPos(_dragSource.RectTransform), mouseLocal, col);
         }
+
+        // Thả chuột (phát hiện ở Update để không bị block bởi Image dây che)
+        if (_dragSource != null && Input.GetMouseButtonUp(0))
+            EndDrag();
     }
 
-    // ── Public API cho WireConnectionPoint gọi ─────────────────────
+    // ── Public API ──────────────────────────────────────────────────
 
     public void BeginDrag(WireConnectionPoint source)
     {
-        if (_completed) return;
-        if (source.isConnected) return;
-
+        if (_completed || source.isConnected) return;
         _dragSource  = source;
-        _hoverTarget = null;
-
         _previewLine = CreateLineInstance();
+        Debug.Log($"[WirePuzzle] Bắt đầu kéo dây '{source.wireId}'");
     }
 
-    public void SetHoverTarget(WireConnectionPoint target)
-    {
-        if (_dragSource == null) return;
-        _hoverTarget = target;
-    }
+    // OnPointerEnter/Exit giữ nguyên làm hint nhưng KHÔNG dùng để xác định kết nối
+    public void SetHoverTarget(WireConnectionPoint target)  { /* hint only */ }
+    public void ClearHoverTarget(WireConnectionPoint target) { /* hint only */ }
 
-    public void ClearHoverTarget(WireConnectionPoint target)
-    {
-        if (_hoverTarget == target)
-            _hoverTarget = null;
-    }
-
-    public void EndDrag()
+    /// <summary>
+    /// Gọi từ Update khi nhả chuột. Tự raycast tìm điểm đích — tránh bug hover bị clear.
+    /// </summary>
+    private void EndDrag()
     {
         if (_dragSource == null) return;
 
+        WireConnectionPoint target = FindTargetUnderMouse();
         bool success = false;
 
-        if (_hoverTarget != null && !_hoverTarget.isConnected)
+        if (target != null && !target.isConnected && !target.isSourceSide)
         {
-            if (_hoverTarget.wireId == _dragSource.wireId)
+            if (target.wireId == _dragSource.wireId)
             {
-                // ĐÚNG: chốt dây cố định
-                ConfirmConnection(_dragSource, _hoverTarget);
+                ConfirmConnection(_dragSource, target);
                 success = true;
             }
             else
             {
-                // SAI: nháy đỏ rồi huỷ
-                Debug.Log($"[WirePuzzle] Sai dây: {_dragSource.wireId} -> {_hoverTarget.wireId}");
+                Debug.Log($"[WirePuzzle] Sai màu: {_dragSource.wireId} → {target.wireId}");
             }
         }
 
@@ -157,25 +164,25 @@ public class WirePuzzleManager : MonoBehaviour
 
         _previewLine = null;
         _dragSource  = null;
-        _hoverTarget = null;
     }
 
-    // ── Logic chính ──────────────────────────────────────────────
+    // ── Core logic ──────────────────────────────────────────────────
 
     private void ConfirmConnection(WireConnectionPoint source, WireConnectionPoint target)
     {
         source.isConnected = true;
         target.isConnected = true;
 
-        // Cố định vị trí dây preview thành dây hoàn chỉnh
-        DrawLine(_previewLine, GetLocalPos(source.RectTransform), GetLocalPos(target.RectTransform),
+        DrawLine(_previewLine,
+                 GetLocalPos(source.RectTransform),
+                 GetLocalPos(target.RectTransform),
                  _colorMap.GetValueOrDefault(source.wireId, Color.white));
 
         _activeLines[source.wireId] = _previewLine;
-        _previewLine = null; // đã "chốt", không bị Destroy ở EndDrag nữa
+        _previewLine = null; // chốt — không bị Destroy
 
         _connectedCount++;
-        Debug.Log($"[WirePuzzle] Nối đúng dây '{source.wireId}' ({_connectedCount}/{_totalWires})");
+        Debug.Log($"[WirePuzzle] ✅ Nối đúng '{source.wireId}' ({_connectedCount}/{_totalWires})");
 
         if (_connectedCount >= _totalWires)
             CompletePuzzle();
@@ -189,24 +196,21 @@ public class WirePuzzleManager : MonoBehaviour
         if (completePanel != null)
             completePanel.SetActive(true);
 
-        Debug.Log("[WirePuzzle] HOÀN THÀNH! Tất cả dây đã nối đúng.");
+        Debug.Log("[WirePuzzle] 🎉 HOÀN THÀNH!");
         OnPuzzleCompleted?.Invoke();
     }
 
-    /// <summary>Reset toàn bộ puzzle về trạng thái ban đầu (gọi khi mở lại UI).</summary>
     public void ResetPuzzle()
     {
         _completed      = false;
         _connectedCount = 0;
         _dragSource     = null;
-        _hoverTarget    = null;
 
         foreach (var line in _activeLines.Values)
             if (line != null) Destroy(line.gameObject);
         _activeLines.Clear();
 
-        if (_previewLine != null) Destroy(_previewLine.gameObject);
-        _previewLine = null;
+        if (_previewLine != null) { Destroy(_previewLine.gameObject); _previewLine = null; }
 
         foreach (var p in connectionPoints)
             if (p != null) p.isConnected = false;
@@ -214,6 +218,34 @@ public class WirePuzzleManager : MonoBehaviour
         if (completePanel != null)
             completePanel.SetActive(false);
     }
+
+    // ── Raycast tìm điểm đích dưới chuột ───────────────────────────
+
+    /// <summary>
+    /// Dùng EventSystem.RaycastAll để tìm WireConnectionPoint ngay dưới con trỏ.
+    /// Hoạt động đúng với cả Screen Space và World Space Canvas.
+    /// </summary>
+    private WireConnectionPoint FindTargetUnderMouse()
+    {
+        if (EventSystem.current == null) return null;
+
+        var pointer = new PointerEventData(EventSystem.current)
+        {
+            position = Input.mousePosition
+        };
+
+        var results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, results);
+
+        foreach (var r in results)
+        {
+            var pt = r.gameObject.GetComponent<WireConnectionPoint>();
+            if (pt != null) return pt;
+        }
+        return null;
+    }
+
+    // ── Màu điểm nối ────────────────────────────────────────────────
 
     private void ApplyColors()
     {
@@ -226,11 +258,17 @@ public class WirePuzzleManager : MonoBehaviour
         }
     }
 
-    // ── Vẽ dây bằng UI Image kéo dài (stretch theo chiều dài + góc xoay) ──
+    // ── Vẽ dây ──────────────────────────────────────────────────────
 
     private RectTransform CreateLineInstance()
     {
-        RectTransform line = Instantiate(wireLinePrefab, lineContainer);
+        var line = Instantiate(wireLinePrefab, lineContainer);
+        line.pivot         = new Vector2(0f, 0.5f);
+        line.anchorMin     = Vector2.zero;
+        line.anchorMax     = Vector2.zero;
+        line.localScale    = Vector3.one; // QUAN TRỌNG: prefab có sẵn scale (1, 0.5, 1) —
+                                           // nếu không reset, rotate quanh pivot bị méo
+                                           // khiến đầu dây lệch khỏi điểm nối một khoảng nhỏ.
         line.gameObject.SetActive(true);
         return line;
     }
@@ -239,34 +277,62 @@ public class WirePuzzleManager : MonoBehaviour
     {
         if (line == null) return;
 
-        Vector2 dir = to - from;
+        Vector2 dir      = to - from;
         float   distance = dir.magnitude;
         float   angle    = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
 
         line.anchoredPosition = from;
         line.sizeDelta        = new Vector2(distance, wireThickness);
-        line.localRotation    = Quaternion.Euler(0, 0, angle);
+        line.localRotation    = Quaternion.Euler(0f, 0f, angle);
 
         var img = line.GetComponent<Image>();
         if (img != null) img.color = color;
     }
 
+    // ── Coordinate helpers ───────────────────────────────────────────
+
+
+    private static readonly Vector3[] _cornersBuffer = new Vector3[4];
+
     private Vector2 GetLocalPos(RectTransform target)
     {
-        // Chuyển vị trí world của 1 điểm nối thành local position trong lineContainer
-        Vector3 worldPos = target.position;
-        Vector2 localPos = lineContainer.InverseTransformPoint(worldPos);
-        return localPos;
+        // QUAN TRỌNG: không dùng lineContainer.InverseTransformPoint(target.position) —
+        // hàm đó trả toạ độ theo PIVOT của lineContainer, còn anchoredPosition mà
+        // DrawLine() set lại được tính theo ANCHOR. Nếu anchor != pivot của lineContainer,
+        // mọi line bị lệch một khoảng cố định (chính là bug "dây không dính chỗ kéo").
+        // Dùng World -> Screen -> Local giống ScreenToLocal() để luôn ra đúng hệ
+        // anchoredPosition, bất kể anchor/pivot của lineContainer là gì.
+        //
+        // FIX LỆCH TÂM: không dùng target.position (vị trí PIVOT của điểm nối) vì
+        // nếu pivot của hình tròn không set đúng tuyệt đối (0.5, 0.5) thì pivot sẽ
+        // không trùng tâm hình học của vòng tròn → dây luôn lệch tâm một khoảng cố định.
+        // Thay vào đó lấy TÂM HÌNH HỌC THẬT bằng GetWorldCorners (trung điểm 2 góc chéo),
+        // luôn đúng tâm bất kể pivot của object đó đặt sai.
+        target.GetWorldCorners(_cornersBuffer);
+        Vector3 worldCenter = (_cornersBuffer[0] + _cornersBuffer[2]) * 0.5f;
+
+        Camera cam = GetEventCamera();
+        Vector3 screenPos = RectTransformUtility.WorldToScreenPoint(cam, worldCenter);
+        return ScreenToLocal(screenPos);
     }
 
-    private Vector2 ScreenToLocalPointInLineContainer(Vector3 screenPos)
+   
+    private Vector2 ScreenToLocal(Vector3 screenPos)
     {
-        Camera cam = (parentCanvas != null && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
-            ? parentCanvas.worldCamera
-            : null; // null = đúng cho Screen Space - Overlay
+        Camera cam = GetEventCamera();
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            lineContainer, screenPos, cam, out Vector2 localPt);
+        return localPt;
+    }
 
-        Vector3 worldPoint;
-        RectTransformUtility.ScreenPointToWorldPointInRectangle(lineContainer, screenPos, cam, out worldPoint);
-        return lineContainer.InverseTransformPoint(worldPoint);
+   
+    private Camera GetEventCamera()
+    {
+        if (minigameCamera != null) return minigameCamera;
+        if (parentCanvas == null)   return null;
+
+        return parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : parentCanvas.worldCamera;
     }
 }

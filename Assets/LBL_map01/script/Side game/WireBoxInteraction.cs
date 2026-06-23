@@ -1,69 +1,83 @@
 using UnityEngine;
 
 /// <summary>
-/// Nhìn vào hộp điện + bấm E → mở UI nối dây (Screen Space, không cần camera riêng).
-/// Tương tự ComputerInteraction nhưng đơn giản hơn vì UI là Screen Space Overlay/Camera,
-/// không cần World Space Canvas, không cần switch camera.
-///
-/// SETUP: Gắn script này vào GameObject "hộp điện" có Collider (isTrigger không quan trọng,
-/// vì dùng raycast chứ không dùng trigger).
+/// Đứng trong vùng Trigger + bấm E → mở UI nối dây (World Space Canvas với camera riêng).
+/// Khi xong: mở khoá computer, bật đèn Morse.
 /// </summary>
 public class WireBoxInteraction : MonoBehaviour
 {
-    [Header("Raycast detect (camera player)")]
-    [SerializeField] private Transform playerCameraTransform;
-    [SerializeField] private float     interactionDistance = 2.5f;
-    [SerializeField] private LayerMask interactableLayer;
+    [Header("Trigger detect")]
+    [Tooltip("Tag của Player để nhận vùng trigger. Để trống = chấp nhận mọi object.")]
+    [SerializeField] private string playerTag = "Player";
+
+    [Header("World Space Canvas")]
+    [Tooltip("Canvas World Space chứa UI nối dây.")]
+    [SerializeField] private Canvas wirePuzzleCanvas;
+
+    [Tooltip("Root Panel/GameObject bên trong Canvas (con trực tiếp). SetActive để ẩn/hiện UI.")]
+    [SerializeField] private GameObject wirePuzzleUIRoot;
+
+    [Tooltip("Camera riêng nhìn vào bảng nối dây. Tắt sẵn trong scene.")]
+    [SerializeField] private Camera wirePuzzleCamera;
 
     [Header("References")]
-    [Tooltip("Canvas/Panel chứa UI nối dây (Screen Space).")]
-    [SerializeField] private GameObject       wirePuzzleUIRoot;
-    [SerializeField] private WirePuzzleManager puzzleManager;
-    [SerializeField] private UIInputBlocker    inputBlocker;
+    [SerializeField] private WirePuzzleManager  puzzleManager;
+    [SerializeField] private UIInputBlocker     inputBlocker;
 
-    [Header("Khoá tương tác computer minigame cho tới khi xong dây")]
-    [Tooltip("Kéo ComputerInteraction vào đây. Script này sẽ tự enable/disable nó.")]
-    [SerializeField] private MonoBehaviour computerInteractionToLock;
+    [Header("Khoá Computer cho tới khi xong dây")]
+    [Tooltip("Kéo COMPONENT ComputerInteraction (không phải GameObject) vào đây.")]
+    [SerializeField] private ComputerInteraction computerInteractionToLock;
 
-    [Tooltip("Kéo các đèn Morse vào đây để giữ chúng ở trạng thái tắt/idle cho tới khi xong dây.")]
+    [Header("Đèn Morse — bật sau khi xong dây")]
     [SerializeField] private MorseLightController[] morseLightsToActivate;
+    [SerializeField] private MorseLightSequencer    morseSequencerToActivate;
 
-    [Tooltip("Hoặc dùng Sequencer thay vì từng đèn riêng (nếu có dùng MorseLightSequencer).")]
-    [SerializeField] private MorseLightSequencer morseSequencerToActivate;
-
-    public static bool UIOpen { get; private set; } = false;
+    public static bool UIOpen        { get; private set; } = false;
     public static bool WireBoxSolved { get; private set; } = false;
 
-    private bool   _isInteracting = false;
-    private bool   _solved        = false;
+    private bool _isInteracting = false;
+    private bool _solved        = false;
+    private bool _playerInRange = false;
+
+    private Camera _playerCam; // camera player (tắt khi mở wire UI)
+
+    // ────────────────────────────────────────────────────────────────
 
     private void Start()
     {
+        // Tắt canvas ngay từ đầu
+        if (wirePuzzleCanvas != null)
+            wirePuzzleCanvas.gameObject.SetActive(false);
         if (wirePuzzleUIRoot != null)
             wirePuzzleUIRoot.SetActive(false);
 
-        if (playerCameraTransform == null && Camera.main != null)
-            playerCameraTransform = Camera.main.transform;
+        // Tắt wire camera
+        if (wirePuzzleCamera != null)
+            wirePuzzleCamera.gameObject.SetActive(false);
 
-        // Khoá computer minigame ngay từ đầu cho tới khi nối dây xong
+        // Tìm player camera (Camera.main)
+        _playerCam = Camera.main;
+
+        // Khoá computer ngay từ đầu
         SetComputerLocked(true);
 
-        // Đảm bảo đèn Morse ở trạng thái idle/tắt ngay từ đầu.
-        // QUAN TRỌNG: nếu dùng morseSequencerToActivate, hãy tick "activateOnStart = false"
-        // trong Inspector của MorseLightSequencer đó — KHÔNG dựa vào việc set enabled=false ở đây,
-        // vì Sequencer tự StartCoroutine() trong Start() của chính nó bất kể enabled.
+        // Tắt đèn Morse ban đầu — MẤT ĐIỆN HẲN (đen), không chỉ về idle đỏ tối
         if (morseLightsToActivate != null)
-        {
             foreach (var light in morseLightsToActivate)
-            {
-                if (light == null) continue;
-                light.StopMorse(); // về trạng thái idle (tắt/đỏ tối)
-                light.enabled = false;
-            }
-        }
+                if (light != null) light.SetPowerOn(false);
 
         if (puzzleManager != null)
             puzzleManager.OnPuzzleCompleted += HandleSolved;
+
+        // Validate
+        if (wirePuzzleCanvas == null)
+            Debug.LogError("[WireBoxInteraction] Chưa gán 'Wire Puzzle Canvas'!", this);
+        if (wirePuzzleCamera == null)
+            Debug.LogError("[WireBoxInteraction] Chưa gán 'Wire Puzzle Camera'!", this);
+
+        var col = GetComponent<Collider>();
+        if (col == null || !col.isTrigger)
+            Debug.LogError("[WireBoxInteraction] Cần Collider với Is Trigger = true!", this);
     }
 
     private void OnDestroy()
@@ -74,90 +88,144 @@ public class WireBoxInteraction : MonoBehaviour
 
     private void Update()
     {
-        if (_solved) return; // đã giải xong thì không cần tương tác hộp điện nữa
+        if (_solved) return;
 
-        if (Input.GetKeyDown(KeyCode.E))
+        if (_isInteracting)
         {
-            if (_isInteracting) ExitWireBox();
-            else                TryInteract();
+            if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Escape))
+                ExitWireBox();
+            return;
         }
 
-        if (_isInteracting && Input.GetKeyDown(KeyCode.Escape))
-            ExitWireBox();
-    }
-
-    private void TryInteract()
-    {
-        if (playerCameraTransform == null) return;
-        Ray ray = new Ray(playerCameraTransform.position, playerCameraTransform.forward);
-        if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance, interactableLayer))
+        if (_playerInRange && Input.GetKeyDown(KeyCode.E))
             EnterWireBox();
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!IsPlayer(other)) return;
+        _playerInRange = true;
+        Debug.Log("[WireBoxInteraction] Player trong vùng hộp điện. Bấm E để mở.");
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (!IsPlayer(other)) return;
+        _playerInRange = false;
+        if (_isInteracting) ExitWireBox();
+    }
+
+    private bool IsPlayer(Collider other)
+    {
+        return string.IsNullOrEmpty(playerTag) || other.CompareTag(playerTag);
+    }
+
+    // ── Mở UI ───────────────────────────────────────────────────────
 
     private void EnterWireBox()
     {
         _isInteracting = true;
-        UIOpen          = true;
+        UIOpen         = true;
 
+        // 1. Tắt player camera
+        if (_playerCam != null)
+            _playerCam.gameObject.SetActive(false);
+
+        // 2. Bật wire puzzle camera
+        if (wirePuzzleCamera != null)
+        {
+            wirePuzzleCamera.gameObject.SetActive(true);
+
+            // Gán đúng camera vào Canvas và WirePuzzleManager
+            if (wirePuzzleCanvas != null)
+                wirePuzzleCanvas.worldCamera = wirePuzzleCamera;
+
+            if (puzzleManager != null)
+                puzzleManager.minigameCamera = wirePuzzleCamera;
+        }
+
+        // 3. Bật Canvas & UI (sau khi BlockInput để tránh UIInputBlocker quét thấy Canvas này)
+        inputBlocker?.BlockInput();
+
+        if (wirePuzzleCanvas != null)
+            wirePuzzleCanvas.gameObject.SetActive(true);
         if (wirePuzzleUIRoot != null)
             wirePuzzleUIRoot.SetActive(true);
 
         if (puzzleManager != null)
             puzzleManager.ResetPuzzle();
 
-        // UI Screen Space -> chỉ cần mở cursor + tắt input gameplay,
-        // KHÔNG cần tắt collider 3D hay đổi camera (khác ComputerInteraction)
-        inputBlocker?.BlockInput();
+        Debug.Log("[WireBoxInteraction] Mở UI nối dây (World Space).");
     }
+
+    // ── Đóng UI ─────────────────────────────────────────────────────
 
     public void ExitWireBox()
     {
         _isInteracting = false;
-        UIOpen          = false;
+        UIOpen         = false;
 
         if (wirePuzzleUIRoot != null)
             wirePuzzleUIRoot.SetActive(false);
+        if (wirePuzzleCanvas != null)
+            wirePuzzleCanvas.gameObject.SetActive(false);
+
+        // Tắt wire camera, bật lại player camera
+        if (wirePuzzleCamera != null)
+            wirePuzzleCamera.gameObject.SetActive(false);
+        if (_playerCam != null)
+            _playerCam.gameObject.SetActive(true);
 
         inputBlocker?.UnblockInput();
     }
 
+    // ── Hoàn thành puzzle ────────────────────────────────────────────
+
     private void HandleSolved()
     {
-        _solved        = true;
-        WireBoxSolved  = true;
+        _solved       = true;
+        WireBoxSolved = true;
 
-        // Mở khoá computer minigame
         SetComputerLocked(false);
 
-        // Bật đèn Morse (kích hoạt minigame chính)
+        // Bật đèn Morse
+        // Mở điện cho từng đèn TRƯỚC khi cho Sequencer chạy — PlayOnce() sẽ
+        // bị return ngay (coi như "xong luôn") nếu đèn chưa có điện.
+        if (morseLightsToActivate != null)
+            foreach (var light in morseLightsToActivate)
+                if (light != null) light.SetPowerOn(true);
+
+        // Sequencer tự điều phối phát LẦN LƯỢT qua PlayOnce() — không gọi
+        // PlayMessage() trực tiếp trên từng đèn ở đây, kẻo tất cả nháy cùng lúc
+        // đè lên coroutine của Sequencer.
         if (morseSequencerToActivate != null)
             morseSequencerToActivate.BeginSequence();
 
-        if (morseLightsToActivate != null)
-        {
-            foreach (var light in morseLightsToActivate)
-            {
-                if (light == null) continue;
-                light.enabled = true;
-                light.PlayMessage(light.messageToEncode);
-            }
-        }
-
-        // Tự thoát UI sau một nhịp ngắn cho người chơi thấy kết quả
         Invoke(nameof(ExitWireBox), 1.0f);
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────
+
     private void SetComputerLocked(bool locked)
     {
-        if (computerInteractionToLock != null)
-            computerInteractionToLock.enabled = !locked;
+        if (computerInteractionToLock == null) return;
+        computerInteractionToLock.enabled = !locked;
+        Debug.Log($"[WireBoxInteraction] Computer {(locked ? "KHOÁ" : "MỞ KHOÁ")}.");
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (playerCameraTransform == null) return;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawRay(playerCameraTransform.position,
-                       playerCameraTransform.forward * interactionDistance);
+        var col = GetComponent<Collider>();
+        if (col == null) return;
+        Gizmos.color = new Color(1f, 0.85f, 0f, 0.35f);
+        if (col is BoxCollider box)
+        {
+            Gizmos.matrix = transform.localToWorldMatrix;
+            Gizmos.DrawCube(box.center, box.size);
+        }
+        else
+        {
+            Gizmos.DrawWireCube(col.bounds.center, col.bounds.size);
+        }
     }
 }

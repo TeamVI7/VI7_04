@@ -22,13 +22,19 @@ public class MorseLightSequencer : MonoBehaviour
 
     [Tooltip("Nếu false: KHÔNG tự chạy lúc Start(). Phải gọi BeginSequence() từ script khác " +
              "(ví dụ WireBoxInteraction khi puzzle nối dây hoàn thành).")]
-    public bool activateOnStart = true;
+    public bool activateOnStart = false;
 
     private Coroutine _loopCoroutine;
     private bool      _isRunning = false;
 
     private void Start()
     {
+        // Luôn đảm bảo tắt hẳn lúc khởi đầu scene, tránh đèn sáng/nháy dở
+        // do trạng thái mặc định của từng đèn — dù activateOnStart = false hay true.
+        if (lights != null)
+            foreach (var light in lights)
+                light?.StopMorse();
+
         if (activateOnStart)
             BeginSequence();
     }
