@@ -27,6 +27,17 @@ public class WirePuzzleManager : MonoBehaviour
     [Tooltip("Độ dày dây (pixel trong Canvas space).")]
     public float wireThickness = 8f;
 
+    [Tooltip("Bán kính dot tròn (pixel) — CHỈ dùng để tham khảo/debug, KHÔNG còn dùng để " +
+             "rút 2 đầu dây vào trong nữa (trước đây dùng làm inset khiến dây dừng cách " +
+             "tâm hình tròn đúng bằng cả bán kính, nhìn như 'không vào giữa'). " +
+             "Để 0 = tự động đọc từ sizeDelta của điểm nối đầu tiên lúc Awake.")]
+    public float dotRadius = 0f;
+
+    [Tooltip("Rút ngắn 2 đầu dây một khoảng RẤT NHỎ (px) — chỉ để giấu góc vuông của hình " +
+             "chữ nhật bên dưới viền tròn mỏng, KHÔNG phải bán kính dot. Để 0 nếu muốn dây " +
+             "chạm thẳng vào đúng tâm hình tròn (khuyến nghị nếu viền dot mỏng/trong suốt).")]
+    public float lineEndTrim = 0f;
+
     [Header("Màu sắc theo wireId")]
     public WireColorEntry[] wireColors =
     {
@@ -47,6 +58,22 @@ public class WirePuzzleManager : MonoBehaviour
     [Header("UI phụ trợ")]
     [Tooltip("Panel 'Hoàn thành!' hiện khi xong (tuỳ chọn).")]
     public GameObject completePanel;
+
+    [Header("Âm thanh")]
+    [Tooltip("AudioSource để phát SFX. Để trống = tự thêm AudioSource lên chính object này.")]
+    public AudioSource sfxSource;
+
+    [Tooltip("Tiếng phát ra khi BẮT ĐẦU kéo 1 dây.")]
+    public AudioClip sfxDragStart;
+
+    [Tooltip("Tiếng phát ra khi thả dây vào ĐÚNG điểm (đúng màu).")]
+    public AudioClip sfxConnectCorrect;
+
+    [Tooltip("Tiếng phát ra khi thả dây vào SAI điểm (sai màu).")]
+    public AudioClip sfxConnectWrong;
+
+    [Tooltip("Tiếng phát ra khi HOÀN THÀNH toàn bộ puzzle.")]
+    public AudioClip sfxComplete;
 
     public event Action OnPuzzleCompleted;
 
@@ -72,6 +99,14 @@ public class WirePuzzleManager : MonoBehaviour
 
     private void Awake()
     {
+        if (sfxSource == null)
+        {
+            sfxSource = GetComponent<AudioSource>();
+            if (sfxSource == null)
+                sfxSource = gameObject.AddComponent<AudioSource>();
+            sfxSource.playOnAwake = false;
+        }
+
         if (parentCanvas == null)
             parentCanvas = GetComponentInParent<Canvas>();
 
@@ -100,6 +135,19 @@ public class WirePuzzleManager : MonoBehaviour
         }
 
         ApplyColors();
+
+        // Tự động đọc bán kính dot từ điểm nối đầu tiên nếu chưa set
+        if (dotRadius <= 0f && connectionPoints.Length > 0)
+        {
+            var firstRect = connectionPoints[0].GetComponent<RectTransform>();
+            if (firstRect != null)
+                dotRadius = firstRect.sizeDelta.x * 0.5f;
+        }
+
+        // Đảm bảo LineContainer luôn render DƯỚI tất cả các dot tròn —
+        // để viền tròn của điểm nối tự che 2 đầu chữ nhật của dây.
+        if (lineContainer != null)
+            lineContainer.SetAsFirstSibling();
     }
 
     private void OnEnable()
@@ -122,13 +170,20 @@ public class WirePuzzleManager : MonoBehaviour
             EndDrag();
     }
 
-    // ── Public API ──────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    private void PlaySfx(AudioClip clip)
+    {
+        if (clip != null && sfxSource != null)
+            sfxSource.PlayOneShot(clip);
+    }
 
     public void BeginDrag(WireConnectionPoint source)
     {
         if (_completed || source.isConnected) return;
         _dragSource  = source;
         _previewLine = CreateLineInstance();
+        PlaySfx(sfxDragStart);
         Debug.Log($"[WirePuzzle] Bắt đầu kéo dây '{source.wireId}'");
     }
 
@@ -155,6 +210,7 @@ public class WirePuzzleManager : MonoBehaviour
             }
             else
             {
+                PlaySfx(sfxConnectWrong);
                 Debug.Log($"[WirePuzzle] Sai màu: {_dragSource.wireId} → {target.wireId}");
             }
         }
@@ -182,6 +238,7 @@ public class WirePuzzleManager : MonoBehaviour
         _previewLine = null; // chốt — không bị Destroy
 
         _connectedCount++;
+        PlaySfx(sfxConnectCorrect);
         Debug.Log($"[WirePuzzle] ✅ Nối đúng '{source.wireId}' ({_connectedCount}/{_totalWires})");
 
         if (_connectedCount >= _totalWires)
@@ -196,6 +253,7 @@ public class WirePuzzleManager : MonoBehaviour
         if (completePanel != null)
             completePanel.SetActive(true);
 
+        PlaySfx(sfxComplete);
         Debug.Log("[WirePuzzle] 🎉 HOÀN THÀNH!");
         OnPuzzleCompleted?.Invoke();
     }
@@ -270,6 +328,16 @@ public class WirePuzzleManager : MonoBehaviour
                                            // nếu không reset, rotate quanh pivot bị méo
                                            // khiến đầu dây lệch khỏi điểm nối một khoảng nhỏ.
         line.gameObject.SetActive(true);
+
+        // FIX "ĐUÔI NHỌN" LÒI RA NGOÀI CHẤM TRÒN:
+        // Instantiate() luôn thêm object mới vào CUỐI danh sách con → bị vẽ
+        // (render) TRÊN tất cả các điểm nối (dot tròn) đã có sẵn trong scene.
+        // Vì đầu dây là hình chữ nhật (góc vuông), khi nằm trên dot tròn thì góc
+        // vuông đó sẽ lòi ra ngoài viền tròn — đó chính là cái "đuôi nhọn" thấy được.
+        // Đẩy nó về sibling ĐẦU TIÊN (vẽ trước = nằm DƯỚI mọi thứ khác trong cùng
+        // parent) để các dot tròn luôn che kín phần đầu dây, không còn lòi ra nữa.
+        line.SetAsFirstSibling();
+
         return line;
     }
 
@@ -277,11 +345,22 @@ public class WirePuzzleManager : MonoBehaviour
     {
         if (line == null) return;
 
-        Vector2 dir      = to - from;
-        float   distance = dir.magnitude;
-        float   angle    = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        Vector2 dir          = to - from;
+        float   fullDist     = dir.magnitude;
+        if (fullDist < 0.0001f) return;
 
-        line.anchoredPosition = from;
+        Vector2 dirNorm = dir / fullDist;
+        float   angle   = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+        // Trước đây: inset = dotRadius -> dây luôn dừng cách tâm đúng bằng cả bán kính
+        // chấm tròn, khiến đầu dây trông như "lệch khỏi tâm" / không chạm giữa hình tròn.
+        // Sửa: chỉ rút một khoảng RẤT NHỎ (lineEndTrim) đủ để giấu góc vuông của hình
+        // chữ nhật dưới viền tròn — KHÔNG dùng bán kính dot làm inset nữa.
+        float   inset        = Mathf.Min(lineEndTrim, fullDist * 0.45f);
+        Vector2 adjustedFrom = from + dirNorm * inset;
+        float   distance     = Mathf.Max(0f, fullDist - inset * 2f);
+
+        line.anchoredPosition = adjustedFrom;
         line.sizeDelta        = new Vector2(distance, wireThickness);
         line.localRotation    = Quaternion.Euler(0f, 0f, angle);
 
@@ -291,35 +370,60 @@ public class WirePuzzleManager : MonoBehaviour
 
     // ── Coordinate helpers ───────────────────────────────────────────
 
-
     private static readonly Vector3[] _cornersBuffer = new Vector3[4];
 
+    /// <summary>
+    /// LẦN SỬA NÀY: bỏ hoàn toàn đường World → Screen → Local cũ.
+    /// Lý do: WorldToScreenPoint rồi ScreenPointToLocalPointInRectangle phải
+    /// đi qua không gian màn hình (pixel), làm tròn số (rounding) ở đó. Với
+    /// Canvas World Space có scale rất nhỏ (vd 0.1), 1 pixel lệch trên màn
+    /// hình lại tương ứng với một khoảng RẤT LỚN trong local space của
+    /// lineContainer → đó chính là lý do dây bị lệch hẳn xuống đáy hình vuông
+    /// trong ảnh thực tế, dù công thức tính tâm (GetWorldCorners) vẫn đúng.
+    ///
+    /// Cách mới: lấy tâm hình học bằng GetWorldCorners (vẫn đúng, không đổi),
+    /// nhưng chuyển sang local space của lineContainer bằng
+    /// InverseTransformPoint() — phép biến đổi affine thuần (không qua màn
+    /// hình, không qua camera, không mất chính xác), rồi tự cộng offset
+    /// pivot/anchor của lineContainer một lần. Kết quả chính xác tuyệt đối,
+    /// không phụ thuộc camera hay scale của canvas.
+    /// </summary>
     private Vector2 GetLocalPos(RectTransform target)
     {
-        // QUAN TRỌNG: không dùng lineContainer.InverseTransformPoint(target.position) —
-        // hàm đó trả toạ độ theo PIVOT của lineContainer, còn anchoredPosition mà
-        // DrawLine() set lại được tính theo ANCHOR. Nếu anchor != pivot của lineContainer,
-        // mọi line bị lệch một khoảng cố định (chính là bug "dây không dính chỗ kéo").
-        // Dùng World -> Screen -> Local giống ScreenToLocal() để luôn ra đúng hệ
-        // anchoredPosition, bất kể anchor/pivot của lineContainer là gì.
-        //
-        // FIX LỆCH TÂM: không dùng target.position (vị trí PIVOT của điểm nối) vì
-        // nếu pivot của hình tròn không set đúng tuyệt đối (0.5, 0.5) thì pivot sẽ
-        // không trùng tâm hình học của vòng tròn → dây luôn lệch tâm một khoảng cố định.
-        // Thay vào đó lấy TÂM HÌNH HỌC THẬT bằng GetWorldCorners (trung điểm 2 góc chéo),
-        // luôn đúng tâm bất kể pivot của object đó đặt sai.
         target.GetWorldCorners(_cornersBuffer);
         Vector3 worldCenter = (_cornersBuffer[0] + _cornersBuffer[2]) * 0.5f;
-
-        Camera cam = GetEventCamera();
-        Vector3 screenPos = RectTransformUtility.WorldToScreenPoint(cam, worldCenter);
-        return ScreenToLocal(screenPos);
+        return WorldPointToAnchoredPosition(worldCenter);
     }
 
-   
+    /// <summary>
+    /// Chuyển 1 điểm world-space sang anchoredPosition của lineContainer,
+    /// KHÔNG đi qua màn hình. anchoredPosition được tính từ vị trí ANCHOR
+    /// (không phải pivot), nên sau InverseTransformPoint (vốn trả toạ độ
+    /// theo PIVOT) phải cộng thêm độ lệch pivot↔anchor của lineContainer.
+    /// </summary>
+    private Vector2 WorldPointToAnchoredPosition(Vector3 worldPoint)
+    {
+        // Toạ độ theo PIVOT của lineContainer (local space, không qua camera).
+        Vector3 localFromPivot = lineContainer.InverseTransformPoint(worldPoint);
+
+        // Độ lệch giữa pivot và "điểm gốc anchoredPosition" (anchor min == anchor
+        // max, trường hợp thường gặp khi lineContainer không stretch) — tính 1 lần
+        // bằng rect.size * pivot, theo đúng định nghĩa anchoredPosition của Unity.
+        Rect rect = lineContainer.rect;
+        Vector2 pivotOffset = new Vector2(
+            rect.width  * lineContainer.pivot.x,
+            rect.height * lineContainer.pivot.y);
+
+        return (Vector2)localFromPivot + pivotOffset;
+    }
+
     private Vector2 ScreenToLocal(Vector3 screenPos)
     {
         Camera cam = GetEventCamera();
+
+        // Chuột vẫn phải đi qua màn hình (đó là không gian gốc của Input.mousePosition)
+        // nên ScreenToLocal giữ nguyên cách cũ — chỉ GetLocalPos (điểm nối, không di
+        // chuyển, không cần realtime theo chuột) là được đổi sang cách chính xác hơn.
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             lineContainer, screenPos, cam, out Vector2 localPt);
         return localPt;

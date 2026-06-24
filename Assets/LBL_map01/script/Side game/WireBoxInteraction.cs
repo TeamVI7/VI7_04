@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -32,6 +33,23 @@ public class WireBoxInteraction : MonoBehaviour
     [SerializeField] private MorseLightController[] morseLightsToActivate;
     [SerializeField] private MorseLightSequencer    morseSequencerToActivate;
 
+    [Header("Camera 'khoe' đèn Morse sau khi giải xong")]
+    [Tooltip("Camera đặt sẵn trong scene, nhìn vào cụm đèn Morse. Tắt sẵn từ đầu.")]
+    [SerializeField] private Camera morseShowcaseCamera;
+
+    [Tooltip("Đợi bao lâu sau khi giải xong rồi mới chuyển cam qua đèn (giây).")]
+    [SerializeField] private float morseShowcaseStartDelay = 0.5f;
+
+    [Tooltip("Giữ camera ở đèn Morse trong bao lâu rồi trả về (giây).")]
+    [SerializeField] private float morseShowcaseDuration = 2f;
+
+    [Header("Âm thanh")]
+    [Tooltip("AudioSource để phát SFX. Để trống = tự thêm AudioSource lên chính object này.")]
+    [SerializeField] private AudioSource sfxSource;
+
+    [Tooltip("Tiếng phát ra khi MỞ hộp điện (bấm E vào, lúc EnterWireBox).")]
+    [SerializeField] private AudioClip sfxOpenBox;
+
     public static bool UIOpen        { get; private set; } = false;
     public static bool WireBoxSolved { get; private set; } = false;
 
@@ -45,6 +63,15 @@ public class WireBoxInteraction : MonoBehaviour
 
     private void Start()
     {
+        // Tự thêm AudioSource nếu chưa gán
+        if (sfxSource == null)
+        {
+            sfxSource = GetComponent<AudioSource>();
+            if (sfxSource == null)
+                sfxSource = gameObject.AddComponent<AudioSource>();
+            sfxSource.playOnAwake = false;
+        }
+
         // Tắt canvas ngay từ đầu
         if (wirePuzzleCanvas != null)
             wirePuzzleCanvas.gameObject.SetActive(false);
@@ -54,6 +81,10 @@ public class WireBoxInteraction : MonoBehaviour
         // Tắt wire camera
         if (wirePuzzleCamera != null)
             wirePuzzleCamera.gameObject.SetActive(false);
+
+        // Tắt camera khoe đèn Morse từ đầu
+        if (morseShowcaseCamera != null)
+            morseShowcaseCamera.gameObject.SetActive(false);
 
         // Tìm player camera (Camera.main)
         _playerCam = Camera.main;
@@ -126,6 +157,9 @@ public class WireBoxInteraction : MonoBehaviour
     {
         _isInteracting = true;
         UIOpen         = true;
+
+        if (sfxSource != null && sfxOpenBox != null)
+            sfxSource.PlayOneShot(sfxOpenBox);
 
         // 1. Tắt player camera
         if (_playerCam != null)
@@ -201,7 +235,29 @@ public class WireBoxInteraction : MonoBehaviour
         if (morseSequencerToActivate != null)
             morseSequencerToActivate.BeginSequence();
 
-        Invoke(nameof(ExitWireBox), 1.0f);
+        // Đợi 1 chút rồi chuyển cam qua đèn Morse để báo hiệu đã kích hoạt,
+        // sau đó tự trả về (đóng UI nối dây + bật lại cam người chơi).
+        StartCoroutine(ShowcaseMorseLightsThenExit());
+    }
+
+    private IEnumerator ShowcaseMorseLightsThenExit()
+    {
+        // Giữ UI nối dây 1 chút để người chơi thấy "Hoàn thành" trước khi chuyển cam
+        yield return new WaitForSeconds(morseShowcaseStartDelay);
+
+        // Tắt wire puzzle camera, bật camera khoe đèn Morse
+        if (wirePuzzleCamera != null)
+            wirePuzzleCamera.gameObject.SetActive(false);
+        if (morseShowcaseCamera != null)
+            morseShowcaseCamera.gameObject.SetActive(true);
+
+        yield return new WaitForSeconds(morseShowcaseDuration);
+
+        // Tắt camera khoe đèn, rồi đóng UI + trả lại cam người chơi như cũ
+        if (morseShowcaseCamera != null)
+            morseShowcaseCamera.gameObject.SetActive(false);
+
+        ExitWireBox();
     }
 
     // ── Helpers ──────────────────────────────────────────────────────
