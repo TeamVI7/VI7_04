@@ -19,6 +19,15 @@ namespace Enemy
         private bool _isInitialized;
         private bool _hit;
 
+        // THÊM MỚI: Biến cache lưu trữ file âm thanh nổ được truyền sang từ quái
+        private AudioClip _explosionClip;
+
+        // THÊM MỚI: Hàm nhận file âm thanh từ EnemyAudio gọi qua
+        public void AssignExplosionClip(AudioClip clip)
+        {
+            _explosionClip = clip;
+        }
+
         public void Init(Vector3 direction, float damageFromStats)
         {
             // Đồng bộ damage truyền qua từ Stats SO thông qua hành vi của StealthEnemy
@@ -56,6 +65,9 @@ namespace Enemy
 
             _hit = true;
 
+            // THÊM MỚI: Kích nổ âm thanh to rõ ngay tại vị trí va chạm (Sát tai Player) trước khi xóa đạn
+            PlayImpactSoundAtReceiver();
+
             // Gây sát thương cho Player (Dùng IDamageable hoặc PlayerHealth tùy hệ thống của cậu)
             if (other.TryGetComponent(out IDamageable damageable))
             {
@@ -74,6 +86,28 @@ namespace Enemy
             }
 
             Destroy(gameObject);
+        }
+
+        // THÊM MỚI: Hàm sinh Object phát âm thanh độc lập tại điểm đạn chạm trúng đích
+        private void PlayImpactSoundAtReceiver()
+        {
+            if (_explosionClip == null) return;
+
+            // Tạo một GameObject ảo ngay tại tọa độ va chạm thời gian thực của viên đạn
+            GameObject audioDummy = new GameObject("Sniper_Impact_Sound_Dummy");
+            audioDummy.transform.position = transform.position;
+
+            AudioSource audioSrc = audioDummy.AddComponent<AudioSource>();
+            
+            // THIẾT QUÂN LUẬT: Ép spatialBlend = 0f biến thành âm thanh 2D toàn dải
+            // Đảm bảo dù quái ở cách xa 100m, đạn chạm cạnh người Player nghe vẫn to, đanh và giật mình
+            audioSrc.spatialBlend = 0f; 
+            audioSrc.clip = _explosionClip;
+            audioSrc.volume = 1.0f; 
+            audioSrc.Play();
+
+            // Tự động xóa dọn rác Object âm thanh ảo này sau khi phát xong tiếng nổ
+            Destroy(audioDummy, _explosionClip.length + 0.1f);
         }
     }
 }

@@ -143,7 +143,32 @@ public class EnemyAudio : MonoBehaviour
     private void PlayBomb() { if (BombClip != null) _oneShotSource.PlayOneShot(BombClip); }
     private void PlaySMG() { if (SMGClip != null) _oneShotSource.PlayOneShot(SMGClip); }
     private void PlayShotgun() { if (ShotgunClip != null) _oneShotSource.PlayOneShot(ShotgunClip); }
-    private void PlaySniper() { if (SniperClip != null) _oneShotSource.PlayOneShot(SniperClip); } // THÊM MỚI: Phát sound nổ xé gió
+    // Thay thế hàm PlaySniper() cũ của cậu bằng đoạn chuẩn chỉnh này:
+    private void PlaySniper() 
+    { 
+        if (SniperClip == null) return;
+
+        // 1. Vẫn phát tiếng súng bóp cò 3D từ xa tại vị trí con quái (nghe nhỏ dần theo khoảng cách)
+        _oneShotSource.PlayOneShot(SniperClip); 
+
+        // 2. THIẾT QUÂN LUẬT: Dò tìm viên đạn vừa sinh ra tại họng súng để truyền Clip âm thanh vào nó
+        Vector3 fireOrigin = _sniper != null && _sniper.FirePoint != null 
+            ? _sniper.FirePoint.position 
+            : transform.position + Vector3.up * 1.5f;
+
+        // Quét một vùng cầu nhỏ xung quanh họng súng để bắt lấy viên đạn vừa Instantiate
+        Collider[] hitProjectiles = Physics.OverlapSphere(fireOrigin, 1.5f);
+        foreach (var col in hitProjectiles)
+        {
+            var projectile = col.GetComponent<Enemy.SniperProjectile>();
+            if (projectile != null)
+            {
+                // Ép viên đạn nhận lấy Clip âm thanh này để mang đi nổ ở xa gần Player
+                projectile.AssignExplosionClip(SniperClip);
+                break; 
+            }
+        }
+    }
  
     private void HandleDeath(Vector3 impulse)
     {
