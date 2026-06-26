@@ -4450,6 +4450,7 @@ MonoBehaviour:
   takeoff: {fileID: 728362820}
   inFlight: {fileID: 970899705}
   rappelSceneName: map1
+  rappelTransition: {fileID: 11400000, guid: c64c4fb282f29da47be640d96fd5e8fa, type: 2}
   fadeImage: {fileID: 1298778240}
   fadeDuration: 0
 --- !u!4 &421683653

@@ -13,7 +13,7 @@ public class CutsceneManager : MonoBehaviour
     
     [Header("Scene")]
     public string rappelSceneName; // name of rappel scene in Build Settings
-
+    public SceneTransitionConfig rappelTransition;    
     [Header("Fade")]
     public Image fadeImage;
     public float fadeDuration = 1f; // seconds
@@ -41,7 +41,10 @@ public class CutsceneManager : MonoBehaviour
         yield return StartCoroutine(inFlight.Play());
         yield return StartCoroutine(FadeOut(0.5f));
 
-        SceneManager.LoadScene(rappelSceneName);
+        if (LoadingScreenController.Instance != null)
+        LoadingScreenController.Instance.BeginLoad(rappelTransition.BuildSteps());
+        else
+            SceneManager.LoadScene(rappelSceneName); // fallback if Bootstrap wasn't loaded
     }
 
     public IEnumerator FadeIn(float duration)
