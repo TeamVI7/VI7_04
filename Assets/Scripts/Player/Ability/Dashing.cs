@@ -2,16 +2,23 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Directional dash ability with cooldown and FOV effect.
-/// 
+/// Directional dash ability with cooldown, multi-charge support, and FOV effect.
+///
+/// CHARGE MODEL:
+///   maxCharges = 1 behaves exactly like the original single-dash-on-cooldown design.
+///   maxCharges > 1 gives a charge bank — each dash consumes one charge, and charges
+///   regenerate individually every dashCooldown seconds (like a rechargeable ability,
+///   not a single shared cooldown). ChargesAvailable / MaxCharges are read-only and
+///   safe to poll from any HUD or debug overlay.
+///
 /// EXTENDING:
 ///   - Subscribe to OnDashStart / OnDashEnd for VFX, trail renderers, sound, etc.
 ///   - Add afterimage / shadow clone effect in OnDashStart.
-///   - Expose charges (multi-dash) by adding a charge counter and modifying CanDash.
-/// 
+///   - Subscribe to OnChargesChanged to drive charge-pip UI.
+///
 /// DEBUG:
 ///   - Enable debugLog in Inspector.
-///   - dashCdTimer is displayed in the Inspector automatically (it's private but you can watch it).
+///   - ChargesAvailable / CooldownRemaining are public — read them from PlayerStateDisplay.
 /// </summary>
 public class Dashing : MonoBehaviour
 {
@@ -40,8 +47,11 @@ public class Dashing : MonoBehaviour
     public bool disableGravity    = false;
     public bool resetVel          = true;
 
-    [Header("Cooldown")]
+    [Header("Cooldown / Charges")]
+    [Tooltip("Seconds for a single spent charge to regenerate.")]
     public float dashCooldown = 1f;
+    [Tooltip("1 = classic single-dash-on-cooldown. >1 = charge bank (e.g. double/triple dash).")]
+    [Min(1)] public int maxCharges = 1;
 
     [Header("Input")]
     public KeyCode dashKey = KeyCode.E;
@@ -61,6 +71,9 @@ public class Dashing : MonoBehaviour
     /// <summary>Fired when dash ends (duration elapsed).</summary>
     public event Action OnDashEnd;
 
+    /// <summary>Fired whenever the charge count changes. Args: (current, max).</summary>
+    public event Action<int, int> OnChargesChanged;
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -68,8 +81,18 @@ public class Dashing : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     public bool  IsDashing         => pm != null && pm.dashing;
-    public float CooldownRemaining => Mathf.Max(0f, _dashCdTimer);
-    public bool  CanDash           => _dashCdTimer <= 0f;
+
+    /// <summary>Seconds remaining until the NEXT charge regenerates (0 if already full).</summary>
+    public float CooldownRemaining => _charges >= maxCharges ? 0f : Mathf.Max(0f, dashCooldown - _regenTimer);
+
+    /// <summary>True if at least one charge is available to spend right now.</summary>
+    public bool  CanDash           => _charges > 0;
+
+    /// <summary>Charges currently available to spend.</summary>
+    public int   ChargesAvailable  => _charges;
+
+    /// <summary>Total charge capacity (mirrors maxCharges — exposed for HUD binding).</summary>
+    public int   MaxCharges        => maxCharges;
 
     #endregion
 
@@ -79,8 +102,9 @@ public class Dashing : MonoBehaviour
 
     private Rigidbody     rb;
     private PlayerMovement pm;
-    private float         _dashCdTimer;
-    private Vector3       _delayedForce;
+    private int            _charges;     // current available charges
+    private float          _regenTimer;  // counts up toward dashCooldown while charges < max
+    private Vector3        _delayedForce;
 
     #endregion
 
@@ -92,14 +116,34 @@ public class Dashing : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         pm = GetComponent<PlayerMovement>();
+        _charges = maxCharges;
     }
 
     private void Update()
     {
         if (Input.GetKeyDown(dashKey)) TryDash();
 
-        if (_dashCdTimer > 0f)
-            _dashCdTimer -= Time.deltaTime;
+        TickChargeRegen();
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Charge Regen
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void TickChargeRegen()
+    {
+        if (_charges >= maxCharges) { _regenTimer = 0f; return; }
+
+        _regenTimer += Time.deltaTime;
+        if (_regenTimer >= dashCooldown)
+        {
+            _regenTimer = 0f;
+            _charges    = Mathf.Min(_charges + 1, maxCharges);
+            OnChargesChanged?.Invoke(_charges, maxCharges);
+            Log($"Charge regenerated. {_charges}/{maxCharges}");
+        }
     }
 
     #endregion
@@ -116,7 +160,9 @@ public class Dashing : MonoBehaviour
 
     private void Dash()
     {
-        _dashCdTimer  = dashCooldown;
+        _charges--;
+        OnChargesChanged?.Invoke(_charges, maxCharges);
+
         pm.dashing    = true;
         pm.maxYSpeed  = maxDashYSpeed;
 

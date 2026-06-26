@@ -100,7 +100,10 @@ public class Climbing : MonoBehaviour
     {
         WallCheck();
         StateMachine();
+    }
 
+    private void FixedUpdate()
+    {
         if (climbing && !exitingWall)
             ClimbingMovement();
         else if (wallSliding)
@@ -123,6 +126,10 @@ public class Climbing : MonoBehaviour
 
             climbTimer -= Time.deltaTime;
             if (climbTimer <= 0f) StopClimbing();
+
+            // FIX: jump previously only worked while wall-sliding, not while
+            // actively climbing — you couldn't push off a wall mid-climb.
+            if (Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0) ClimbJump();
         }
         // ── Wall sliding ──────────────────────────────────────────────────────
         else if (wallFront && !pm.grounded && !exitingWall)
@@ -146,10 +153,25 @@ public class Climbing : MonoBehaviour
         {
             if (climbing)    StopClimbing();
             if (wallSliding) StopWallSlide();
+
+            // FIX: climb jump used to also be checked here unconditionally on
+            // "wallFront" (touching ANY wall, climbing or not), which meant a
+            // single GetKeyDown(jumpKey) frame during wall-sliding satisfied
+            // BOTH this check and the one inside the wall-sliding branch above,
+            // firing ClimbJump() twice (double impulse, double charge spend,
+            // double event invoke). Climb jump now fires from exactly one
+            // place per state — see the wall-sliding branch and the
+            // "while clinging to wall but not yet sliding/climbing" case below.
         }
 
-        // Climb jump check while on wall
-        if (wallFront && Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0) ClimbJump();
+        // Allow a climb jump even if not currently climbing/sliding this frame
+        // (e.g. you just touched a wall this frame) — but only once, and only
+        // if neither branch above already consumed the input.
+        if (wallFront && !climbing && !wallSliding && !exitingWall
+            && Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0)
+        {
+            ClimbJump();
+        }
     }
 
     #endregion
@@ -193,6 +215,7 @@ public class Climbing : MonoBehaviour
         climbing       = true;
         pm.climbing    = true;
         pm.wallrunning = false;
+        rb.useGravity  = false;   // FIX: gravity was fighting climbSpeed every FixedUpdate
         lastWall       = frontWallHit.transform;
         lastWallNormal = frontWallHit.normal;
 
@@ -211,8 +234,9 @@ public class Climbing : MonoBehaviour
 
     private void StopClimbing()
     {
-        climbing    = false;
-        pm.climbing = false;
+        climbing      = false;
+        pm.climbing   = false;
+        rb.useGravity = true;   // FIX: must restore — StartClimbing turns it off
 
         OnClimbEnd?.Invoke();
         Log("Climb end.");
@@ -250,6 +274,8 @@ public class Climbing : MonoBehaviour
         exitingWall   = true;
         exitWallTimer = exitWallTime;
         climbJumpsLeft--;
+        rb.useGravity = true;   // FIX: climbing disables gravity — must restore before the impulse,
+                                 // otherwise the jump arc is floaty until next frame's StopClimbing().
 
         Vector3 force = transform.up * climbJumpUpForce + frontWallHit.normal * climbJumpBackForce;
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
