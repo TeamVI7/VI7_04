@@ -9,6 +9,26 @@ using UnityEngine;
 public class WeaponData : ScriptableObject
 {
     // ─────────────────────────────────────────────────────────────────────────
+    #region Scope Overlay (ADS Override)
+    // ─────────────────────────────────────────────────────────────────────────
+    [Header("Scope (ADS Override)")]
+    [Tooltip("If true, ADS on this weapon triggers a full scope overlay instead of the normal hip-to-ADS blend.")]
+    public bool useScopeOverlay = false;
+
+    [Tooltip("Camera FOV while scoped. Lower = more zoom.")]
+    public float scopeFov = 20f;
+
+    [Tooltip("Mouse sensitivity multiplier while scoped (CS-style scopes feel heavier/slower).")]
+    [Range(0.05f, 1f)]
+    public float scopeSensitivityMultiplier = 0.3f;
+
+    [Tooltip("Reticle sprite drawn at screen center inside the scope mask.")]
+    public Sprite scopeReticle;
+
+    [Tooltip("Seconds to lerp FOV in/out of scope.")]
+    public float scopeZoomSpeed = 8f;
+    #endregion
+    // ─────────────────────────────────────────────────────────────────────────
     #region Core Stats
     // ─────────────────────────────────────────────────────────────────────────
     [Header("HUD Display")]

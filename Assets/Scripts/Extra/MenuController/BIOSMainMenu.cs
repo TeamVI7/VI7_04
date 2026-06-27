@@ -14,6 +14,7 @@ public class BIOSMainMenu : MonoBehaviour
 
     [Header("Scene")]
     [SerializeField] private string gameSceneName = "GameScene";
+    [SerializeField] private SceneTransitionConfig gameSceneTransition;
 
     [Header("Panels")]
     [SerializeField] private GameObject deployPanel;
@@ -120,7 +121,6 @@ public class BIOSMainMenu : MonoBehaviour
         MenuAudio.Instance?.PlayConfirm();
         StartCoroutine(LoadWithFade(gameSceneName));
     }
-
     public void OnDisconnect()
     {
         MenuAudio.Instance?.PlayConfirm();
@@ -135,7 +135,11 @@ public class BIOSMainMenu : MonoBehaviour
     IEnumerator LoadWithFade(string scene)
     {
         if (fadeOverlay != null) yield return StartCoroutine(FadeOut());
-        SceneManager.LoadScene(scene);
+
+        if (LoadingScreenController.Instance != null)
+            LoadingScreenController.Instance.BeginLoad(gameSceneTransition.BuildSteps());
+        else
+            SceneManager.LoadScene(scene); // fallback if Bootstrap wasn't loaded
     }
 
     IEnumerator FadeIn()

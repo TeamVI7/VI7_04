@@ -12,6 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
   m_Name: SBFGB
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  useScopeOverlay: 1
+  scopeFov: 10
+  scopeSensitivityMultiplier: 0.3
+  scopeReticle: {fileID: 21300000, guid: 416a3b55662324a42ae9f0de6ac62aab, type: 3}
+  scopeZoomSpeed: 8
   displayName: SBFG_B
   caliber: .50
   ammoType: BMG
