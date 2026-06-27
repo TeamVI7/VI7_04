@@ -38,7 +38,8 @@ public class SimpleDoor : MonoBehaviour
 
         SetHintVisible(_playerInZone);
 
-        if (_playerInZone && Input.GetKeyDown(KeyCode.E))
+        // Đã thay đổi KeyCode.E thành KeyCode.F ở dòng dưới đây
+        if (_playerInZone && Input.GetKeyDown(KeyCode.F))
             StartCoroutine(OpenDoor());
     }
 

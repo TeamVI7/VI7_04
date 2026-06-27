@@ -1013,11 +1013,11 @@ MonoBehaviour:
   playerMovement: {fileID: 604015229922799606}
   recoilModule: {fileID: 9108049243728568901}
   playerCamera: {fileID: 5584217035541323311}
-  adsProfile: {fileID: 0}
+  weaponMeshRoot: {fileID: 0}
+  basePosOffset: {x: 0.15, y: -0.18, z: 0.35}
+  adsBaseOffset: {x: 0, y: -0.12, z: 0.25}
   adsKey: 324
-  fallbackHipPos: {x: 0.15, y: -0.18, z: 0.35}
-  fallbackADSPos: {x: 0, y: -0.12, z: 0.25}
-  fallbackADSLerp: 10
+  adsLerpSpeed: 10
   breathAmplitudeY: 0.002
   breathAmplitudeX: 0.001
   breathFrequency: 0.8
@@ -1038,7 +1038,6 @@ MonoBehaviour:
   sprintTiltSpeed: 6
   landingDipAmount: 0.06
   landingDipSpeed: 12
-  wallContactBlendSpeed: 10
   showDebugLogs: 1
 --- !u!1 &451423898914253476
 GameObject:
@@ -1224,7 +1223,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &2722854088051115468
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15107,6 +15106,7 @@ MonoBehaviour:
   disableGravity: 0
   resetVel: 1
   dashCooldown: 1
+  maxCharges: 1
   dashKey: 304
   debugLog: 0
 --- !u!114 &2077016744859058442
@@ -15255,10 +15255,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerStateDisplay
   playerMovement: {fileID: 604015229922799606}
   rb: {fileID: 8897399465267729094}
-  showOverlay: 1
+  playerHealth: {fileID: 0}
+  dashing: {fileID: 0}
+  sliding: {fileID: 0}
+  wallRunning: {fileID: 0}
+  climbing: {fileID: 0}
+  groundStick: {fileID: 0}
   toggleOverlayKey: 282
+  cycleDetailKey: 283
+  cycleFontKey: 284
+  fontSizeDownKey: 91
+  fontSizeUpKey: 93
+  showOverlay: 1
   textColor: {r: 1, g: 1, b: 1, a: 1}
+  headerColor: {r: 0.4, g: 0.9, b: 1, a: 1}
+  warnColor: {r: 1, g: 0.35, b: 0.3, a: 1}
+  goodColor: {r: 0.4, g: 1, b: 0.5, a: 1}
+  osFontCandidates:
+  - Consolas
+  - Courier New
+  - Lucida Console
+  - Menlo
+  - Monaco
+  - DejaVu Sans Mono
+  - Liberation Mono
+  - Arial
+  - Verdana
   fontSize: 16
+  _detail: 0
 --- !u!114 &3049775559868886707
 MonoBehaviour:
   m_ObjectHideFlags: 0
