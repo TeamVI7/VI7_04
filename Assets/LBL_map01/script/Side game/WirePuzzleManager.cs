@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -75,6 +76,68 @@ public class WirePuzzleManager : MonoBehaviour
     [Tooltip("Tiếng phát ra khi HOÀN THÀNH toàn bộ puzzle.")]
     public AudioClip sfxComplete;
 
+    [Header("Trí nhớ màu — ẩn màu sau X giây")]
+    [Tooltip("Bật chế độ 'nhớ vị trí màu': hiện màu thật trong revealDuration giây, " +
+             "sau đó các điểm thuộc nhóm bị ẩn chuyển về 1 màu trung tính.")]
+    public bool enableMemoryMode = false;
+
+    public enum RevealSide { Both, SourceOnly, TargetOnly }
+
+    [Tooltip("Bên nào sẽ bị ẩn màu sau khi hết revealDuration. Bên còn lại vẫn giữ màu thật luôn.")]
+    public RevealSide hideSide = RevealSide.Both;
+
+    [Tooltip("Số giây hiện màu thật trước khi ẩn (đổi về màu trung tính).")]
+    public float revealDuration = 3f;
+
+    [Tooltip("Màu trung tính dùng để 'che' tất cả điểm nối thuộc nhóm bị ẩn (trắng/xám...).")]
+    public Color hiddenColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+
+    [Header("Phạt khi nối sai")]
+    [Tooltip("Số máu trừ khi nối sai màu. Gọi PlayerHealth.Instance.TakeDamage(...).")]
+    public float wrongConnectDamage = 10f;
+
+    [Tooltip("Tick = nối sai sẽ RESET toàn bộ puzzle (xoá hết dây đã nối, làm lại từ đầu). " +
+             "Không tick = chỉ trừ máu, giữ nguyên các dây đã nối đúng, cho thử lại ngay.")]
+    public bool resetOnWrongConnect = false;
+
+    [Tooltip("Tiếng 'giật điện' phát khi nối sai (tách riêng khỏi sfxConnectWrong để có thể " +
+             "dùng cả 2 cùng lúc — ví dụ 1 tiếng 'tách' lỗi + 1 tiếng giật điện riêng).")]
+    public AudioClip sfxElectricShock;
+
+    [Header("Hiệu ứng giật điện khi nối sai")]
+    [Tooltip("Bật rung camera minigame khi nối sai.")]
+    public bool enableShakeOnWrongConnect = true;
+
+    [Tooltip("Camera sẽ bị rung. Để trống = tự dùng minigameCamera.")]
+    public Camera shakeCamera;
+
+    [Tooltip("Biên độ rung camera (độ lệch local position tối đa, đơn vị world unit).")]
+    public float shakeMagnitude = 0.05f;
+
+    [Tooltip("Thời gian rung camera (giây).")]
+    public float shakeDuration = 0.25f;
+
+    [Tooltip("Bật chớp màu (flash) toàn màn hình puzzle khi nối sai, mô phỏng giật điện.")]
+    public bool enableFlashOnWrongConnect = true;
+
+    [Tooltip("Image phủ toàn Canvas dùng để chớp màu (kéo 1 UI Image full-screen, alpha=0 sẵn). " +
+             "Để trống = bỏ qua flash dù có tick enableFlashOnWrongConnect.")]
+    public Image electricFlashOverlay;
+
+    [Tooltip("Màu chớp khi giật điện (mặc định trắng-xanh điện).")]
+    public Color electricFlashColor = new Color(0.7f, 0.9f, 1f, 0.85f);
+
+    [Tooltip("Số lần chớp (nhấp nháy) trong 1 lần giật điện.")]
+    public int flashBlinkCount = 3;
+
+    [Tooltip("Tổng thời gian toàn bộ hiệu ứng chớp (giây).")]
+    public float flashDuration = 0.3f;
+
+    [Tooltip("Particle System hiệu ứng tia điện/spark — đặt sẵn trong scene (ví dụ ngay trên " +
+             "bảng nối dây), để OFF/không Play sẵn. Để trống = bỏ qua. Có thể dùng cùng lúc " +
+             "với electricFlashOverlay (2 hiệu ứng độc lập, không loại trừ nhau).")]
+    public ParticleSystem electricSparkParticles;
+
     public event Action OnPuzzleCompleted;
 
     [Serializable]
@@ -150,9 +213,39 @@ public class WirePuzzleManager : MonoBehaviour
             lineContainer.SetAsFirstSibling();
     }
 
+    private Coroutine _revealCoroutine;
+    private Coroutine _shakeCoroutine;
+    private Coroutine _flashCoroutine;
+    private Vector3   _shakeCamOriginalLocalPos;
+    private bool      _isShaking;
+
     private void OnEnable()
     {
         ResetPuzzle();
+    }
+
+    private void OnDisable()
+    {
+        // Đóng UI giữa lúc đang rung/chớp — Unity tự dừng coroutine khi object bị
+        // disable, nhưng camera/overlay có thể bị "kẹt" giữa hiệu ứng. Trả về sạch.
+        if (_isShaking)
+        {
+            Camera cam = shakeCamera != null ? shakeCamera : minigameCamera;
+            if (cam != null) cam.transform.localPosition = _shakeCamOriginalLocalPos;
+            _isShaking = false;
+        }
+
+        if (electricFlashOverlay != null)
+        {
+            Color c = electricFlashOverlay.color;
+            electricFlashOverlay.color = new Color(c.r, c.g, c.b, 0f);
+        }
+
+        if (electricSparkParticles != null)
+            electricSparkParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        _shakeCoroutine = null;
+        _flashCoroutine = null;
     }
 
     private void Update()
@@ -210,8 +303,7 @@ public class WirePuzzleManager : MonoBehaviour
             }
             else
             {
-                PlaySfx(sfxConnectWrong);
-                Debug.Log($"[WirePuzzle] Sai màu: {_dragSource.wireId} → {target.wireId}");
+                HandleWrongConnect(_dragSource, target);
             }
         }
 
@@ -220,6 +312,126 @@ public class WirePuzzleManager : MonoBehaviour
 
         _previewLine = null;
         _dragSource  = null;
+    }
+
+    /// <summary>
+    /// Nối sai màu: trừ máu người chơi, rồi tuỳ resetOnWrongConnect mà
+    /// xoá hết puzzle làm lại từ đầu, hoặc chỉ huỷ dây đang kéo và cho thử lại ngay.
+    /// </summary>
+    private void HandleWrongConnect(WireConnectionPoint source, WireConnectionPoint target)
+    {
+        PlaySfx(sfxConnectWrong);
+        PlaySfx(sfxElectricShock);
+        Debug.Log($"[WirePuzzle] ❌ Sai màu: {source.wireId} → {target.wireId}");
+
+        if (PlayerHealth.Instance != null)
+            PlayerHealth.Instance.TakeDamage(wrongConnectDamage);
+        else
+            Debug.LogWarning("[WirePuzzle] Không tìm thấy PlayerHealth.Instance — không trừ máu được.");
+
+        if (enableShakeOnWrongConnect)
+            TriggerCameraShake();
+
+        if (enableFlashOnWrongConnect)
+            TriggerElectricFlash();
+
+        TriggerSparkParticles();
+
+        if (resetOnWrongConnect)
+        {
+            ResetPuzzle();
+        }
+    }
+
+    /// <summary>
+    /// Phát hiệu ứng tia điện (Particle System) nếu có gán. Dùng Stop + Clear
+    /// trước khi Play để đảm bảo phát lại trọn vẹn dù nối sai liên tiếp nhanh.
+    /// </summary>
+    private void TriggerSparkParticles()
+    {
+        if (electricSparkParticles == null) return;
+
+        electricSparkParticles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        electricSparkParticles.Play(true);
+    }
+
+    /// <summary>
+    /// Rung nhẹ camera minigame để mô phỏng cú giật điện. Lưu lại vị trí gốc
+    /// lần đầu chạy (hoặc khi không còn coroutine nào đang chạy) để tránh
+    /// camera bị "trôi" dần qua nhiều lần nối sai liên tiếp.
+    /// </summary>
+    private void TriggerCameraShake()
+    {
+        Camera cam = shakeCamera != null ? shakeCamera : minigameCamera;
+        if (cam == null) return;
+
+        if (!_isShaking)
+            _shakeCamOriginalLocalPos = cam.transform.localPosition;
+
+        if (_shakeCoroutine != null)
+            StopCoroutine(_shakeCoroutine);
+
+        _shakeCoroutine = StartCoroutine(ShakeRoutine(cam));
+    }
+
+    private IEnumerator ShakeRoutine(Camera cam)
+    {
+        _isShaking = true;
+        float elapsed = 0f;
+
+        while (elapsed < shakeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float damper = 1f - Mathf.Clamp01(elapsed / shakeDuration);
+
+            Vector2 offset = UnityEngine.Random.insideUnitCircle * shakeMagnitude * damper;
+            cam.transform.localPosition = _shakeCamOriginalLocalPos + new Vector3(offset.x, offset.y, 0f);
+
+            yield return null;
+        }
+
+        cam.transform.localPosition = _shakeCamOriginalLocalPos;
+        _isShaking       = false;
+        _shakeCoroutine  = null;
+    }
+
+    /// <summary>
+    /// Chớp màu (flash) toàn màn hình minigame vài lần liên tiếp để mô phỏng
+    /// hiệu ứng "giật điện" — tăng/giảm alpha của electricFlashOverlay.
+    /// </summary>
+    private void TriggerElectricFlash()
+    {
+        if (electricFlashOverlay == null) return;
+
+        if (_flashCoroutine != null)
+        {
+            StopCoroutine(_flashCoroutine);
+            _flashCoroutine = null;
+        }
+
+        _flashCoroutine = StartCoroutine(FlashRoutine());
+    }
+
+    private IEnumerator FlashRoutine()
+    {
+        int   blinks   = Mathf.Max(1, flashBlinkCount);
+        float perBlink = flashDuration / blinks;
+        float halfStep = perBlink * 0.5f;
+
+        Color onColor  = electricFlashColor;
+        Color offColor = new Color(electricFlashColor.r, electricFlashColor.g, electricFlashColor.b, 0f);
+
+        for (int i = 0; i < blinks; i++)
+        {
+            electricFlashOverlay.color = onColor;
+            yield return new WaitForSeconds(halfStep);
+
+            electricFlashOverlay.color = offColor;
+            yield return new WaitForSeconds(halfStep);
+        }
+
+        electricFlashOverlay.color = offColor;
+        _flashCoroutine = null;
     }
 
     // ── Core logic ──────────────────────────────────────────────────
@@ -275,6 +487,46 @@ public class WirePuzzleManager : MonoBehaviour
 
         if (completePanel != null)
             completePanel.SetActive(false);
+
+        // Trả tất cả điểm nối về màu thật, rồi (nếu bật memory mode) đếm lại
+        // thời gian reveal từ đầu — mỗi lần reset là 1 lần "học thuộc lại".
+        ApplyColors();
+
+        if (_revealCoroutine != null)
+        {
+            StopCoroutine(_revealCoroutine);
+            _revealCoroutine = null;
+        }
+
+        if (enableMemoryMode)
+            _revealCoroutine = StartCoroutine(RevealThenHideRoutine());
+    }
+
+    /// <summary>
+    /// Hiện màu thật trong revealDuration giây, sau đó đổi điểm nối thuộc
+    /// nhóm hideSide (Source/Target/Both) sang hiddenColor. Không khoá tương
+    /// tác — người chơi vẫn kéo/thả được như thường, chỉ là không còn thấy màu.
+    /// </summary>
+    private IEnumerator RevealThenHideRoutine()
+    {
+        yield return new WaitForSeconds(revealDuration);
+
+        foreach (var p in connectionPoints)
+        {
+            if (p == null || p.isConnected) continue;
+
+            bool shouldHide =
+                hideSide == RevealSide.Both ||
+                (hideSide == RevealSide.SourceOnly && p.isSourceSide) ||
+                (hideSide == RevealSide.TargetOnly && !p.isSourceSide);
+
+            if (!shouldHide) continue;
+
+            var img = p.GetComponent<Image>();
+            if (img != null) img.color = hiddenColor;
+        }
+
+        _revealCoroutine = null;
     }
 
     // ── Raycast tìm điểm đích dưới chuột ───────────────────────────
