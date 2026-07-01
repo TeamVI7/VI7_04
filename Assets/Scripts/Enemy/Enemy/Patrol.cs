@@ -10,23 +10,23 @@ using UnityEngine.AI;
 public class PatrolBehaviour : MonoBehaviour
 {
     [Header("Movement")]
-    public float PatrolSpeed      = 2f;
-    public float ChaseSpeed       = 10f;
-    public float PreferredRange   = 10f;
+    public float PatrolSpeed = 2f;
+    public float ChaseSpeed = 10f;
+    public float PreferredRange = 10f;
 
     [Header("Patrol")]
-    public float PatrolRadius     = 12f;
+    public float PatrolRadius = 12f;
     public float WaypointWaitTime = 2.5f;
 
     private NavMeshAgent _nav;
-    private EnemyBrain   _brain;
-    private Vector3      _spawnPos;
-    private bool         _hasWaypoint;
-    private float        _waitTimer;
+    private EnemyBrain _brain;
+    private Vector3 _spawnPos;
+    private bool _hasWaypoint;
+    private float _waitTimer;
 
     private void Awake()
     {
-        _nav   = GetComponent<NavMeshAgent>();
+        _nav = GetComponent<NavMeshAgent>();
         _brain = GetComponent<EnemyBrain>();
         _brain.OnStateChanged += OnStateChanged;
     }
@@ -41,8 +41,8 @@ public class PatrolBehaviour : MonoBehaviour
 
         switch (_brain.State)
         {
-            case EnemyState.Idle:  TickPatrol(); break;
-            case EnemyState.Aggro: TickChase();  break;
+            case EnemyState.Idle: TickPatrol(); break;
+            case EnemyState.Aggro: TickChase(); break;
         }
     }
 
@@ -57,7 +57,7 @@ public class PatrolBehaviour : MonoBehaviour
         else if (!_nav.pathPending && _nav.remainingDistance <= _nav.stoppingDistance)
         {
             _hasWaypoint = false;
-            _waitTimer   = 0f;
+            _waitTimer = 0f;
         }
     }
 
@@ -94,6 +94,15 @@ public class PatrolBehaviour : MonoBehaviour
         if (!_nav) return;
         bool canMove = state == EnemyState.Idle || state == EnemyState.Aggro;
         _nav.enabled = canMove;
+
+        // KHI QUÁI MẤT DẤU PLAYER VÀ QUAY VỀ TRẠNG THÁI IDLE
+        if (state == EnemyState.Idle)
+        {
+            _hasWaypoint = false;   // Xóa cờ hiệu đường đi cũ
+            _waitTimer = WaypointWaitTime; // Ép timer đạt tối đa để LẬP TỨC tìm đường đi tuần mới ở khung hình tiếp theo, không bắt quái đứng đợi 2.5s nữa
+            if (_nav.enabled && _nav.isOnNavMesh) _nav.ResetPath(); // Xóa mục tiêu đuổi theo Player cũ
+        }
+
         if (state == EnemyState.Staggered || state == EnemyState.Dead)
         {
             if (_nav.enabled && _nav.isOnNavMesh) _nav.ResetPath();

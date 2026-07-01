@@ -48,6 +48,10 @@ public class MinimapFloorZone : MonoBehaviour
     [Tooltip("Orthographic size for this floor. Leave at 0 to use TabletController's default minimapZoom instead of overriding per-floor.")]
     public float floorZoomOverride = 0f;
 
+    [Header("Floor Geometry Toggle")]
+    [Tooltip("GameObjects to disable when the player enters this zone and re-enable when they leave. Typical use: disable this floor's ceiling/roof mesh so the minimap top-down camera isn't occluded, or hide geometry on floors above/below that would bleed through.")]
+    public GameObject[] objectsToDisable;
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
 
@@ -69,6 +73,7 @@ public class MinimapFloorZone : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         Log("Player entered.");
         MinimapFloorRegistry.Instance?.RegisterEnter(this);
+        SetFloorObjects(false);
     }
 
     private void OnTriggerExit(Collider other)
@@ -76,6 +81,14 @@ public class MinimapFloorZone : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         Log("Player exited.");
         MinimapFloorRegistry.Instance?.RegisterExit(this);
+        SetFloorObjects(true);
+    }
+
+    private void SetFloorObjects(bool active)
+    {
+        if (objectsToDisable == null) return;
+        foreach (var go in objectsToDisable)
+            if (go != null) go.SetActive(active);
     }
 
     #endregion

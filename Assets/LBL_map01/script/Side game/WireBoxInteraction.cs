@@ -50,6 +50,10 @@ public class WireBoxInteraction : MonoBehaviour
     [Tooltip("Tiếng phát ra khi MỞ hộp điện (bấm E vào, lúc EnterWireBox).")]
     [SerializeField] private AudioClip sfxOpenBox;
 
+    [Tooltip("Tiếng máy phát điện kêu lên khi nối dây xong (lúc puzzle hoàn thành, " +
+             "trước khi đèn Morse bật).")]
+    [SerializeField] private AudioClip sfxGeneratorPowerUp;
+
     public static bool UIOpen        { get; private set; } = false;
     public static bool WireBoxSolved { get; private set; } = false;
 
@@ -220,6 +224,10 @@ public class WireBoxInteraction : MonoBehaviour
         _solved       = true;
         WireBoxSolved = true;
 
+        // Tiếng máy phát điện kêu lên — phát ngay lúc vừa giải xong
+        if (sfxSource != null && sfxGeneratorPowerUp != null)
+            sfxSource.PlayOneShot(sfxGeneratorPowerUp);
+
         SetComputerLocked(false);
 
         // Bật đèn Morse
@@ -233,7 +241,13 @@ public class WireBoxInteraction : MonoBehaviour
         // PlayMessage() trực tiếp trên từng đèn ở đây, kẻo tất cả nháy cùng lúc
         // đè lên coroutine của Sequencer.
         if (morseSequencerToActivate != null)
+        {
+            // Đảm bảo reset _isRunning trước khi bật, đề phòng Sequencer đã
+            // tự chạy "rỗng" từ lúc Start() (vì lúc đó đèn chưa có điện) và
+            // bị kẹt isRunning = true mãi, khiến BeginSequence() sau bị no-op.
+            morseSequencerToActivate.StopSequence();
             morseSequencerToActivate.BeginSequence();
+        }
 
         // Đợi 1 chút rồi chuyển cam qua đèn Morse để báo hiệu đã kích hoạt,
         // sau đó tự trả về (đóng UI nối dây + bật lại cam người chơi).

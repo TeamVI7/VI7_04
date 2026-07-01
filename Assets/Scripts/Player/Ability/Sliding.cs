@@ -2,16 +2,7 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Ground slide ability.
-/// 
-/// EXTENDING:
-///   - Subscribe to OnSlideStart / OnSlideEnd for dust VFX, audio, screen shake, etc.
-///   - Add a charge/cooldown system by wrapping TrySlide().
-///   - Increase slideForce based on current speed for speed-boosted slides.
-/// 
-/// DEBUG:
-///   - Enable debugLog in Inspector.
-///   - slideTimer is shown in Inspector (SerializeField optional — add [SerializeField] if needed).
+/// Ground slide ability restricted by sprinting status and a minimum momentum threshold.
 /// </summary>
 public class Sliding : MonoBehaviour
 {
@@ -30,7 +21,11 @@ public class Sliding : MonoBehaviour
     public float slideForce    = 200f;
     public float slideStopSpeed = 4f;
     public float slideDrag     = 4f;
-    public float slideYScale   = 0.5f;  // kept for reference — collider used in practice
+    public float slideYScale   = 0.5f; 
+
+    [Header("Restrictions")]
+    [Tooltip("Minimum horizontal velocity magnitude required to initiate a slide.")]
+    public float minMomentumToSlide = 6f;
 
     [Header("Input")]
     public KeyCode slideKey = KeyCode.LeftControl;
@@ -104,8 +99,18 @@ public class Sliding : MonoBehaviour
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput   = Input.GetAxisRaw("Vertical");
 
-        if (Input.GetKeyDown(slideKey) && (horizontalInput != 0 || verticalInput != 0))
-            StartSlide();
+        // Check if conditions are met on the frame the slide key is pressed
+        if (Input.GetKeyDown(slideKey))
+        {
+            if (CanInitiateSlide())
+            {
+                StartSlide();
+            }
+            else
+            {
+                Log("Slide blocked: Requirements not met (Must be sprinting with enough momentum).");
+            }
+        }
 
         if (Input.GetKeyUp(slideKey) && pm.sliding)
             StopSlide();
@@ -121,6 +126,26 @@ public class Sliding : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Slide Logic
     // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Evaluates whether the player is currently sprinting and moving fast enough to slide.
+    /// </summary>
+    private bool CanInitiateSlide()
+    {
+        if (pm == null || rb == null) return false;
+
+        // 1. Must have input movement
+        if (horizontalInput == 0 && verticalInput == 0) return false;
+
+        // 2. Must be actively sprinting
+        if (pm.state != PlayerMovement.MovementState.sprinting) return false;
+
+        // 3. Must exceed the horizontal momentum threshold
+        Vector3 flatVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        if (flatVelocity.magnitude < minMomentumToSlide) return false;
+
+        return true;
+    }
 
     private void StartSlide()
     {

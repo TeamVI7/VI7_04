@@ -67,6 +67,7 @@ MeshRenderer:
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: b452f426b91b1b64083c46b67fc1d7fc, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -192,3 +193,4 @@ MonoBehaviour:
   HitLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  WhizRadius: 3.5
