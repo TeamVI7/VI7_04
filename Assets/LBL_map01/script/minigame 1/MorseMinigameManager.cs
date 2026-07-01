@@ -4,27 +4,39 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+/// <summary>
+/// Numpad passcode minigame — nhập HOÀN TOÀN bằng bấm chuột trên Canvas
+/// (không cần gõ bàn phím). Gắn các nút số 0-9, DEL, OK vào Inspector.
+/// </summary>
 public class MorseMinigameManager : MonoBehaviour
 {
-    [Header("Mật khẩu cài sẵn")]
+    [Header("Mật khẩu cài sẵn (chỉ gồm số)")]
     public string password = "1234";
 
     [Header("Cửa")]
     public SlidingDoorController door;
 
-    [Header("UI")]
-    public TMP_InputField answerInput;
-    public Button         enterButton;
-    public TMP_Text       feedbackText;
-    public Image          inputBackground;
+    [Header("UI - Màn hình hiển thị")]
+    public TMP_Text displayText;      // hiển thị số đã nhập, vd "045"
+    public Image    displayBackground; // nền màn hình, đổi màu khi đúng/sai
+    public TMP_Text feedbackText;      // optional: "✓ ĐÚNG" / "✗ SAI"
+
+    [Header("UI - Numpad")]
+    [Tooltip("Kéo 10 nút số 0-9 vào đây (thứ tự không bắt buộc, chỉ cần gắn đúng OnClick cho từng nút)")]
+    public Button[] digitButtons;
+    public Button delButton;
+    public Button okButton;
+
+    [Header("UI - Panel khóa khi nhập sai")]
+    public GameObject lockedPanel;     // panel "KEYPAD LOCKED", để inactive sẵn trong scene
+    public float      lockedDuration = 1.2f;
 
     [Header("Màu sắc")]
     public Color normalColor      = new Color(0.15f, 0.15f, 0.15f, 1f);
-    public Color hoverColor       = new Color(0.28f, 0.28f, 0.28f, 1f);
-    public Color focusColor       = new Color(0.12f, 0.35f, 0.55f, 1f);
     public Color wrongColor       = new Color(0.6f,  0.05f, 0.05f, 1f);
-    public Color correctTextColor = new Color(0.2f,  1f,   0.4f,  1f);
-    public Color wrongTextColor   = new Color(1f,    0.3f, 0.3f,  1f);
+    public Color correctColor     = new Color(0.1f,  0.5f,  0.15f, 1f);
+    public Color correctTextColor = new Color(0.2f,  1f,    0.4f,  1f);
+    public Color wrongTextColor   = new Color(1f,    0.3f,  0.3f,  1f);
 
     public float wrongFlashDuration = 0.6f;
     public float doorOpenDelay      = 0.5f;
@@ -32,63 +44,70 @@ public class MorseMinigameManager : MonoBehaviour
     public event Action OnPasswordSolved;
 
     // ── State ────────────────────────────────────────────────────
-    private bool      _solved    = false;
-    private bool      _isFocused = false;
+    private string    _currentInput = "";
+    private bool      _solved       = false;
+    private bool      _locked       = false;
     private Coroutine _wrongFlash;
-    private Coroutine _colorTween;
+
+    private int MaxLength => password.Length;
 
     private void Start()
     {
-        enterButton?.onClick.AddListener(OnSubmit);
+        // Gắn OnClick cho DEL / OK bằng code (khỏi cần kéo trong Inspector nếu muốn)
+        if (delButton != null) delButton.onClick.AddListener(OnDeletePressed);
+        if (okButton  != null) okButton.onClick.AddListener(OnEnterPressed);
 
-        if (answerInput != null)
-        {
-            answerInput.lineType = TMP_InputField.LineType.SingleLine;
-            answerInput.onSelect.AddListener(_   => OnInputFocus(true));
-            answerInput.onDeselect.AddListener(_ => OnInputFocus(false));
-            answerInput.onSubmit.AddListener(_ => answerInput.ActivateInputField());
-            SetupHoverEvents();
-        }
-
-        SetInputColor(normalColor, instant: true);
+        SetDisplayColor(normalColor, instant: true);
         SetFeedback("", Color.clear);
+        if (lockedPanel != null) lockedPanel.SetActive(false);
+
+        UpdateDisplay();
     }
 
     public void StartNewRound()
     {
         if (_solved) return;
-        if (answerInput) { answerInput.text = ""; answerInput.interactable = true; }
-        if (enterButton) enterButton.interactable = true;
+        _currentInput = "";
+        _locked       = false;
+        SetButtonsInteractable(true);
         SetFeedback("", Color.clear);
-        SetInputColor(normalColor, instant: true);
+        SetDisplayColor(normalColor, instant: true);
+        if (lockedPanel != null) lockedPanel.SetActive(false);
+        UpdateDisplay();
     }
 
-    // ── Hover ─────────────────────────────────────────────────────
-    private void SetupHoverEvents()
+    // ── Gọi từ nút số 0-9 (OnClick -> OnDigitPressed, truyền string "0".."9") ──
+    public void OnDigitPressed(string digit)
     {
-        var trigger = answerInput.gameObject.GetComponent<UnityEngine.EventSystems.EventTrigger>()
-                   ?? answerInput.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+        if (_solved || _locked) return;
+        if (_currentInput.Length >= MaxLength) return;
 
-        var enter = new UnityEngine.EventSystems.EventTrigger.Entry
-            { eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter };
-        enter.callback.AddListener(_ => { if (!_isFocused) SetInputColor(hoverColor); });
-        trigger.triggers.Add(enter);
+        _currentInput += digit;
+        UpdateDisplay();
 
-        var exit = new UnityEngine.EventSystems.EventTrigger.Entry
-            { eventID = UnityEngine.EventSystems.EventTriggerType.PointerExit };
-        exit.callback.AddListener(_ => { if (!_isFocused) SetInputColor(normalColor); });
-        trigger.triggers.Add(exit);
+        // Tự động check khi nhập đủ số ký tự (khỏi cần bấm OK)
+        if (_currentInput.Length == MaxLength)
+            OnEnterPressed();
     }
 
-    // ── Submit ────────────────────────────────────────────────────
-    private void OnSubmit()
+    // ── Gọi từ nút DEL ───────────────────────────────────────────
+    public void OnDeletePressed()
     {
-        if (_solved || answerInput == null) return;
-        string answer = answerInput.text.Trim().ToUpper();
-        if (string.IsNullOrEmpty(answer)) return;
+        if (_solved || _locked) return;
+        if (_currentInput.Length == 0) return;
 
-        if (answer == password.ToUpper()) HandleCorrect();
-        else                              HandleWrong();
+        _currentInput = _currentInput.Substring(0, _currentInput.Length - 1);
+        UpdateDisplay();
+    }
+
+    // ── Gọi từ nút OK (hoặc tự động khi nhập đủ số) ─────────────
+    public void OnEnterPressed()
+    {
+        if (_solved || _locked) return;
+        if (string.IsNullOrEmpty(_currentInput)) return;
+
+        if (_currentInput == password) HandleCorrect();
+        else                            HandleWrong();
     }
 
     // ── Đúng ──────────────────────────────────────────────────────
@@ -96,9 +115,8 @@ public class MorseMinigameManager : MonoBehaviour
     {
         _solved = true;
         SetFeedback("✓ ĐÚNG", correctTextColor);
-        SetInputColor(new Color(0.1f, 0.5f, 0.15f, 1f), instant: true);
-        if (answerInput) answerInput.interactable = false;
-        if (enterButton) enterButton.interactable = false;
+        SetDisplayColor(correctColor, instant: true);
+        SetButtonsInteractable(false);
         StartCoroutine(OpenDoorDelayed());
     }
 
@@ -118,57 +136,54 @@ public class MorseMinigameManager : MonoBehaviour
 
     private IEnumerator WrongFlashRoutine()
     {
-        if (answerInput) answerInput.interactable = false;
-        if (enterButton) enterButton.interactable = false;
+        _locked = true;
+        SetButtonsInteractable(false);
 
-        SetInputColor(wrongColor, instant: true);
+        SetDisplayColor(wrongColor, instant: true);
         SetFeedback("✗ SAI", wrongTextColor);
+        if (lockedPanel != null) lockedPanel.SetActive(true);
 
-        float half = wrongFlashDuration / 5f;
+        float half = wrongFlashDuration / 4f;
         for (int i = 0; i < 2; i++)
         {
             yield return new WaitForSeconds(half);
-            SetInputColor(normalColor, instant: true);
+            SetDisplayColor(normalColor, instant: true);
             yield return new WaitForSeconds(half);
-            SetInputColor(wrongColor, instant: true);
+            SetDisplayColor(wrongColor, instant: true);
         }
-        yield return new WaitForSeconds(half);
 
-        if (answerInput) { answerInput.text = ""; answerInput.interactable = true; }
-        if (enterButton) enterButton.interactable = true;
+        yield return new WaitForSeconds(Mathf.Max(0f, lockedDuration - wrongFlashDuration));
+
+        _currentInput = "";
+        _locked       = false;
+        UpdateDisplay();
         SetFeedback("", Color.clear);
-        SetInputColor(_isFocused ? focusColor : normalColor, instant: true);
-        answerInput?.ActivateInputField();
-    }
-
-    // ── Focus ─────────────────────────────────────────────────────
-    private void OnInputFocus(bool focused)
-    {
-        _isFocused = focused;
-        if (_wrongFlash != null) return;
-        SetInputColor(focused ? focusColor : normalColor);
+        SetDisplayColor(normalColor, instant: true);
+        if (lockedPanel != null) lockedPanel.SetActive(false);
+        SetButtonsInteractable(true);
     }
 
     // ── Helpers ───────────────────────────────────────────────────
-    private void SetInputColor(Color target, bool instant = false)
+    private void UpdateDisplay()
     {
-        if (inputBackground == null) return;
-        if (instant || !Application.isPlaying) { inputBackground.color = target; return; }
-        if (_colorTween != null) StopCoroutine(_colorTween);
-        _colorTween = StartCoroutine(TweenColor(target));
+        if (displayText != null)
+            displayText.text = _currentInput;
     }
 
-    private IEnumerator TweenColor(Color target)
+    private void SetButtonsInteractable(bool value)
     {
-        Color start = inputBackground.color;
-        float t = 0f;
-        while (t < 1f)
-        {
-            t += Time.deltaTime * 8f;
-            inputBackground.color = Color.Lerp(start, target, t);
-            yield return null;
-        }
-        inputBackground.color = target;
+        if (digitButtons != null)
+            foreach (var b in digitButtons)
+                if (b != null) b.interactable = value;
+
+        if (delButton != null) delButton.interactable = value;
+        if (okButton  != null) okButton.interactable  = value;
+    }
+
+    private void SetDisplayColor(Color target, bool instant = false)
+    {
+        if (displayBackground == null) return;
+        displayBackground.color = target; // instant, đủ dùng cho numpad; có thể thêm tween nếu muốn mượt hơn
     }
 
     private void SetFeedback(string msg, Color color)

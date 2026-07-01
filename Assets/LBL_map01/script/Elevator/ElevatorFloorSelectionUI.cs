@@ -5,20 +5,20 @@ using UnityEngine.UI;
 // Panel cần dùng World Space Canvas (đặt trong không gian 3D của cabin) để
 // raycast theo hướng nhìn của Player (PlayerElevatorInteractor.cs) có thể trúng nút.
 //
-// Prefab nút (buttonPrefab) cần có sẵn:
-//  - Component ElevatorFloorButtonLookable (đã gán targetGraphic, normalColor, highlightColor)
-//  - 1 Collider (BoxCollider) bao trùm vùng nút
-//  - object con tên "Label" (Text) hiển thị tên tầng
-//  - object con tên "LockIcon" (Image) hiện icon khóa, mặc định tắt
+// KHÔNG còn tự sinh nút bằng prefab nữa. Bạn tự đặt sẵn từng nút (đã có sẵn
+// component ElevatorFloorButtonLookable + Collider) ngay trên tấm panel trong
+// Scene view, canh cho khớp mắt, rồi kéo từng nút đó vào danh sách "floorButtons"
+// bên dưới. Mỗi nút tự khai "floorIndex" của chính nó trong Inspector của nút đó.
 public class ElevatorFloorSelectionUI : MonoBehaviour
 {
     [Header("Tham chiếu")]
     public ElevatorController elevator;
     public GameObject panelRoot;          // toàn bộ panel, ẩn/hiện theo state
-    public Transform buttonContainer;     // nơi chứa các nút tầng (vd: Vertical/Grid Layout Group)
-    public GameObject buttonPrefab;       // prefab 1 nút tầng (xem yêu cầu ở trên)
 
-    private ElevatorFloorButtonLookable[] spawnedButtons;
+    [Header("Các nút đã đặt sẵn thủ công trong Scene")]
+    [Tooltip("Kéo từng nút (đã đặt sẵn lên panel trong Scene view, có component ElevatorFloorButtonLookable) vào đây. " +
+             "Không cần prefab, không cần layout group.")]
+    public ElevatorFloorButtonLookable[] floorButtons;
 
     void Start()
     {
@@ -28,7 +28,13 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
             return;
         }
 
-        BuildButtons();
+        // Đảm bảo mỗi nút có tham chiếu tới đúng elevator (phòng khi quên gán tay ở từng nút)
+        foreach (var btn in floorButtons)
+        {
+            if (btn != null && btn.elevator == null)
+                btn.elevator = elevator;
+        }
+
         if (panelRoot) panelRoot.SetActive(false);
 
         elevator.OnFloorSelectionOpened += HandleOpened;
@@ -42,32 +48,6 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
         elevator.OnFloorSelectionOpened -= HandleOpened;
         elevator.OnFloorSelectionClosed -= HandleClosed;
         elevator.OnAccessDenied -= HandleAccessDenied;
-    }
-
-    void BuildButtons()
-    {
-        spawnedButtons = new ElevatorFloorButtonLookable[elevator.floors.Count];
-
-        for (int i = 0; i < elevator.floors.Count; i++)
-        {
-            int floorIndex = i;
-            GameObject btnObj = Instantiate(buttonPrefab, buttonContainer);
-            btnObj.SetActive(true);
-
-            var label = btnObj.transform.Find("Label")?.GetComponent<Text>();
-            if (label) label.text = elevator.floors[i].floorName;
-
-            var lookable = btnObj.GetComponent<ElevatorFloorButtonLookable>();
-            if (lookable == null)
-            {
-                Debug.LogError("Prefab nút thiếu component ElevatorFloorButtonLookable!", btnObj);
-                continue;
-            }
-
-            lookable.floorIndex = floorIndex;
-            lookable.elevator = elevator;
-            spawnedButtons[i] = lookable;
-        }
     }
 
     void HandleOpened(int currentFloorIndex)
@@ -84,22 +64,32 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
     void HandleAccessDenied(int floorIndex)
     {
         // TODO: có thể nhấp nháy đỏ nút hoặc hiện thông báo "Cần thẻ nhân viên" ở đây
-        Debug.Log($"Không thể vào tầng {elevator.floors[floorIndex].floorName}: cần thẻ nhân viên đúng mã.");
+        if (elevator != null && floorIndex >= 0 && floorIndex < elevator.floors.Count)
+            Debug.Log($"Không thể vào tầng {elevator.floors[floorIndex].floorName}: cần thẻ nhân viên đúng mã.");
     }
 
     void RefreshButtons(int currentFloorIndex)
     {
-        for (int i = 0; i < spawnedButtons.Length; i++)
+        if (floorButtons == null) return;
+
+        foreach (var btn in floorButtons)
         {
-            if (spawnedButtons[i] == null) continue;
+            if (btn == null) continue;
 
-            bool isCurrent = (i == currentFloorIndex);
-            bool canAccess = elevator.CanAccessFloor(i);
+            int idx = btn.floorIndex;
+            if (idx < 0 || idx >= elevator.floors.Count)
+            {
+                Debug.LogWarning($"Nút '{btn.name}' có floorIndex={idx} không hợp lệ (ngoài danh sách floors).", btn);
+                continue;
+            }
 
-            spawnedButtons[i].SetSelectable(!isCurrent);
+            bool isCurrent = (idx == currentFloorIndex);
+            bool canAccess = elevator.CanAccessFloor(idx);
 
-            var lockIcon = spawnedButtons[i].transform.Find("LockIcon");
-            if (lockIcon) lockIcon.gameObject.SetActive(elevator.floors[i].isLocked && !canAccess);
+            btn.SetSelectable(!isCurrent);
+
+            var lockIcon = btn.transform.Find("LockIcon");
+            if (lockIcon) lockIcon.gameObject.SetActive(elevator.floors[idx].isLocked && !canAccess);
         }
     }
 }

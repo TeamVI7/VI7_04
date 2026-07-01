@@ -14,6 +14,9 @@ public class ComputerInteraction : MonoBehaviour
     [SerializeField] private float     interactionDistance = 2.5f;
     [SerializeField] private LayerMask interactableLayer;
 
+    [Header("Phím tương tác")]
+    [SerializeField] private KeyCode interactKey = KeyCode.F;
+
     [Header("Minigame Camera")]
     [SerializeField] private Camera minigameCamera;
 
@@ -71,7 +74,7 @@ public class ComputerInteraction : MonoBehaviour
     {
         if (_solved) return;
 
-        if (Input.GetKeyDown(KeyCode.E))
+        if (Input.GetKeyDown(interactKey))
         {
             if (_isInteracting) ExitComputer();
             else                TryInteract();

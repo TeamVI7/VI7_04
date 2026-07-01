@@ -14,8 +14,8 @@ public class CardItem : MonoBehaviour
 
     [Header("Tooltip 3D (World Space)")]
     public GameObject tooltipRoot;                  // object UI nổi trên đầu thẻ
-public TMP_Text tooltipText;
-    public KeyCode interactKey = KeyCode.E;
+    public TMP_Text tooltipText;
+    public KeyCode interactKey = KeyCode.F;
 
     private bool playerInRange = false;
     private PlayerCardHolder playerCardHolder;
@@ -34,7 +34,7 @@ public TMP_Text tooltipText;
 
         // Ẩn tooltip lúc đầu
         if (tooltipRoot) tooltipRoot.SetActive(false);
-        if (tooltipText) tooltipText.text = $"[E] Nhặt {cardDisplayName}";
+        if (tooltipText) tooltipText.text = $"[{interactKey}] Nhặt {cardDisplayName}";
     }
 
     void Update()
@@ -43,7 +43,7 @@ public TMP_Text tooltipText;
         if (tooltipRoot && tooltipRoot.activeSelf && Camera.main != null)
             tooltipRoot.transform.LookAt(Camera.main.transform);
 
-        // Nhấn E khi ở gần
+        // Nhấn phím tương tác khi ở gần
         if (playerInRange && Input.GetKeyDown(interactKey))
             Pickup();
     }
