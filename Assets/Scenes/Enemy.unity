@@ -35102,7 +35102,19 @@ PrefabInstance:
     - target: {fileID: 4806974165169437550, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
       propertyPath: SniperClip
       value: 
+      objectReference: {fileID: 8300000, guid: 7b009dbf19605464994e6d05af8f54e9, type: 3}
+    - target: {fileID: 4806974165169437550, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
+      propertyPath: SniperWhizClip
+      value: 
+      objectReference: {fileID: 8300000, guid: 94d99ea250925bf4093ee0e0848bc78f, type: 3}
+    - target: {fileID: 4806974165169437550, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
+      propertyPath: SniperImpactClip
+      value: 
       objectReference: {fileID: 8300000, guid: 80ba987836d46534caaf3397b61f6f15, type: 3}
+    - target: {fileID: 4806974165169437550, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
+      propertyPath: SniperMuzzleClip
+      value: 
+      objectReference: {fileID: 8300000, guid: 7b009dbf19605464994e6d05af8f54e9, type: 3}
     - target: {fileID: 6455182372276703200, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
       propertyPath: m_Name
       value: Enemy_Stealth
