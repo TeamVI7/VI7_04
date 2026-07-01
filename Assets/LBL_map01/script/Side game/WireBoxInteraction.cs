@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Đứng trong vùng Trigger + bấm E → mở UI nối dây (World Space Canvas với camera riêng).
+/// Đứng trong vùng Trigger + bấm F → mở UI nối dây (World Space Canvas với camera riêng).
 /// Khi xong: mở khoá computer, bật đèn Morse.
 /// </summary>
 public class WireBoxInteraction : MonoBehaviour
@@ -47,7 +47,7 @@ public class WireBoxInteraction : MonoBehaviour
     [Tooltip("AudioSource để phát SFX. Để trống = tự thêm AudioSource lên chính object này.")]
     [SerializeField] private AudioSource sfxSource;
 
-    [Tooltip("Tiếng phát ra khi MỞ hộp điện (bấm E vào, lúc EnterWireBox).")]
+    [Tooltip("Tiếng phát ra khi MỞ hộp điện (bấm F vào, lúc EnterWireBox).")]
     [SerializeField] private AudioClip sfxOpenBox;
 
     [Tooltip("Tiếng máy phát điện kêu lên khi nối dây xong (lúc puzzle hoàn thành, " +
@@ -61,7 +61,10 @@ public class WireBoxInteraction : MonoBehaviour
     private bool _solved        = false;
     private bool _playerInRange = false;
 
-    private Camera _playerCam; // camera player (tắt khi mở wire UI)
+    private Camera _playerCam; // camera player đang active, được lấy lại MỖI LẦN mở hộp
+                                // (không cache 1 lần ở Start để tránh trả nhầm cam nếu
+                                // camera "đang active" của player bị đổi bởi hệ thống khác
+                                // trong lúc chơi, vd cutscene / đổi góc nhìn...)
 
     // ────────────────────────────────────────────────────────────────
 
@@ -90,8 +93,9 @@ public class WireBoxInteraction : MonoBehaviour
         if (morseShowcaseCamera != null)
             morseShowcaseCamera.gameObject.SetActive(false);
 
-        // Tìm player camera (Camera.main)
-        _playerCam = Camera.main;
+        // KHÔNG cache player camera ở đây nữa — sẽ tự dò camera đang active
+        // đúng lúc EnterWireBox() để tránh trả nhầm cam nếu có gì đó đổi cam
+        // player trong lúc chơi (trước khi player bấm F vào hộp).
 
         // Khoá computer ngay từ đầu
         SetComputerLocked(true);
@@ -127,12 +131,12 @@ public class WireBoxInteraction : MonoBehaviour
 
         if (_isInteracting)
         {
-            if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.F) || Input.GetKeyDown(KeyCode.Escape))
                 ExitWireBox();
             return;
         }
 
-        if (_playerInRange && Input.GetKeyDown(KeyCode.E))
+        if (_playerInRange && Input.GetKeyDown(KeyCode.F))
             EnterWireBox();
     }
 
@@ -140,7 +144,7 @@ public class WireBoxInteraction : MonoBehaviour
     {
         if (!IsPlayer(other)) return;
         _playerInRange = true;
-        Debug.Log("[WireBoxInteraction] Player trong vùng hộp điện. Bấm E để mở.");
+        Debug.Log("[WireBoxInteraction] Player trong vùng hộp điện. Bấm F để mở.");
     }
 
     private void OnTriggerExit(Collider other)
@@ -165,11 +169,14 @@ public class WireBoxInteraction : MonoBehaviour
         if (sfxSource != null && sfxOpenBox != null)
             sfxSource.PlayOneShot(sfxOpenBox);
 
-        // 1. Tắt player camera
+        // 1. Dò camera player ĐANG ACTIVE ngay lúc này (không dùng cam cũ cache
+        //    sẵn từ Start, phòng khi trong lúc chơi cam player đã bị đổi bởi
+        //    hệ thống khác) rồi mới tắt nó đi.
+        _playerCam = Camera.main;
         if (_playerCam != null)
             _playerCam.gameObject.SetActive(false);
 
-        // 2. Bật wire puzzle camera
+        // 2. CHỈ bây giờ mới bật wire puzzle camera lên (trước đó luôn tắt)
         if (wirePuzzleCamera != null)
         {
             wirePuzzleCamera.gameObject.SetActive(true);
@@ -208,11 +215,22 @@ public class WireBoxInteraction : MonoBehaviour
         if (wirePuzzleCanvas != null)
             wirePuzzleCanvas.gameObject.SetActive(false);
 
-        // Tắt wire camera, bật lại player camera
+        // Tắt wire camera, bật lại ĐÚNG camera player đã lưu lúc EnterWireBox()
         if (wirePuzzleCamera != null)
             wirePuzzleCamera.gameObject.SetActive(false);
+
         if (_playerCam != null)
+        {
             _playerCam.gameObject.SetActive(true);
+        }
+        else
+        {
+            // Phòng hờ: nếu vì lý do gì đó chưa lưu được cam player (vd Exit bị
+            // gọi mà chưa từng Enter), thử dò lại 1 lần nữa qua tag MainCamera.
+            var fallbackCam = Camera.main;
+            if (fallbackCam != null)
+                fallbackCam.gameObject.SetActive(true);
+        }
 
         inputBlocker?.UnblockInput();
     }

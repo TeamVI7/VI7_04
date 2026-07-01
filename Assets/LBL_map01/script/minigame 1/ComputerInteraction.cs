@@ -97,6 +97,13 @@ public class ComputerInteraction : MonoBehaviour
         _isInteracting = true;
         UIOpen         = true;
 
+        // Dò lại camera player ĐANG ACTIVE ngay lúc này, phòng khi có script
+        // khác (vd WireBoxInteraction) cũng đang toggle chung camera này.
+        if (playerCameraTransform != null)
+            _playerCam = playerCameraTransform.GetComponent<Camera>();
+        if (_playerCam == null)
+            _playerCam = Camera.main;
+
         // Tắt collider TRƯỚC khi mở UI
         DisableColliders();
 
@@ -117,6 +124,12 @@ public class ComputerInteraction : MonoBehaviour
 
         inputBlocker?.BlockInput();
         gameManager?.StartNewRound();
+
+        // Mở khoá con trỏ chuột để bấm được numpad — QUAN TRỌNG vì minigame
+        // này chơi hoàn toàn bằng chuột. PlayerCam bị tắt (SetActive false)
+        // nên nó không tự lo cursor được nữa, phải tự set ở đây.
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible   = true;
     }
 
     public void ExitComputer()
@@ -137,6 +150,14 @@ public class ComputerInteraction : MonoBehaviour
         EnableColliders();
 
         inputBlocker?.UnblockInput();
+
+        // Khoá lại con trỏ chuột về chế độ chơi game (FPS look). PlayerCam
+        // vừa được SetActive(true) lại nhưng Start() của nó KHÔNG chạy lại
+        // (Unity chỉ gọi Start 1 lần), nên nếu PlayerCam chỉ lock cursor
+        // trong Start() thì phải tự khoá lại ở đây, không thì camera "tắc"
+        // (chuột không xoay camera được nữa) sau khi thoát computer.
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible   = false;
     }
 
     private void HandleSolved()
