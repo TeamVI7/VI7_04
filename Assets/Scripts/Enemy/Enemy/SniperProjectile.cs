@@ -69,7 +69,7 @@ namespace Enemy
             // Tịnh tiến đạn thẳng tắp
             transform.position += _direction * Speed * Time.deltaTime;
 
-            // THÊM MỚI: Logic tính toán kiểm tra rít gió sượt người
+            // Logic tính toán kiểm tra rít gió sượt người
             CheckForNearMissWhiz();
         }
 
@@ -119,6 +119,16 @@ namespace Enemy
             {
                 other.GetComponentInParent<PlayerHealth>()?.TakeDamage(Damage);
             }
+
+            // --- LOGIC MỚI THÊM: GỌI HIỆU ỨNG CHÁY CHO PLAYER ---
+            if (other.CompareTag("Player") || other.GetComponentInParent<PlayerHealth>() != null)
+            {
+                if (PlayerHealth.Instance != null)
+                {
+                    PlayerHealth.Instance.ApplyBurning();
+                }
+            }
+            // ----------------------------------------------------
 
             if (HitEffectPrefab != null)
             {
