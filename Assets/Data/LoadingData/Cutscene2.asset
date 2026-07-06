@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7cc8140244ec184d8b72f9bbe3ef4d4, type: 3}
   m_Name: Cutscene2
   m_EditorClassIdentifier: Assembly-CSharp::SceneTransitionConfig
-  targetSceneName: Cutscene_2
+  targetSceneName: Cutscene_Mission_1
   sceneLoadWeight: 0.8
   shaderWarmupWeight: 0.2
   shaderCollections:

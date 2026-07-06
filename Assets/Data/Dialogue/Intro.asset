@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43129b57210751f44b8695eb34d4b9c7, type: 3}
+  m_Name: Intro
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueData
+  lines:
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "\u0110i\u1EC7p vi\xEAn, ch\xE0o m\u1EEBng \u0111\u1EBFn Vi\u1EC7n Nguy\xEAn
+      C\u1EE9u Qu\u1ED1c T\u1EBF."
+    portrait: {fileID: 0}
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "T\xF4i l\xE0 \u0110\u1EA1i \xFAy Harsh, ng\u01B0\u1EDDi \u0111i\u1EC1u
+      h\xE0nh chi\u1EBFn d\u1ECBch n\xE0y."
+    portrait: {fileID: 0}
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "Nh\u01B0 b\u1EA1n \u0111\xE3 bi\u1EBFt AI \u0111\xE3 x\xE2m nh\u1EADp
+      v\xE0o h\u1EC7 th\u1ED1ng m\xE1y ch\u1EE7 c\u1EE7a VNCQT, d\xF9ng t\u1EA5t
+      c\u1EA3 \u0111i\u1EC7n \u0111\u01B0\u1EE3c c\u1EA5p cho Vi\u1EC7n \u0111\u1EC3
+      cung c\u1EA5p cho m\u1ED9t thi\u1EBFt b\u1ECB kh\xF4ng x\xE1c \u0111\u1ECBnh,"
+    portrait: {fileID: 0}
+  - speaker: Lt. Harsh
+    text: "n\xEAn h\u1EC7 th\u1ED1ng x\u1EA3 n\u01B0\u1EDBc c\u1EE7a \u0111\u1EADp
+      \u0111\xE3 b\u1ECB v\xF4 hi\u1EC7u h\xF3a, b\u1EA1n \u0111\xE3 \u0111\u01B0\u1EE3c
+      cung c\u1EA5p b\u1ED9 gi\xE1p EXO b\u1EA1n c\xF3 th\u1EC3 th\u1EED nghi\u1EC7m
+      tr\u01B0\u1EDBc nh\u1EEFng ch\u1EE9c n\u0103ng m\u1EDBi c\u1EE7a b\u1ED9 gi\xE1p"
+    portrait: {fileID: 0}
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "B\xE1m t\u01B0\u1EDDng, Ch\u1EA1y nhanh h\u01A1n, B\u1ED9 \u0111\u1EA9y
+      ph\u1EA3n l\u1EF1c..."
+    portrait: {fileID: 0}
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "T\xF4i s\u1EBD li\xEAn l\u1EA1c l\u1EA1i v\u1EDBi b\u1EA1n khi b\u1EA1n
+      \u0111\xE3 ti\u1EBFn v\xE0o c\u0103n c\u1EE9"
+    portrait: {fileID: 0}
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "Ch\xFAc b\u1EA1n may m\u1EAFn"
+    portrait: {fileID: 0}
+  autoPlay: 1
+  autoPlayDelay: 5

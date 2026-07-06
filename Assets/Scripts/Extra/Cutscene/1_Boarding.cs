@@ -65,7 +65,6 @@ public class BoardingCutscene : MonoBehaviour
         // ── HATCH CLOSES ──────────────────────────────────────
         yield return new WaitForSeconds(0.5f);
 
-        AudioSource.PlayClipAtPoint(hatchAudio, hatch.position);
         yield return hatch
             .DOLocalRotate(new Vector3(0f, 0f, hatchCloseAngle), hatchCloseDuration)
             .SetEase(Ease.InOutSine)

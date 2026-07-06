@@ -92,6 +92,15 @@ public class PlayerHealth : MonoBehaviour
         OnDied?.Invoke();
     }
 
+    // Called by DeathCamera.Respawn() once checkpoint teleport completes.
+    public void Respawn()
+    {
+        _dead = false;
+        _hp = maxHP;
+        SetAlpha(damageOverlay, 0f);
+        OnHealthChanged?.Invoke(_hp, maxHP);
+    }
+
     static void SetAlpha(Image img, float a)
     {
         if (!img) return;

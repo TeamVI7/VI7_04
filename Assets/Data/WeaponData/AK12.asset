@@ -22,10 +22,10 @@ MonoBehaviour:
   ammoType: FMJ
   weaponSprite: {fileID: 21300000, guid: e1431ad18e939164ca922f5a19c19de9, type: 3}
   isFullAuto: 1
-  fireRate: 0.1
+  fireRate: 0.05
   clipSize: 30
-  reservedAmmoCapacity: 270
-  weaponDamage: 25
+  reservedAmmoCapacity: 360
+  weaponDamage: 30
   maxRange: 999
   hitImpulseForce: 10
   isBoltAction: 0

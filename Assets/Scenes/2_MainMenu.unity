@@ -495,7 +495,7 @@ MonoBehaviour:
   lblRank: {fileID: 317964813}
   missions:
   - displayName: Operation R.A.I
-    sceneName: Cutscene_2
+    sceneName: Cutscene_Mission_1
     unlockedByDefault: 1
   - displayName: Unavailable
     sceneName: Level_02
@@ -3565,7 +3565,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9cbe9f7acbd3e4f46862147b7461fd8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BIOSMainMenu
-  gameSceneName: Cutscene2
+  gameSceneName: Cutscene_Mission_1
+  gameSceneTransition: {fileID: 11400000, guid: b329c5bd0d0a74e4f8f6ba476c28408d, type: 2}
   deployPanel: {fileID: 80405879}
   configPanel: {fileID: 1418095340}
   dossierPanel: {fileID: 366719983}

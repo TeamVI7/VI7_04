@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 400000}
   - component: {fileID: 3300000}
   - component: {fileID: 2300000}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: LIT_CeilingLamp_B
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 400002}
   - component: {fileID: 2300002}
   - component: {fileID: 3300002}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: LIT_CeilingLamp_B
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -190,7 +190,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 400018}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: PF_LIT_CeilingLamp_Bluish
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -227,7 +227,7 @@ GameObject:
   - component: {fileID: 400024}
   - component: {fileID: 10800004}
   - component: {fileID: 9114159078862655856}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: Point WHITE SMALLER
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -260,7 +260,7 @@ Light:
   serializedVersion: 12
   m_Type: 0
   m_Color: {r: 0.9705882, g: 0.9926978, b: 1, a: 1}
-  m_Intensity: 12
+  m_Intensity: 20
   m_Range: 12
   m_SpotAngle: 91.20768
   m_InnerSpotAngle: 53.291023
@@ -354,7 +354,7 @@ GameObject:
   - component: {fileID: 8940649056005179441}
   - component: {fileID: 7724506364440603304}
   - component: {fileID: 6759175085862485285}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: Point WHITE SMALLER (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -387,7 +387,7 @@ Light:
   serializedVersion: 12
   m_Type: 0
   m_Color: {r: 0.9705882, g: 0.9926978, b: 1, a: 1}
-  m_Intensity: 12
+  m_Intensity: 20
   m_Range: 12
   m_SpotAngle: 109.44517
   m_InnerSpotAngle: 72.52478
@@ -481,7 +481,7 @@ GameObject:
   - component: {fileID: 2246303066414795568}
   - component: {fileID: 4344382378635868772}
   - component: {fileID: 260017603479457833}
-  m_Layer: 0
+  m_Layer: 19
   m_Name: Point WHITE SMALLER (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -514,7 +514,7 @@ Light:
   serializedVersion: 12
   m_Type: 0
   m_Color: {r: 0.9705882, g: 0.9926978, b: 1, a: 1}
-  m_Intensity: 12
+  m_Intensity: 20
   m_Range: 12.097962
   m_SpotAngle: 91.20768
   m_InnerSpotAngle: 62.31245

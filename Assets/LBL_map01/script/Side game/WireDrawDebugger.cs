@@ -1,10 +1,9 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// Gắn vào WirePanel cùng chỗ với WirePuzzleManager.
 /// Nhấn D trong lúc minigame mở → log toàn bộ thông tin dây đang vẽ.
-/// Xoá sau khi debug xong.
+/// ĐÃ CẬP NHẬT: Hỗ trợ debug dây 3D Transform thay vì RectTransform.
 /// </summary>
 public class WireDrawDebugger : MonoBehaviour
 {
@@ -14,7 +13,7 @@ public class WireDrawDebugger : MonoBehaviour
     {
         if (!Input.GetKeyDown(KeyCode.D)) return;
 
-        Debug.Log("=== WIRE DRAW DEBUG ===");
+        Debug.Log("=== WIRE DRAW DEBUG (3D CAPSULE) ===");
 
         if (lineContainer == null)
         {
@@ -22,7 +21,6 @@ public class WireDrawDebugger : MonoBehaviour
             return;
         }
 
-        // Thông tin LineContainer
         Debug.Log($"[LineContainer] " +
                   $"anchoredPos={lineContainer.anchoredPosition} | " +
                   $"size={lineContainer.sizeDelta} | " +
@@ -30,28 +28,25 @@ public class WireDrawDebugger : MonoBehaviour
                   $"worldPos={lineContainer.position} | " +
                   $"childCount={lineContainer.childCount}");
 
-        // Thông tin từng dây con
         for (int i = 0; i < lineContainer.childCount; i++)
         {
-            var child = lineContainer.GetChild(i) as RectTransform;
+            var child = lineContainer.GetChild(i); // Lấy Transform thường thay vì RectTransform
             if (child == null) continue;
-            var img = child.GetComponent<Image>();
+            
+            var meshRenderer = child.GetComponentInChildren<Renderer>();
+            
             Debug.Log($"  [Wire {i}] name={child.name} | " +
                       $"active={child.gameObject.activeSelf} | " +
-                      $"anchoredPos={child.anchoredPosition} | " +
-                      $"size={child.sizeDelta} | " +
-                      $"pivot={child.pivot} | " +
+                      $"localPos={child.localPosition} | " +
+                      $"localScale={child.localScale} | " +
                       $"rotation={child.localRotation.eulerAngles} | " +
-                      $"color={img?.color} | " +
-                      $"imgEnabled={img?.enabled}");
+                      $"color={(meshRenderer != null ? meshRenderer.material.color.ToString() : "No Material")}");
         }
 
-        // Kiểm tra Canvas và camera
         var canvas = GetComponentInParent<Canvas>();
         Debug.Log($"[Canvas] renderMode={canvas?.renderMode} | worldCamera={canvas?.worldCamera?.name ?? "NULL"} | " +
                   $"sortOrder={canvas?.sortingOrder}");
 
-        // Kiểm tra GraphicRaycaster
         var gr = GetComponentInParent<UnityEngine.UI.GraphicRaycaster>();
         Debug.Log($"[GraphicRaycaster] exists={gr != null} | enabled={gr?.enabled}");
 
