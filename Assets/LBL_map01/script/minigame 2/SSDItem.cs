@@ -26,8 +26,6 @@ public class SSDItem : MonoBehaviour
 {
     if (_pickedUp) return;
 
-    Debug.Log($"[SSD] playerNearby={_playerNearby}, hint={interactHint}");
-    
     if (interactHint) interactHint.SetActive(_playerNearby);
 
     if (_playerNearby && Input.GetKeyDown(KeyCode.E))

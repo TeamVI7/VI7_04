@@ -4,6 +4,8 @@ using UnityEngine;
 /// <summary>
 /// Quản lý minigame 2: server trồi lên, player gắn SSD, cửa mở.
 /// Gắn vào một Empty GameObject "ServerManager".
+///
+/// Bản cập nhật: thêm âm thanh khi từng khối server trồi lên.
 /// </summary>
 public class ServerMinigameManager : MonoBehaviour
 {
@@ -26,6 +28,13 @@ public class ServerMinigameManager : MonoBehaviour
     public GameObject puzzleUI;           // Panel "Gắn SSD vào server"
     public TMPro.TMP_Text progressText;   // "3 / 6 SSD đã gắn"
 
+    [Header("Âm thanh")]
+    [Tooltip("AudioSource để phát âm thanh server trồi lên (nếu để trống sẽ tự thêm 1 cái lúc runtime).")]
+    public AudioSource audioSource;
+    [Tooltip("Âm thanh phát mỗi lần 1 khối server bắt đầu trồi lên.")]
+    public AudioClip riseSound;
+    [Range(0f, 1f)] public float riseSfxVolume = 1f;
+
     // ── State ─────────────────────────────────────────────────────
     private bool    _triggered = false;
     private bool    _solved    = false;
@@ -34,6 +43,16 @@ public class ServerMinigameManager : MonoBehaviour
 
     private void Start()
     {
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                audioSource.playOnAwake = false;
+            }
+        }
+
         // Lưu Y gốc rồi ẩn từng khối xuống dưới đất
         _originalY = new float[serverBlocks.Length];
 
@@ -66,9 +85,17 @@ public class ServerMinigameManager : MonoBehaviour
         for (int i = 0; i < serverBlocks.Length; i++)
         {
             if (serverBlocks[i] == null) continue;
+
+            PlayRiseSound();
             StartCoroutine(RiseBlock(serverBlocks[i].transform, _originalY[i]));
             yield return new WaitForSeconds(riseDelay);
         }
+    }
+
+    private void PlayRiseSound()
+    {
+        if (audioSource != null && riseSound != null)
+            audioSource.PlayOneShot(riseSound, riseSfxVolume);
     }
 
     private IEnumerator RiseBlock(Transform t, float targetY)

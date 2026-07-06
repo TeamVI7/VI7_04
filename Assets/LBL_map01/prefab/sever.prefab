@@ -646,11 +646,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ServerBlock
   interactRange: 5
-  blockRenderer: {fileID: 712537237915682167}
+  statusLights: []
   emptyColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   filledColor: {r: 0, g: 1, b: 0.4, a: 1}
+  emissionIntensity: 2.5
   interactHint: {fileID: 3793643186887199213}
   noSSDHint: {fileID: 3073281950249954725}
+  audioSource: {fileID: 0}
+  insertSSDSound: {fileID: 0}
+  sfxVolume: 1
 --- !u!135 &7031854736722926612
 SphereCollider:
   m_ObjectHideFlags: 0
