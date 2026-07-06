@@ -2,7 +2,8 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Player vào trigger → cửa mở lên, không đóng lại.
+/// Player vào trigger → cửa mở lên. Sau một khoảng thời gian sẽ tự đóng lại.
+/// Nếu player còn đứng trong trigger, cửa sẽ đợi đến khi player rời đi rồi mới đóng.
 /// </summary>
 public class AutoDoor : MonoBehaviour
 {
@@ -10,16 +11,27 @@ public class AutoDoor : MonoBehaviour
     [Tooltip("Để 0 → tự tính theo chiều cao mesh")]
     public float slideDistance = 0f;
     public float openDuration  = 1.0f;
+    public float closeDuration = 1.0f;
+
+    [Header("Tự đóng")]
+    [Tooltip("Bật/tắt tính năng tự đóng cửa")]
+    public bool autoClose = true;
+    [Tooltip("Thời gian (giây) cửa mở trước khi tự đóng, tính từ lúc mở xong")]
+    public float closeDelay = 3f;
 
     [Header("Âm thanh")]
     [Tooltip("AudioClip phát khi cửa bắt đầu mở")]
     public AudioClip openSound;
+    [Tooltip("AudioClip phát khi cửa bắt đầu đóng")]
+    public AudioClip closeSound;
     [Tooltip("Để trống → tự tạo AudioSource trên GameObject này")]
     public AudioSource audioSource;
 
     private Vector3 _closedPos;
     private Vector3 _openPos;
-    private bool    _opened = false;
+    private bool    _isOpen        = false;
+    private bool    _playerInside  = false;
+    private Coroutine _doorRoutine;
 
     private void Start()
     {
@@ -39,33 +51,68 @@ public class AutoDoor : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_opened) return;
         if (!other.CompareTag("Player")) return;
-        _opened = true;
-        PlayOpenSound();
-        StartCoroutine(OpenDoor());
+        _playerInside = true;
+
+        if (_isOpen) return; // đã mở rồi thì thôi
+
+        if (_doorRoutine != null) StopCoroutine(_doorRoutine);
+        _doorRoutine = StartCoroutine(OpenThenClose());
     }
 
-    private void PlayOpenSound()
+    private void OnTriggerExit(Collider other)
     {
-        if (openSound != null && audioSource != null)
-            audioSource.PlayOneShot(openSound);
+        if (!other.CompareTag("Player")) return;
+        _playerInside = false;
     }
 
-    private IEnumerator OpenDoor()
+    private void PlaySound(AudioClip clip)
     {
-        Vector3 start   = transform.position;
-        float   elapsed = 0f;
+        if (clip != null && audioSource != null)
+            audioSource.PlayOneShot(clip);
+    }
 
-        while (elapsed < openDuration)
+    private IEnumerator OpenThenClose()
+    {
+        // --- MỞ CỬA ---
+        yield return MoveDoor(_closedPos, _openPos, openDuration, openSound);
+        _isOpen = true;
+
+        if (!autoClose) yield break;
+
+        // --- CHỜ ---
+        float waited = 0f;
+        while (waited < closeDelay)
         {
-            elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / openDuration);
-            transform.position = Vector3.Lerp(start, _openPos, t);
+            waited += Time.deltaTime;
             yield return null;
         }
 
-        transform.position = _openPos;
+        // Nếu player vẫn còn đứng trong trigger, đợi đến khi họ rời đi
+        while (_playerInside)
+        {
+            yield return null;
+        }
+
+        // --- ĐÓNG CỬA ---
+        yield return MoveDoor(transform.position, _closedPos, closeDuration, closeSound);
+        _isOpen = false;
+        _doorRoutine = null;
+    }
+
+    private IEnumerator MoveDoor(Vector3 from, Vector3 to, float duration, AudioClip sound)
+    {
+        PlaySound(sound);
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            transform.position = Vector3.Lerp(from, to, t);
+            yield return null;
+        }
+        transform.position = to;
     }
 
     private void OnDrawGizmosSelected()
