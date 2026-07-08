@@ -35,6 +35,18 @@ public class ServerMinigameManager : MonoBehaviour
     public AudioClip riseSound;
     [Range(0f, 1f)] public float riseSfxVolume = 1f;
 
+    [Tooltip("Âm thanh phát khi ĐÃ GẮN XONG toàn bộ SSD (hoàn thành minigame, lúc cửa chuẩn bị mở).")]
+    public AudioClip allDoneSound;
+    [Range(0f, 1f)] public float allDoneSfxVolume = 1f;
+
+    [Header("VFX khi trồi lên")]
+    [Tooltip("Prefab Particle System dùng chung, tự Instantiate tại chân mỗi khối khi nó trồi lên " +
+             "(dùng khi bạn KHÔNG muốn đặt sẵn ParticleSystem thủ công cho từng ServerBlock). " +
+             "Nếu để trống, sẽ dùng riseVFX đã gán sẵn trên từng ServerBlock (nếu có).")]
+    public GameObject riseVFXPrefab;
+    [Tooltip("Thời gian tồn tại của VFX prefab trước khi tự huỷ (giây).")]
+    public float riseVFXLifetime = 2f;
+
     // ── State ─────────────────────────────────────────────────────
     private bool    _triggered = false;
     private bool    _solved    = false;
@@ -87,6 +99,7 @@ public class ServerMinigameManager : MonoBehaviour
             if (serverBlocks[i] == null) continue;
 
             PlayRiseSound();
+            PlayRiseVFX(serverBlocks[i]);
             StartCoroutine(RiseBlock(serverBlocks[i].transform, _originalY[i]));
             yield return new WaitForSeconds(riseDelay);
         }
@@ -96,6 +109,25 @@ public class ServerMinigameManager : MonoBehaviour
     {
         if (audioSource != null && riseSound != null)
             audioSource.PlayOneShot(riseSound, riseSfxVolume);
+    }
+
+    /// <summary>
+    /// Ưu tiên dùng riseVFX gán sẵn trên từng ServerBlock (nếu có).
+    /// Nếu không có, fallback sang riseVFXPrefab dùng chung (Instantiate tại vị trí khối).
+    /// </summary>
+    private void PlayRiseVFX(ServerBlock block)
+    {
+        if (block.riseVFX != null)
+        {
+            block.PlayRiseVFX();
+            return;
+        }
+
+        if (riseVFXPrefab != null)
+        {
+            GameObject vfx = Instantiate(riseVFXPrefab, block.transform.position, Quaternion.identity);
+            Destroy(vfx, riseVFXLifetime);
+        }
     }
 
     private IEnumerator RiseBlock(Transform t, float targetY)
@@ -139,6 +171,9 @@ public class ServerMinigameManager : MonoBehaviour
 
         if (progressText)
             progressText.text = "✓ GIẢI MÃ HOÀN TẤT — Cửa đang mở...";
+
+        if (audioSource != null && allDoneSound != null)
+            audioSource.PlayOneShot(allDoneSound, allDoneSfxVolume);
 
         yield return new WaitForSeconds(1.5f);
 

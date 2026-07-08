@@ -2,18 +2,19 @@ using UnityEngine;
 
 /// <summary>
 /// Gắn vào mỗi khối server.
-/// Player lại gần + bấm E + có SSD trong tay → gắn SSD vào.
+/// Player lại gần + bấm F + có SSD trong tay → gắn SSD vào.
 /// Khi đủ SSD → báo cho ServerMinigameManager.
 ///
-/// Bản cập nhật: KHÔNG đổi màu nguyên khối server nữa.
-/// Thay vào đó điều khiển nhiều "đèn báo" (statusLights) trên thân máy:
-/// - Đỏ khi chưa gắn SSD
-/// - Xanh khi đã gắn SSD
+/// Đèn báo trạng thái (statusLights): đỏ khi chưa gắn SSD, xanh khi đã gắn SSD.
 /// Kèm âm thanh khi gắn SSD.
+///
+/// Bản cập nhật: sửa lại phần nhận diện Player bằng Collider cho chắc chắn hơn
+/// (giống cách SSDItem đang làm) + đổi phím tương tác sang F.
 /// </summary>
 public class ServerBlock : MonoBehaviour
 {
     [Header("Settings")]
+    [Tooltip("Chỉ dùng để vẽ Gizmo tham khảo, việc phát hiện Player thực tế dựa vào Collider (Is Trigger) gắn trên object này.")]
     public float interactRange = 2f;
 
     [Header("Đèn báo trạng thái (nhiều đèn)")]
@@ -30,7 +31,7 @@ public class ServerBlock : MonoBehaviour
     public float emissionIntensity = 2.5f;
 
     [Header("Hint")]
-    public GameObject interactHint; // "[E] Gắn SSD"
+    public GameObject interactHint; // "[F] Gắn SSD"
     public GameObject noSSDHint;    // "[!] Cần SSD"
 
     [Header("Âm thanh")]
@@ -39,6 +40,10 @@ public class ServerBlock : MonoBehaviour
     [Tooltip("Âm thanh phát khi gắn SSD thành công.")]
     public AudioClip insertSSDSound;
     [Range(0f, 1f)] public float sfxVolume = 1f;
+
+    [Header("VFX khi trồi lên")]
+    [Tooltip("Particle System phát khi khối NÀY trồi lên (VD: khói, tia điện, bụi sàn). Đặt sẵn trong Scene ở gần chân server, để chế độ Play On Awake = OFF. Để trống nếu không dùng.")]
+    public ParticleSystem riseVFX;
 
     public bool IsFilled { get; private set; } = false;
 
@@ -65,6 +70,14 @@ public class ServerBlock : MonoBehaviour
             }
         }
 
+        // Kiểm tra xem object có Collider dạng Trigger chưa, để dễ debug khi
+        // player không tương tác được (lỗi phổ biến nhất là thiếu/ chưa tick "Is Trigger").
+        var col = GetComponent<Collider>();
+        if (col == null)
+            Debug.LogWarning($"[ServerBlock] {gameObject.name} chưa có Collider nào — player sẽ không thể tương tác. Hãy thêm Collider (BoxCollider/SphereCollider) và tick 'Is Trigger'.");
+        else if (!col.isTrigger)
+            Debug.LogWarning($"[ServerBlock] {gameObject.name} có Collider nhưng chưa tick 'Is Trigger' — OnTriggerEnter sẽ không hoạt động.");
+
         _mpb = new MaterialPropertyBlock();
 
         SetLightsColor(emptyColor);
@@ -81,27 +94,43 @@ public class ServerBlock : MonoBehaviour
         if (interactHint) interactHint.SetActive(_playerNearby && hasSSD);
         if (noSSDHint)    noSSDHint.SetActive(_playerNearby && !hasSSD);
 
-        if (_playerNearby && hasSSD && Input.GetKeyDown(KeyCode.E))
+        if (_playerNearby && hasSSD && Input.GetKeyDown(KeyCode.F))
             InsertSSD();
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            _playerNearby = true;
-            _inventory = other.GetComponent<PlayerInventory>(); // lấy trực tiếp từ collider
-        }
+        if (!other.CompareTag("Player")) return;
+
+        _playerNearby = true;
+        // GetComponentInParent phòng trường hợp Collider nằm ở object con của Player
+        _inventory = other.GetComponent<PlayerInventory>()
+                     ?? other.GetComponentInParent<PlayerInventory>();
+
+        if (_inventory == null)
+            Debug.LogWarning($"[ServerBlock] {gameObject.name}: Player vào gần nhưng không tìm thấy PlayerInventory!");
+    }
+
+    // OnTriggerStay dự phòng: nếu vì lý do nào đó OnTriggerEnter bị bỏ lỡ
+    // (VD player đã đứng sẵn trong vùng trigger trước khi script chạy),
+    // vẫn tự khôi phục lại trạng thái nearby + inventory.
+    private void OnTriggerStay(Collider other)
+    {
+        if (!other.CompareTag("Player")) return;
+
+        if (!_playerNearby) _playerNearby = true;
+        if (_inventory == null)
+            _inventory = other.GetComponent<PlayerInventory>()
+                         ?? other.GetComponentInParent<PlayerInventory>();
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            _playerNearby = false;
-            if (interactHint) interactHint.SetActive(false);
-            if (noSSDHint)    noSSDHint.SetActive(false);
-        }
+        if (!other.CompareTag("Player")) return;
+
+        _playerNearby = false;
+        if (interactHint) interactHint.SetActive(false);
+        if (noSSDHint)    noSSDHint.SetActive(false);
     }
 
     private void InsertSSD()
@@ -119,6 +148,13 @@ public class ServerBlock : MonoBehaviour
 
         Debug.Log($"[Server] {gameObject.name} đã gắn SSD!");
         _manager?.CheckAllFilled();
+    }
+
+    /// <summary>Được ServerMinigameManager gọi ngay lúc khối này bắt đầu trồi lên.</summary>
+    public void PlayRiseVFX()
+    {
+        if (riseVFX != null)
+            riseVFX.Play();
     }
 
     /// <summary>Đổi màu toàn bộ đèn báo (không đụng vào màu thân server).</summary>

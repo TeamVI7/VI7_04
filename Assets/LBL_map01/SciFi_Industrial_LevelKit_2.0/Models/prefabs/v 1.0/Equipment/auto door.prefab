@@ -129,7 +129,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.3
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -248,7 +248,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AutoDoor
   slideDistance: 3
   openDuration: 3
+  closeDuration: 1
+  autoClose: 1
+  closeDelay: 3
   openSound: {fileID: 8300000, guid: 0b85757c31cba0e4291c5920dfe4fb58, type: 3}
+  closeSound: {fileID: 0}
   audioSource: {fileID: 5889159234271939691}
 --- !u!1 &236947232533762133
 GameObject:
@@ -978,7 +982,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 8312
+  m_VersionIndex: 8321
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1334,7 +1338,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 7048
+  m_VersionIndex: 7057
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -1690,7 +1694,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 6960
+  m_VersionIndex: 6969
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
