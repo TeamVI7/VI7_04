@@ -122,7 +122,7 @@ Material:
     - _BumpScale: 1
     - _ClearCoatMask: 0
     - _ClearCoatSmoothness: 0
-    - _CloudNearPlane: 1138.2231
+    - _CloudNearPlane: 1157.2281
     - _Cull: 2
     - _Cutoff: 0.5
     - _DensityMultiplier: 0.32000002
@@ -175,7 +175,7 @@ Material:
     - _SunSize: 0.04
     - _SunSizeConvergence: 5
     - _Surface: 0
-    - _VerticalErosionWindDisplacement: -24.981705
+    - _VerticalErosionWindDisplacement: -53.82039
     - _VerticalShapeNoiseOffset: 0
     - _VerticalShapeWindDisplacement: 0
     - _WorkflowMode: 1
@@ -190,7 +190,7 @@ Material:
     - _SkyTint: {r: 0.5, g: 0.5, b: 0.5, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
     - _WindDirection: {r: -1, g: -0, b: 0, a: 0}
-    - _WindVector: {r: -999.2825, g: 0, b: 0, a: 0}
+    - _WindVector: {r: -2152.9297, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
 --- !u!114 &4204168956660823475
