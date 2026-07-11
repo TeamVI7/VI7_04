@@ -860,6 +860,24 @@ public class WeaponsController : MonoBehaviour
     public void PlayBoltInSound()  => PlaySound(weaponData.boltInSound, weaponData.boltInVolume);
 
     /// <summary>
+    /// Adds ammo to reserve, capped at weaponData.reservedAmmoCapacity.
+    /// Called by AmmoPickup / WeaponPickup. Returns false if reserve was
+    /// already at cap (so the pickup can decide to leave itself un-collected).
+    /// </summary>
+    public bool AddReserveAmmo(int amount)
+    {
+        if (weaponData == null || amount <= 0) return false;
+
+        int before = _ammoInReserve;
+        _ammoInReserve = Mathf.Min(_ammoInReserve + amount, weaponData.reservedAmmoCapacity);
+        if (_ammoInReserve == before) return false;
+
+        NotifyAmmoChanged();
+        Log($"Reserve ammo +{_ammoInReserve - before} -> {_ammoInReserve}/{weaponData.reservedAmmoCapacity}");
+        return true;
+    }
+
+    /// <summary>
     /// Hard-resets all state — called by WeaponSwitcherProcedural on outgoing weapon.
     /// Also restores animator speed in case it was frozen during a bolt-slide hold.
     /// </summary>

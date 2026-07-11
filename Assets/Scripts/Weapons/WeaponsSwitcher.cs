@@ -58,6 +58,12 @@ public class WeaponSwitcherProcedural : MonoBehaviour
              "Leave an element null to use the fallback pose in ProceduralWeaponAnimator.")]
     public WeaponADSProfile[] adsProfiles = Array.Empty<WeaponADSProfile>();
 
+    [Header("Weapon Unlocking")]
+    [Tooltip("If true, weapon slots start locked (except index 0) and must be unlocked via " +
+             "PickupWeapon() — used for WeaponPickup world items. If false, all weapons in " +
+             "the list are available immediately (legacy/no-pickups behaviour).")]
+    public bool useWeaponPickups = true;
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
 
@@ -84,6 +90,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
 
     private int       _currentIndex;
     private Coroutine _switchCoroutine;
+    private bool[]    _unlocked;
 
     #endregion
 
@@ -99,6 +106,10 @@ public class WeaponSwitcherProcedural : MonoBehaviour
 
         for (int i = 0; i < weapons.Count; i++)
             GetWeapon(i)?.gameObject.SetActive(i == 0);
+
+        _unlocked = new bool[weapons.Count];
+        for (int i = 0; i < _unlocked.Length; i++)
+            _unlocked[i] = !useWeaponPickups || i == 0;
 
         var first = GetWeapon(0);
         if (first != null)
@@ -160,6 +171,29 @@ public class WeaponSwitcherProcedural : MonoBehaviour
     public void SwitchToNext()       => TrySwitchTo((_currentIndex + 1) % weapons.Count);
     public void SwitchToPrevious()   => TrySwitchTo((_currentIndex - 1 + weapons.Count) % weapons.Count);
 
+    public bool IsUnlocked(int index) =>
+        !useWeaponPickups || (index >= 0 && index < _unlocked.Length && _unlocked[index]);
+
+    /// <summary>
+    /// Called by WeaponPickup when the player walks over a weapon crate.
+    /// Unlocks the slot and (optionally) switches to it immediately.
+    /// Returns false if the slot was already unlocked (nothing to do — caller
+    /// can fall back to granting bonus ammo instead so the pickup isn't wasted).
+    /// </summary>
+    public bool PickupWeapon(int index, bool switchToItImmediately = true)
+    {
+        if (index < 0 || index >= weapons.Count) return false;
+        if (GetWeapon(index) == null)             return false;
+        if (_unlocked == null)                    return false;
+        if (IsUnlocked(index))                    return false;
+
+        _unlocked[index] = true;
+        Log($"Weapon unlocked: [{index}] {GetWeapon(index).name}");
+
+        if (switchToItImmediately) TrySwitchTo(index);
+        return true;
+    }
+
     #endregion
 
     #region Switch Coroutine
@@ -170,6 +204,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         if (IsSwitching)                         return;
         if (index < 0 || index >= weapons.Count) return;
         if (GetWeapon(index) == null)            return;
+        if (!IsUnlocked(index)) { Log($"Weapon [{index}] is locked — pick it up first."); return; }
 
         _switchCoroutine = StartCoroutine(Co_Switch(index));
     }
