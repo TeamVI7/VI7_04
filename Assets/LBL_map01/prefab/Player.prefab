@@ -14691,6 +14691,7 @@ GameObject:
   - component: {fileID: 1763703699454010017}
   - component: {fileID: 4392257734769012207}
   - component: {fileID: 3281388172869669010}
+  - component: {fileID: 4715428516032910529}
   - component: {fileID: 4684413233438318046}
   - component: {fileID: 3132642101984489625}
   - component: {fileID: 2589470807103461492}
@@ -15016,6 +15017,19 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   interactHintUI: {fileID: 0}
+--- !u!114 &4715428516032910529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5991117257444777411}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5746c8d42e9a08e47b7df91d2a989f5b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCardHolder
+  ownedCardIds: []
 --- !u!54 &4684413233438318046
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -15172,6 +15186,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: a72e82916f397b1469d690f482fbdc03, type: 2}
   - {fileID: 11400000, guid: bc75ff6c0e87a034a91b8fa0c8fd1d9d, type: 2}
   - {fileID: 11400000, guid: ae837ce63d310634892edd6fac0d27ee, type: 2}
+  useWeaponPickups: 1
   debugLog: 1
 --- !u!1 &6051262284482330726
 GameObject:

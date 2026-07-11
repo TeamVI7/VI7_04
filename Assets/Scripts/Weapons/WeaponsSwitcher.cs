@@ -84,6 +84,11 @@ public class WeaponSwitcherProcedural : MonoBehaviour
     public int  CurrentIndex => _currentIndex;
     public bool IsSwitching  => _switchCoroutine != null;
 
+    // Static reference — pickups read this instead of GetComponentInParent,
+    // which fails if WeaponSwitcherProcedural sits on a child of the player
+    // (e.g. under the camera / weapon holder) rather than the root.
+    public static WeaponSwitcherProcedural Instance { get; private set; }
+
     #endregion
 
     #region Private State
@@ -95,6 +100,16 @@ public class WeaponSwitcherProcedural : MonoBehaviour
     #endregion
 
     #region Unity Lifecycle
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     private void Start()
     {

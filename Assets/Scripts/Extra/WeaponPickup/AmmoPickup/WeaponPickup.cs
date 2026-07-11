@@ -27,7 +27,7 @@ public class WeaponPickup : PickupBase
 
     protected override bool TryPickup(Collider player)
     {
-        var switcher = player.GetComponentInParent<WeaponSwitcherProcedural>();
+        var switcher = WeaponSwitcherProcedural.Instance;
         if (switcher == null) return false;
 
         bool justUnlocked = switcher.PickupWeapon(weaponIndex, switchToItImmediately);
