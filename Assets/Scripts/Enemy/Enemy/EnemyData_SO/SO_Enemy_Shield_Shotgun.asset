@@ -21,7 +21,7 @@ MonoBehaviour:
   DeathImpulseScale: 8
   DeathVFXLifetime: 3
   DropUpwardForce: 4
-  AggroRadius: 15
+  AggroRadius: 30
   RadarRange: 40
   PatrolSpeed: 2
   ChaseSpeed: 10
@@ -54,3 +54,13 @@ MonoBehaviour:
   VelocitySeedScale: 1.4
   UpwardKick: 2
   RagdollLifetime: 8
+  ShotgunAttackRange: 15
+  ShotgunDamagePerPellet: 3
+  ShotgunPelletsPerShot: 6
+  ShotgunSpreadAngle: 0.12
+  ShotgunFireRate: 2
+  SMGAttackRange: 20
+  SMGDamagePerShot: 2
+  SMGFireRate: 0.1
+  SniperAttackRange: 40
+  SniperFireCooldown: 3.5

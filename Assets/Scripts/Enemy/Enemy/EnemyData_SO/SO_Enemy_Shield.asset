@@ -21,7 +21,7 @@ MonoBehaviour:
   DeathImpulseScale: 8
   DeathVFXLifetime: 3
   DropUpwardForce: 4
-  AggroRadius: 15
+  AggroRadius: 30
   RadarRange: 40
   PatrolSpeed: 2
   ChaseSpeed: 10

@@ -1506,6 +1506,15 @@ MonoBehaviour:
   LOSBlockingLayers:
     serializedVersion: 2
     m_Bits: 513
+  detectionInterval: 0.2
+  lostSightCooldown: 3
+  patrolRadius: 6
+  patrolWaitTime: 2.5
+  arriveThreshold: 0.5
+  attackFlankRadius: 2.5
+  hitSlowdownMultiplier: 0.4
+  hitSlowdownDuration: 0.6
+  stackSlowdownDuration: 0
 --- !u!114 &2519857654241009768
 MonoBehaviour:
   m_ObjectHideFlags: 0
