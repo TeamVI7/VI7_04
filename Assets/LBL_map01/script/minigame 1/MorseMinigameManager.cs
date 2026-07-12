@@ -3,11 +3,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-
-/// <summary>
-/// Numpad passcode minigame — nhập HOÀN TOÀN bằng bấm chuột trên Canvas
-/// (không cần gõ bàn phím). Gắn các nút số 0-9, DEL, OK vào Inspector.
-/// </summary>
 public class MorseMinigameManager : MonoBehaviour
 {
     [Header("Mật khẩu cài sẵn (chỉ gồm số)")]
@@ -17,9 +12,9 @@ public class MorseMinigameManager : MonoBehaviour
     public SlidingDoorController door;
 
     [Header("UI - Màn hình hiển thị")]
-    public TMP_Text displayText;      // hiển thị số đã nhập, vd "045"
-    public Image    displayBackground; // nền màn hình, đổi màu khi đúng/sai
-    public TMP_Text feedbackText;      // optional: "✓ ĐÚNG" / "✗ SAI"
+    public TMP_Text displayText;      
+    public Image    displayBackground; 
+    public TMP_Text feedbackText;      
 
     [Header("UI - Numpad")]
     [Tooltip("Kéo 10 nút số 0-9 vào đây (thứ tự không bắt buộc, chỉ cần gắn đúng OnClick cho từng nút)")]
@@ -28,7 +23,7 @@ public class MorseMinigameManager : MonoBehaviour
     public Button okButton;
 
     [Header("UI - Panel khóa khi nhập sai")]
-    public GameObject lockedPanel;     // panel "KEYPAD LOCKED", để inactive sẵn trong scene
+    public GameObject lockedPanel;    
     public float      lockedDuration = 1.2f;
 
     [Header("Màu sắc")]
@@ -43,7 +38,6 @@ public class MorseMinigameManager : MonoBehaviour
 
     public event Action OnPasswordSolved;
 
-    // ── State ────────────────────────────────────────────────────
     private string    _currentInput = "";
     private bool      _solved       = false;
     private bool      _locked       = false;
@@ -53,7 +47,6 @@ public class MorseMinigameManager : MonoBehaviour
 
     private void Start()
     {
-        // Gắn OnClick cho DEL / OK bằng code (khỏi cần kéo trong Inspector nếu muốn)
         if (delButton != null) delButton.onClick.AddListener(OnDeletePressed);
         if (okButton  != null) okButton.onClick.AddListener(OnEnterPressed);
 
@@ -76,7 +69,6 @@ public class MorseMinigameManager : MonoBehaviour
         UpdateDisplay();
     }
 
-    // ── Gọi từ nút số 0-9 (OnClick -> OnDigitPressed, truyền string "0".."9") ──
     public void OnDigitPressed(string digit)
     {
         if (_solved || _locked) return;
@@ -84,13 +76,9 @@ public class MorseMinigameManager : MonoBehaviour
 
         _currentInput += digit;
         UpdateDisplay();
-
-        // Tự động check khi nhập đủ số ký tự (khỏi cần bấm OK)
         if (_currentInput.Length == MaxLength)
             OnEnterPressed();
     }
-
-    // ── Gọi từ nút DEL ───────────────────────────────────────────
     public void OnDeletePressed()
     {
         if (_solved || _locked) return;
@@ -100,7 +88,6 @@ public class MorseMinigameManager : MonoBehaviour
         UpdateDisplay();
     }
 
-    // ── Gọi từ nút OK (hoặc tự động khi nhập đủ số) ─────────────
     public void OnEnterPressed()
     {
         if (_solved || _locked) return;
@@ -109,12 +96,10 @@ public class MorseMinigameManager : MonoBehaviour
         if (_currentInput == password) HandleCorrect();
         else                            HandleWrong();
     }
-
-    // ── Đúng ──────────────────────────────────────────────────────
     private void HandleCorrect()
     {
         _solved = true;
-        SetFeedback("✓ ĐÚNG", correctTextColor);
+        SetFeedback("CORRECT", correctTextColor);
         SetDisplayColor(correctColor, instant: true);
         SetButtonsInteractable(false);
         StartCoroutine(OpenDoorDelayed());
@@ -126,8 +111,6 @@ public class MorseMinigameManager : MonoBehaviour
         door?.UnlockAndOpen();
         OnPasswordSolved?.Invoke();
     }
-
-    // ── Sai ───────────────────────────────────────────────────────
     private void HandleWrong()
     {
         if (_wrongFlash != null) StopCoroutine(_wrongFlash);
@@ -140,7 +123,7 @@ public class MorseMinigameManager : MonoBehaviour
         SetButtonsInteractable(false);
 
         SetDisplayColor(wrongColor, instant: true);
-        SetFeedback("✗ SAI", wrongTextColor);
+        SetFeedback("WRONG", wrongTextColor);
         if (lockedPanel != null) lockedPanel.SetActive(true);
 
         float half = wrongFlashDuration / 4f;
@@ -162,8 +145,6 @@ public class MorseMinigameManager : MonoBehaviour
         if (lockedPanel != null) lockedPanel.SetActive(false);
         SetButtonsInteractable(true);
     }
-
-    // ── Helpers ───────────────────────────────────────────────────
     private void UpdateDisplay()
     {
         if (displayText != null)
@@ -183,7 +164,7 @@ public class MorseMinigameManager : MonoBehaviour
     private void SetDisplayColor(Color target, bool instant = false)
     {
         if (displayBackground == null) return;
-        displayBackground.color = target; // instant, đủ dùng cho numpad; có thể thêm tween nếu muốn mượt hơn
+        displayBackground.color = target; 
     }
 
     private void SetFeedback(string msg, Color color)
