@@ -1,28 +1,42 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-/// <summary>
-/// Handles NavMeshAgent movement — patrol when Idle, chase when Aggro.
-/// Drop on any enemy that moves. Remove it from enemies that don't (turrets, etc.).
-/// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(EnemyBrain))]
 public class PatrolBehaviour : MonoBehaviour
 {
-    [Header("Movement")]
+    // [FIX] Toàn bộ logic tự SetDestination (TickPatrol, FindWaypoint, TickChase cũ) đã bị GỠ BỎ.
+    // Lý do: EnemyBrain đã tự SetDestination cho cả 3 state (Idle/Aggro/Investigate) với logic
+    // patrol radius + flanking + investigate riêng của nó. Việc PatrolBehaviour ĐỒNG THỜI cũng
+    // SetDestination mỗi frame tạo ra 2 script tranh nhau 1 NavMeshAgent, kết quả phụ thuộc
+    // Script Execution Order (không ổn định) - đây là nghi phạm chính gây ra bug "mất dấu Player
+    // là quái bỏ về tổ luôn" mà cậu và Gemini không tìm ra được, vì nó không nằm trong logic
+    // Investigate mà nằm ở việc 2 script giành quyền set đường đi.
+    //
+    // PatrolBehaviour giờ CHỈ còn 2 trách nhiệm hợp lý cho 1 "movement tuner":
+    //   1. Set tốc độ agent theo state (EnemyBrain không quản lý speed nữa, trừ khi đứng một mình).
+    //   2. Xoay mặt về phía player khi ở trong tầm ưa thích (không ResetPath, không phá flanking).
+
+    [Header("Movement Speed (CHỈ set tốc độ - EnemyBrain toàn quyền set Destination)")]
     public float PatrolSpeed = 2f;
     public float ChaseSpeed = 10f;
+    [Tooltip("Khi player trong tầm này, quái vẫn tiến tới điểm flank (không đứng im), chỉ xoay mặt về player. " +
+             "Nếu sau này có script Attack riêng, nó có thể tự ResetPath() trong lúc đang tấn công.")]
     public float PreferredRange = 10f;
 
-    [Header("Patrol")]
-    public float PatrolRadius = 12f;
-    public float WaypointWaitTime = 2.5f;
+    public float PatrolRadius
+    {
+        get => GetComponent<EnemyBrain>().PatrolRadius;
+        set => GetComponent<EnemyBrain>().PatrolRadius = value;
+    }
 
+    public float WaypointWaitTime
+    {
+        get => GetComponent<EnemyBrain>().PatrolWaitTime;
+        set => GetComponent<EnemyBrain>().PatrolWaitTime = value;
+    }
     private NavMeshAgent _nav;
     private EnemyBrain _brain;
-    private Vector3 _spawnPos;
-    private bool _hasWaypoint;
-    private float _waitTimer;
 
     private void Awake()
     {
@@ -33,48 +47,42 @@ public class PatrolBehaviour : MonoBehaviour
 
     private void OnDestroy() => _brain.OnStateChanged -= OnStateChanged;
 
-    private void Start() => _spawnPos = transform.position;
-
     private void Update()
     {
         if (!_nav.enabled || !_nav.isOnNavMesh) return;
 
         switch (_brain.State)
         {
-            case EnemyState.Idle: TickPatrol(); break;
-            case EnemyState.Aggro: TickChase(); break;
+            case EnemyState.Idle:
+            case EnemyState.Investigate:
+                // [FIX] Trước đây case Investigate có "break;" đặt sai vị trí khiến đoạn xoay người
+                // bên dưới không bao giờ chạy được (unreachable code). Đã gộp về set speed đơn giản;
+                // việc xoay người khi investigate đã do chính EnemyBrain.TickInvestigate() đảm nhiệm rồi
+                // (2 giây đầu xoay 45 độ/giây) nên không cần lặp lại ở đây.
+                _nav.speed = PatrolSpeed * _brain.CurrentSpeedMultiplier;
+                break;
+
+            case EnemyState.Aggro:
+                TickChaseSpeed();
+                break;
         }
     }
 
-    private void TickPatrol()
-    {
-        _nav.speed = PatrolSpeed;
-        if (!_hasWaypoint)
-        {
-            _waitTimer += Time.deltaTime;
-            if (_waitTimer >= WaypointWaitTime) FindWaypoint();
-        }
-        else if (!_nav.pathPending && _nav.remainingDistance <= _nav.stoppingDistance)
-        {
-            _hasWaypoint = false;
-            _waitTimer = 0f;
-        }
-    }
-
-    private void TickChase()
+    private void TickChaseSpeed()
     {
         if (PlayerHealth.Transform == null) return;
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
 
         if (dist > PreferredRange)
         {
-            _nav.speed = ChaseSpeed;
-            _nav.SetDestination(PlayerHealth.Transform.position);
+            _nav.speed = ChaseSpeed * _brain.CurrentSpeedMultiplier;
         }
         else
         {
-            _nav.speed = PatrolSpeed;
-            _nav.ResetPath();
+            // [FIX] Trước đây gọi _nav.ResetPath() ở đây, đè lên đích flank mà EnemyBrain vừa set
+            // trong cùng frame (script conflict y hệt lỗi patrol). Giờ chỉ giảm tốc + xoay mặt,
+            // agent vẫn tiếp tục tiến vào điểm flank (attackFlankRadius) do EnemyBrain quyết định.
+            _nav.speed = PatrolSpeed * _brain.CurrentSpeedMultiplier;
             FacePlayer();
         }
     }
@@ -92,31 +100,17 @@ public class PatrolBehaviour : MonoBehaviour
     private void OnStateChanged(EnemyState state)
     {
         if (!_nav) return;
-        bool canMove = state == EnemyState.Idle || state == EnemyState.Aggro;
+        bool canMove = state != EnemyState.Dead && state != EnemyState.Staggered;
         _nav.enabled = canMove;
 
-        // KHI QUÁI MẤT DẤU PLAYER VÀ QUAY VỀ TRẠNG THÁI IDLE
-        if (state == EnemyState.Idle)
-        {
-            _hasWaypoint = false;   // Xóa cờ hiệu đường đi cũ
-            _waitTimer = WaypointWaitTime; // Ép timer đạt tối đa để LẬP TỨC tìm đường đi tuần mới ở khung hình tiếp theo, không bắt quái đứng đợi 2.5s nữa
-            if (_nav.enabled && _nav.isOnNavMesh) _nav.ResetPath(); // Xóa mục tiêu đuổi theo Player cũ
-        }
-
+        // [FIX] Đã bỏ đoạn reset _hasWaypoint/_waitTimer và _nav.ResetPath() khi vào Idle -
+        // trước đây đoạn này chạy NGAY LÚC EnemyBrain.ReturnToPatrol() gọi SetState(Idle),
+        // tức là xóa path CHỈ VÀI DÒNG CODE trước khi ReturnToPatrol() tự SetDestination(_spawnPos)
+        // lại - vô hại về logic nhưng là dấu hiệu rõ của việc 2 script đang cùng đụng vào 1 agent.
+        // Giờ PatrolBehaviour không còn tự ý ResetPath trừ lúc chết/choáng.
         if (state == EnemyState.Staggered || state == EnemyState.Dead)
         {
             if (_nav.enabled && _nav.isOnNavMesh) _nav.ResetPath();
         }
-    }
-
-    private void FindWaypoint()
-    {
-        Vector3 rand = Random.insideUnitSphere * PatrolRadius + _spawnPos;
-        if (NavMesh.SamplePosition(rand, out NavMeshHit hit, PatrolRadius, NavMesh.AllAreas))
-        {
-            _nav.SetDestination(hit.position);
-            _hasWaypoint = true;
-        }
-        _waitTimer = 0f;
     }
 }

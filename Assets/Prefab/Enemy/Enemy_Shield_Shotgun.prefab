@@ -1286,6 +1286,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyBrain
   AggroRadius: 15
   RadarRange: 40
+  ViewAngle: 100
+  CloseRangeRadius: 4
   LOSBlockingLayers:
     serializedVersion: 2
     m_Bits: 513
@@ -1329,8 +1331,6 @@ MonoBehaviour:
   PatrolSpeed: 2
   ChaseSpeed: 10
   PreferredRange: 10
-  PatrolRadius: 12
-  WaypointWaitTime: 2.5
 --- !u!114 &4751639497187300080
 MonoBehaviour:
   m_ObjectHideFlags: 0

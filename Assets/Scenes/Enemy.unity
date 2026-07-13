@@ -37817,7 +37817,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4776679405120566735, guid: 7b1c7f4535ed1424da115e7c000e4764, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5456337750789912525, guid: 7b1c7f4535ed1424da115e7c000e4764, type: 3}
       propertyPath: AggroRadius
@@ -37886,7 +37886,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4776679405120566735, guid: e78630d56285fc84b8ef96982e676554, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5456337750789912525, guid: e78630d56285fc84b8ef96982e676554, type: 3}
       propertyPath: AggroRadius
@@ -37955,7 +37955,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6455182372276703200, guid: 545e6ba0c29334d418a0e259641b8a7b, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7823788119570978592, guid: 545e6ba0c29334d418a0e259641b8a7b, type: 3}
       propertyPath: AggroRadius
@@ -38032,7 +38032,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6455182372276703200, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7823788119570978592, guid: db75d06a0ac52c840b424b2807af665f, type: 3}
       propertyPath: AggroRadius
@@ -38137,7 +38137,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8806050273790647874, guid: fa11dc38bf5f7e941914741d0cbd1fa6, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8978574717290653588, guid: fa11dc38bf5f7e941914741d0cbd1fa6, type: 3}
       propertyPath: m_Enabled
