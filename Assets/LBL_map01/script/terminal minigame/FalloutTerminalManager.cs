@@ -21,6 +21,21 @@ public class FalloutTerminalManager : MonoBehaviour
     public int maxDudBrackets = 2;
     public string junkCharacters = ".,;:!?@#$%^&*_-+=~/\\|<>{}[]()01";
 
+    [Header("Memory Address Prefix (like 0xF7A2)")]
+    [Tooltip("Tự thêm 1 địa chỉ bộ nhớ dạng hex (0xF7A2...) vào đầu mỗi dòng, giống terminal Fallout thật. " +
+             "Địa chỉ gắn cố định theo VỊ TRÍ của slot trong mảng Word Slots, không đổi giữa các ván " +
+             "(giống bản gốc: vị trí dòng trên màn hình luôn có cùng 1 địa chỉ).")]
+    public bool showMemoryAddress = true;
+
+    [Tooltip("Địa chỉ hex bắt đầu (dạng thập phân, VD 63400 = 0xF7A8)")]
+    public int addressStart = 0xF7A0;
+
+    [Tooltip("Mỗi slot cách nhau bao nhiêu (hex) so với slot trước, để địa chỉ tăng dần xuống dưới")]
+    public int addressStep = 4;
+
+    [Tooltip("Màu địa chỉ hex (nên để mờ hơn màu chữ chính cho giống terminal thật)")]
+    public Color addressColor = new Color(0.25f, 0.55f, 0.3f);
+
     [Header("Canvas Slots")]
     public TerminalWordSlot[] wordSlots;
 
@@ -213,17 +228,18 @@ public class FalloutTerminalManager : MonoBehaviour
             if (slot == null) continue;
 
             slot.Button.onClick.RemoveAllListeners();
+            string address = BuildAddressPrefix(i);
 
             if (enableDudRemovalBrackets && dudsPlaced < dudsToPlace && wordIdx >= _activeWords.Count)
             {
-                SetupBracketSlot(slot);
+                SetupBracketSlot(slot, address);
                 dudsPlaced++;
                 continue;
             }
 
             if (enableDudRemovalBrackets && dudsPlaced < dudsToPlace && Random.value < 0.35f && wordIdx < _activeWords.Count)
             {
-                SetupBracketSlot(slot);
+                SetupBracketSlot(slot, address);
                 dudsPlaced++;
                 continue;
             }
@@ -232,13 +248,23 @@ public class FalloutTerminalManager : MonoBehaviour
             {
                 string word = _activeWords[wordIdx];
                 wordIdx++;
-                SetupWordSlot(slot, word);
+                SetupWordSlot(slot, word, address);
             }
             else
             {
-                SetupGarbageOnlySlot(slot);
+                SetupGarbageOnlySlot(slot, address);
             }
         }
+    }
+
+    /// <summary>Tạo chuỗi "0xF7A0 " (rich text, màu mờ) dựa trên vị trí cố định của slot trong mảng.</summary>
+    private string BuildAddressPrefix(int slotIndex)
+    {
+        if (!showMemoryAddress) return "";
+        int address = addressStart + slotIndex * addressStep;
+        string hex = System.Convert.ToString(address, 16).ToUpperInvariant();
+        string colorHex = ColorUtility.ToHtmlStringRGB(addressColor);
+        return $"<color=#{colorHex}>0x{hex}</color> ";
     }
 
     private int DudBracketCount()
@@ -247,26 +273,26 @@ public class FalloutTerminalManager : MonoBehaviour
         return Mathf.Clamp(maxDudBrackets, 0, wordSlots.Length / 3);
     }
 
-    private void SetupWordSlot(TerminalWordSlot slot, string word)
+    private void SetupWordSlot(TerminalWordSlot slot, string word, string address)
     {
         slot.assignedWord = word;
         slot.isDudRemovalBracket = false;
-        slot.SetText(BuildLineWithWord(word));
+        slot.SetText(address + BuildLineWithWord(word));
         slot.SetInteractable(true);
         slot.SetHighlight(TerminalVisualState.Normal);
         slot.Button.onClick.AddListener(() => OnWordSlotClicked(slot));
     }
 
-    private void SetupGarbageOnlySlot(TerminalWordSlot slot)
+    private void SetupGarbageOnlySlot(TerminalWordSlot slot, string address)
     {
         slot.assignedWord = null;
         slot.isDudRemovalBracket = false;
-        slot.SetText(BuildGarbageLine(10 + Random.Range(0, 6)));
+        slot.SetText(address + BuildGarbageLine(10 + Random.Range(0, 6)));
         slot.SetInteractable(false);
         slot.SetHighlight(TerminalVisualState.Normal);
     }
 
-    private void SetupBracketSlot(TerminalWordSlot slot)
+    private void SetupBracketSlot(TerminalWordSlot slot, string address)
     {
         string[] pairs = { "()", "[]", "{}", "<>" };
         string pair = pairs[Random.Range(0, pairs.Length)];
@@ -274,7 +300,7 @@ public class FalloutTerminalManager : MonoBehaviour
 
         slot.assignedWord = null;
         slot.isDudRemovalBracket = true;
-        slot.SetText(line);
+        slot.SetText(address + line);
         slot.SetInteractable(true);
         slot.SetHighlight(TerminalVisualState.Normal);
         slot.Button.onClick.AddListener(() => OnBracketSlotClicked(slot));
@@ -320,10 +346,12 @@ public class FalloutTerminalManager : MonoBehaviour
         if (removableSlots.Count > 0)
         {
             var target = removableSlots[Random.Range(0, removableSlots.Count)];
+            int targetIndex = System.Array.IndexOf(wordSlots, target);
+            string targetAddress = targetIndex >= 0 ? BuildAddressPrefix(targetIndex) : "";
             target.isUsed = true;
             target.SetInteractable(false);
             target.SetHighlight(TerminalVisualState.Disabled);
-            target.SetText(BuildGarbageLine(target.label != null ? target.label.text.Length : 12));
+            target.SetText(targetAddress + BuildGarbageLine(10 + Random.Range(0, 6)));
             AppendHistory("1 wrong password removed. No attempt lost.");
         }
         else
