@@ -2,9 +2,6 @@ using System.Collections;
 using UnityEngine;
 using TMPro;
 
-/// <summary>
-/// Cửa bị khoá — chỉ mở sau khi WirePuzzleManager hoàn thành puzzle.
-/// </summary>
 public class LockedDoor : MonoBehaviour
 {
     [Header("Puzzle cần hoàn thành")]
@@ -18,20 +15,16 @@ public class LockedDoor : MonoBehaviour
     public AudioClip openSound;
     public AudioClip lockedSound;
     public AudioSource audioSource;
-
     [Header("UI gợi ý")]
     [Tooltip("Kéo TMP Text vào đây — script tự ẩn/hiện.")]
     public TextMeshProUGUI hintLabel;
     [Tooltip("Thời gian hiện hint (giây) rồi tự ẩn.")]
     public float hintDisplayTime = 2.5f;
-
-    // ── Internal ──────────────────────────────────────────────────────
     private Vector3   _closedPos;
     private Vector3   _openPos;
     private bool      _unlocked = false;
     private bool      _opened   = false;
     private Coroutine _hintCoroutine;
-
     private void Start()
     {
         if (slideDistance <= 0f)
@@ -39,23 +32,18 @@ public class LockedDoor : MonoBehaviour
             Renderer r = GetComponent<Renderer>();
             slideDistance = r != null ? r.bounds.size.y : 3f;
         }
-
         _closedPos = transform.position;
         _openPos   = _closedPos + Vector3.up * slideDistance;
 
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
-
-        // Ẩn hint lúc đầu
         if (hintLabel != null)
             hintLabel.enabled = false;
-
         if (wirePuzzleManager != null)
             wirePuzzleManager.OnPuzzleCompleted += OnWirePuzzleCompleted;
         else
             Debug.LogWarning($"[LockedDoor] '{name}': Chưa gán WirePuzzleManager!", this);
     }
-
     private void OnDestroy()
     {
         if (wirePuzzleManager != null)
@@ -67,7 +55,6 @@ public class LockedDoor : MonoBehaviour
         _unlocked = true;
         Debug.Log($"[LockedDoor] '{name}' đã được mở khoá!");
     }
-
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
@@ -80,22 +67,16 @@ public class LockedDoor : MonoBehaviour
             ShowHint();
         }
     }
-
     private void OnTriggerStay(Collider other)
     {
         if (!other.CompareTag("Player")) return;
         if (_unlocked && !_opened)
             TryOpen();
     }
-
-    // ── Mở cửa ───────────────────────────────────────────────────────
-
     private void TryOpen()
     {
         if (_opened) return;
         _opened = true;
-
-        // Ẩn hint nếu đang hiện
         HideHint();
 
         PlaySfx(openSound);
@@ -117,9 +98,6 @@ public class LockedDoor : MonoBehaviour
 
         transform.position = _openPos;
     }
-
-    // ── Hint ─────────────────────────────────────────────────────────
-
     private void ShowHint()
     {
         if (hintLabel == null) return;
@@ -149,17 +127,11 @@ public class LockedDoor : MonoBehaviour
         hintLabel.enabled = false;
         _hintCoroutine = null;
     }
-
-    // ── Âm thanh ─────────────────────────────────────────────────────
-
     private void PlaySfx(AudioClip clip)
     {
         if (clip != null && audioSource != null)
             audioSource.PlayOneShot(clip);
     }
-
-    // ── Gizmo ────────────────────────────────────────────────────────
-
     private void OnDrawGizmosSelected()
     {
         float dist = slideDistance > 0f ? slideDistance : 3f;

@@ -78,7 +78,6 @@ public class AutoDisableBlockingColliders : MonoBehaviour
         }
     }
 
-    /// <summary>Bật lại tất cả collider đã tắt (gọi khi thoát minigame).</summary>
     public void RestoreBlockers()
     {
         foreach (var col in _disabled)

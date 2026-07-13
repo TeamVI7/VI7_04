@@ -22,7 +22,7 @@ public class ForceRaycastTarget : MonoBehaviour
         if (debugEveryFrame) FixAll();
     }
 
-    private void FixAll()
+    public void FixAll()
     {
         // Fix tất cả Graphic (Image, RawImage...)
         var graphics = GetComponentsInChildren<Graphic>(includeInactive: false);

@@ -1,19 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-
-/// <summary>
-/// Platform di chuyển giữa các điểm là GameObject (waypoint) thay vì
-/// nhập tay tọa độ Vector3 -> kéo thả GameObject vào Inspector là xong.
-/// 
-/// CÁCH CÀI ĐẶT:
-/// 1. Tạo các GameObject rỗng (Empty) đặt tại các vị trí mong muốn, đặt tên
-///    ví dụ: Point_A, Point_B, Point_C... (không cần Mesh/Collider gì cả).
-/// 2. Gắn script này vào Platform (object cần di chuyển, phải có Collider + Rigidbody nếu cần va chạm).
-/// 3. Kéo các GameObject điểm trên vào mảng "Waypoints" theo đúng thứ tự di chuyển.
-/// 4. Tùy chọn Mode: Loop (lặp vòng), PingPong (đi tới rồi quay lại), Once (chạy 1 lần rồi dừng).
-/// 5. (Tùy chọn) Nếu muốn player đứng trên platform bị kéo theo, gắn thêm
-///    component "PlatformPassenger" (bên dưới) cho Player, hoặc dùng cơ chế Parent ở đây.
-/// </summary>
 [AddComponentMenu("Custom/Moving Platform")]
 public class MovingPlatform : MonoBehaviour
 {
@@ -55,8 +41,6 @@ public class MovingPlatform : MonoBehaviour
             Debug.LogWarning($"[MovingPlatform] '{name}' cần ít nhất 2 waypoint để di chuyển.");
             return;
         }
-
-        // Đưa platform về đúng vị trí điểm đầu tiên khi bắt đầu
         transform.position = waypoints[0].position;
         lastPosition = transform.position;
         isMoving = autoStart;
@@ -65,8 +49,6 @@ public class MovingPlatform : MonoBehaviour
     void Update()
     {
         if (!isMoving || finished || waypoints.Count < 2) return;
-
-        // Đang chờ tại điểm
         if (waitTimer > 0f)
         {
             waitTimer -= Time.deltaTime;
@@ -76,8 +58,6 @@ public class MovingPlatform : MonoBehaviour
         Transform target = waypoints[currentIndex];
         Vector3 newPos = Vector3.MoveTowards(transform.position, target.position, speed * Time.deltaTime);
         transform.position = newPos;
-
-        // Đến điểm đích chưa?
         if (Vector3.Distance(transform.position, target.position) < 0.001f)
         {
             waitTimer = waitTimeAtPoint;
@@ -87,7 +67,6 @@ public class MovingPlatform : MonoBehaviour
 
     void LateUpdate()
     {
-        // Tính độ dịch chuyển trong frame này để đẩy hành khách theo (nếu không dùng Parent)
         if (carryPassengers)
         {
             Vector3 delta = transform.position - lastPosition;
@@ -110,7 +89,7 @@ public class MovingPlatform : MonoBehaviour
             case PlatformMode.PingPong:
                 if (currentIndex + direction >= waypoints.Count || currentIndex + direction < 0)
                 {
-                    direction *= -1; // đảo hướng khi chạm 2 đầu
+                    direction *= -1;
                 }
                 currentIndex += direction;
                 break;
@@ -127,10 +106,7 @@ public class MovingPlatform : MonoBehaviour
                 }
                 break;
         }
-    }
-
-    // Đẩy các object đứng trên platform di chuyển cùng (cách đơn giản, không cần Parent)
-    void MovePassengers(Vector3 delta)
+    }    void MovePassengers(Vector3 delta)
     {
         Collider[] hits = Physics.OverlapBox(
             transform.position + Vector3.up * 0.5f,
@@ -146,8 +122,6 @@ public class MovingPlatform : MonoBehaviour
             }
         }
     }
-
-    // --- Hàm public để điều khiển platform từ script khác (ví dụ: kích hoạt bằng lever, nút bấm) ---
     public void StartMoving() => isMoving = true;
     public void StopMoving() => isMoving = false;
     public void ResetPlatform()
@@ -158,8 +132,6 @@ public class MovingPlatform : MonoBehaviour
         if (waypoints.Count > 0)
             transform.position = waypoints[0].position;
     }
-
-    // Vẽ đường đi giữa các waypoint trong Scene view để dễ canh chỉnh
     void OnDrawGizmos()
     {
         if (waypoints == null || waypoints.Count < 2) return;
