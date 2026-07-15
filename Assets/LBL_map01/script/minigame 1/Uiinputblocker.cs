@@ -2,12 +2,6 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
-/// <summary>
-/// Khi UI minigame mở:
-/// - Mở cursor
-/// - Tắt các GameObject chỉ định (gun, ability...)
-/// - Tắt tất cả Canvas Screen Space để không block raycast World Space
-/// </summary>
 public class UIInputBlocker : MonoBehaviour
 {
     [Tooltip("Tắt các GameObject này khi UI mở (súng, ability scripts...)")]
@@ -53,8 +47,6 @@ public class UIInputBlocker : MonoBehaviour
     private void HideScreenSpaceCanvases()
     {
         _hiddenCanvases.Clear();
-
-        // Dùng danh sách thủ công nếu được điền
         if (canvasesToHide != null && canvasesToHide.Length > 0)
         {
             foreach (var c in canvasesToHide)
@@ -70,14 +62,11 @@ public class UIInputBlocker : MonoBehaviour
 
         if (!autoHideScreenSpaceCanvas) return;
 
-        // Tự động tìm tất cả Canvas Screen Space đang active
         var allCanvases = FindObjectsOfType<Canvas>(true);
         foreach (var c in allCanvases)
         {
             if (!c.gameObject.activeInHierarchy) continue;
-            // Bỏ qua World Space canvas (minigame canvas)
             if (c.renderMode == RenderMode.WorldSpace) continue;
-            // Bỏ qua nếu là con của object này
             if (c.transform.IsChildOf(transform)) continue;
 
             c.gameObject.SetActive(false);
@@ -85,7 +74,6 @@ public class UIInputBlocker : MonoBehaviour
             Debug.Log($"[UIInputBlocker] Hidden Canvas: '{c.name}'");
         }
     }
-
     private void RestoreScreenSpaceCanvases()
     {
         foreach (var c in _hiddenCanvases)

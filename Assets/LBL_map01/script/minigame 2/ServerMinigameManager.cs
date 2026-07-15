@@ -1,12 +1,5 @@
 using System.Collections;
 using UnityEngine;
-
-/// <summary>
-/// Quản lý minigame 2: server trồi lên, player gắn SSD, cửa mở.
-/// Gắn vào một Empty GameObject "ServerManager".
-///
-/// Bản cập nhật: thêm âm thanh khi từng khối server trồi lên.
-/// </summary>
 public class ServerMinigameManager : MonoBehaviour
 {
     [Header("Server Blocks")]
@@ -25,8 +18,8 @@ public class ServerMinigameManager : MonoBehaviour
     public SlidingDoorController door;
 
     [Header("UI (tuỳ chọn)")]
-    public GameObject puzzleUI;           // Panel "Gắn SSD vào server"
-    public TMPro.TMP_Text progressText;   // "3 / 6 SSD đã gắn"
+    public GameObject puzzleUI;           
+    public TMPro.TMP_Text progressText; 
 
     [Header("Âm thanh")]
     [Tooltip("AudioSource để phát âm thanh server trồi lên (nếu để trống sẽ tự thêm 1 cái lúc runtime).")]
@@ -46,12 +39,10 @@ public class ServerMinigameManager : MonoBehaviour
     public GameObject riseVFXPrefab;
     [Tooltip("Thời gian tồn tại của VFX prefab trước khi tự huỷ (giây).")]
     public float riseVFXLifetime = 2f;
-
-    // ── State ─────────────────────────────────────────────────────
     private bool    _triggered = false;
     private bool    _solved    = false;
     private int     _filled    = 0;
-    private float[] _originalY;           // lưu Y gốc của từng khối
+    private float[] _originalY;
 
     private void Start()
     {
@@ -64,26 +55,22 @@ public class ServerMinigameManager : MonoBehaviour
                 audioSource.playOnAwake = false;
             }
         }
-
-        // Lưu Y gốc rồi ẩn từng khối xuống dưới đất
         _originalY = new float[serverBlocks.Length];
 
         for (int i = 0; i < serverBlocks.Length; i++)
         {
             if (serverBlocks[i] == null) continue;
 
-            _originalY[i] = serverBlocks[i].transform.position.y; // nhớ vị trí gốc
+            _originalY[i] = serverBlocks[i].transform.position.y; 
 
             Vector3 pos = serverBlocks[i].transform.position;
-            pos.y = _originalY[i] - hiddenOffset;                 // thụt xuống
+            pos.y = _originalY[i] - hiddenOffset;        
             serverBlocks[i].transform.position = pos;
         }
 
         if (puzzleUI) puzzleUI.SetActive(false);
         UpdateProgressUI();
     }
-
-    // ── Trigger Zone ──────────────────────────────────────────────
     public void OnPlayerEnterTrigger()
     {
         if (_triggered) return;
@@ -110,11 +97,6 @@ public class ServerMinigameManager : MonoBehaviour
         if (audioSource != null && riseSound != null)
             audioSource.PlayOneShot(riseSound, riseSfxVolume);
     }
-
-    /// <summary>
-    /// Ưu tiên dùng riseVFX gán sẵn trên từng ServerBlock (nếu có).
-    /// Nếu không có, fallback sang riseVFXPrefab dùng chung (Instantiate tại vị trí khối).
-    /// </summary>
     private void PlayRiseVFX(ServerBlock block)
     {
         if (block.riseVFX != null)
@@ -147,9 +129,13 @@ public class ServerMinigameManager : MonoBehaviour
         t.position = target;
     }
 
-    // ── Check Complete ────────────────────────────────────────────
+    public float GetRiseSequenceDuration()
+    {
+        int count = serverBlocks != null ? serverBlocks.Length : 0;
+        if (count <= 0) return riseDuration;
+        return (count - 1) * riseDelay + riseDuration;
+    }
 
-    /// <summary>Được gọi bởi ServerBlock mỗi khi 1 khối được gắn SSD.</summary>
     public void CheckAllFilled()
     {
         if (_solved) return;

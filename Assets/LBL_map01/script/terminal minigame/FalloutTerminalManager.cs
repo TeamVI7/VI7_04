@@ -87,6 +87,45 @@ public class FalloutTerminalManager : MonoBehaviour
     public AudioClip wrongSound;
     public AudioClip dudRemovedSound;
     public AudioClip lockedSound;
+    [Tooltip("Tiếng 'blip' khi rê chuột qua 1 dòng bất kỳ (kể cả dòng garbage), giống bản gốc.")]
+    public AudioClip hoverSound;
+
+    [Header("Bracket Effects (giống bản gốc: 2 kết quả ngẫu nhiên)")]
+    [Tooltip("Âm thanh khi bracket cho hiệu ứng hồi đầy lượt thử. Để trống sẽ dùng chung dudRemovedSound.")]
+    public AudioClip allowanceReplenishedSound;
+    [Range(0f, 1f)]
+    [Tooltip("Xác suất bracket trả về hiệu ứng 'Replenish Allowance' (hồi lượt) thay vì 'Remove Dud'.")]
+    public float replenishAllowanceChance = 0.5f;
+
+    [Header("Typewriter Effect (gõ chữ giống bản gốc)")]
+    public bool useTypewriterEffect = true;
+    [Tooltip("Thời gian giữa mỗi ký tự khi 'gõ' chữ lên màn hình.")]
+    public float typewriterCharDelay = 0.018f;
+    [Tooltip("Tiếng bíp phát mỗi ký tự khi gõ chữ. Để trống nếu không muốn có tiếng.")]
+    public AudioClip typeCharSound;
+    public Vector2 typeCharPitchRange = new Vector2(0.92f, 1.08f);
+
+    private Coroutine _messageTypeCoroutine;
+    private Coroutine _historyTypeCoroutine;
+
+    [Header("Cursor (giống cách tương tác bản gốc: rê chuột tự do để chọn)")]
+    [Tooltip("Khi mở terminal, con trỏ chuột sẽ tự hiện ra và mở khoá (CursorLockMode.None) để bạn rê chuột chọn từ, giống hệt cách Fallout gốc hoạt động. Khi đóng terminal, trạng thái chuột cũ (khoá giữa màn hình để chơi FPS) sẽ được khôi phục lại.")]
+    public bool manageCursorOnOpen = true;
+    private CursorLockMode _previousCursorLockState;
+    private bool _previousCursorVisible;
+
+    [Header("Keyboard Navigation (điều hướng bằng phím mũi tên)")]
+    [Tooltip("Bật để chọn dòng bằng phím mũi tên Lên/Xuống + Enter, thay vì phải rê chuột.")]
+    public bool enableKeyboardNavigation = true;
+    public KeyCode navUpKey = KeyCode.UpArrow;
+    public KeyCode navDownKey = KeyCode.DownArrow;
+    public KeyCode navConfirmKeyPrimary = KeyCode.Return;
+    public KeyCode navConfirmKeySecondary = KeyCode.KeypadEnter;
+    [Tooltip("Tiếng phát ra khi bấm Enter vào 1 dòng rác/không chọn được (không mất lượt, chỉ báo hiệu).")]
+    public AudioClip invalidSelectSound;
+
+    private readonly List<TerminalWordSlot> _navigableSlots = new List<TerminalWordSlot>();
+    private TerminalWordSlot _keyboardHighlightedSlot;
 
     private string _correctWord;
     private int    _attemptsLeft;
@@ -103,6 +142,74 @@ public class FalloutTerminalManager : MonoBehaviour
         if (terminalPanel != null) terminalPanel.SetActive(false);
     }
 
+    private void Update()
+    {
+        if (!enableKeyboardNavigation) return;
+        if (!IsTerminalOpen || _solved || _locked) return;
+        HandleKeyboardNavigation();
+    }
+
+    private void HandleKeyboardNavigation()
+    {
+        if (Input.GetKeyDown(navUpKey))
+            MoveKeyboardSelection(-1);
+        else if (Input.GetKeyDown(navDownKey))
+            MoveKeyboardSelection(1);
+
+        if (Input.GetKeyDown(navConfirmKeyPrimary) || Input.GetKeyDown(navConfirmKeySecondary))
+            ConfirmKeyboardSelection();
+    }
+
+    /// <summary>Di chuyển highlight tới dòng kế tiếp/trước đó có thể chọn được (word slot hoặc bracket).</summary>
+    private void MoveKeyboardSelection(int direction)
+    {
+        if (_navigableSlots.Count == 0) return;
+
+        int currentIndex = _keyboardHighlightedSlot != null ? _navigableSlots.IndexOf(_keyboardHighlightedSlot) : -1;
+        _keyboardHighlightedSlot?.SetRowHighlighted(false);
+
+        int nextIndex = currentIndex < 0
+            ? 0
+            : (currentIndex + direction + _navigableSlots.Count) % _navigableSlots.Count;
+
+        _keyboardHighlightedSlot = _navigableSlots[nextIndex];
+        _keyboardHighlightedSlot.SetRowHighlighted(true);
+        PlaySound(hoverSound);
+    }
+
+    /// <summary>Chọn dòng đang được highlight bằng bàn phím. Nếu là dòng rác/không hợp lệ thì chỉ phát tiếng
+    /// báo hiệu, KHÔNG mất lượt — người chơi vẫn phải tự đọc màn hình để biết dòng nào là ứng viên thật,
+    /// con trỏ không tự động bỏ qua dòng rác (nếu bỏ qua thì lộ luôn đáp án, mất ý nghĩa minigame).</summary>
+    private void ConfirmKeyboardSelection()
+    {
+        if (_keyboardHighlightedSlot == null) return;
+
+        if (!_keyboardHighlightedSlot.isSelectable || _keyboardHighlightedSlot.isUsed)
+        {
+            PlaySound(invalidSelectSound);
+            return;
+        }
+
+        _keyboardHighlightedSlot.OnSelected?.Invoke(_keyboardHighlightedSlot);
+    }
+
+    /// <summary>Dựng danh sách TẤT CẢ các dòng trên màn hình (kể cả dòng rác) để bàn phím có thể di chuyển qua
+    /// từng dòng một, y hệt con trỏ tự do của bản gốc — không lọc riêng ra "dòng chọn được" vì như vậy sẽ vô
+    /// tình lộ đáp án cho người chơi chỉ bằng cách bấm mũi tên mà không cần đọc màn hình.</summary>
+    private void RefreshNavigableSlots(bool resetToFirst)
+    {
+        _navigableSlots.Clear();
+        foreach (var s in wordSlots)
+            if (s != null) _navigableSlots.Add(s);
+
+        if (resetToFirst || _keyboardHighlightedSlot == null || !_navigableSlots.Contains(_keyboardHighlightedSlot))
+        {
+            _keyboardHighlightedSlot?.SetRowHighlighted(false);
+            _keyboardHighlightedSlot = _navigableSlots.Count > 0 ? _navigableSlots[0] : null;
+            _keyboardHighlightedSlot?.SetRowHighlighted(true);
+        }
+    }
+
     public bool IsTerminalOpen => terminalPanel != null && terminalPanel.activeSelf;
 
     public void StartTerminal()
@@ -113,6 +220,7 @@ public class FalloutTerminalManager : MonoBehaviour
         autoDisableBlockingColliders?.DisableBlockers();
         forceRaycastTarget?.FixAll();
         SwitchToTerminalCamera();
+        ShowCursorForTerminal();
 
         SetupNewGame();
     }
@@ -123,6 +231,7 @@ public class FalloutTerminalManager : MonoBehaviour
 
         uiInputBlocker?.UnblockInput();
         autoDisableBlockingColliders?.RestoreBlockers();
+        RestoreCursorAfterTerminal();
         RestorePlayerCamera();
     }
 
@@ -162,6 +271,27 @@ public class FalloutTerminalManager : MonoBehaviour
         }
     }
 
+    /// <summary>Mở khoá + hiện con trỏ chuột, giống bản gốc (bạn rê chuột tự do trên màn hình terminal để chọn dòng).</summary>
+    private void ShowCursorForTerminal()
+    {
+        if (!manageCursorOnOpen) return;
+
+        _previousCursorLockState = Cursor.lockState;
+        _previousCursorVisible = Cursor.visible;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    /// <summary>Trả con trỏ chuột về đúng trạng thái trước khi mở terminal (thường là khoá giữa màn hình để chơi FPS).</summary>
+    private void RestoreCursorAfterTerminal()
+    {
+        if (!manageCursorOnOpen) return;
+
+        Cursor.lockState = _previousCursorLockState;
+        Cursor.visible = _previousCursorVisible;
+    }
+
     private void SetupNewGame()
     {
         _solved = false;
@@ -169,7 +299,7 @@ public class FalloutTerminalManager : MonoBehaviour
         _attemptsLeft = Mathf.Max(1, maxAttempts);
         _historyBuilder.Clear();
 
-        if (terminalMessageText != null) terminalMessageText.text = introMessage;
+        if (terminalMessageText != null) PlayMessageTypewriter(introMessage);
         UpdateAttemptsText();
         if (historyText != null) historyText.text = "";
 
@@ -227,7 +357,6 @@ public class FalloutTerminalManager : MonoBehaviour
             var slot = wordSlots[i];
             if (slot == null) continue;
 
-            slot.Button.onClick.RemoveAllListeners();
             string address = BuildAddressPrefix(i);
 
             if (enableDudRemovalBrackets && dudsPlaced < dudsToPlace && wordIdx >= _activeWords.Count)
@@ -255,6 +384,8 @@ public class FalloutTerminalManager : MonoBehaviour
                 SetupGarbageOnlySlot(slot, address);
             }
         }
+
+        RefreshNavigableSlots(true);
     }
 
     /// <summary>Tạo chuỗi "0xF7A0 " (rich text, màu mờ) dựa trên vị trí cố định của slot trong mảng.</summary>
@@ -279,8 +410,11 @@ public class FalloutTerminalManager : MonoBehaviour
         slot.isDudRemovalBracket = false;
         slot.SetText(address + BuildLineWithWord(word));
         slot.SetInteractable(true);
+        slot.isSelectable = true;
         slot.SetHighlight(TerminalVisualState.Normal);
-        slot.Button.onClick.AddListener(() => OnWordSlotClicked(slot));
+        slot.OnSelected = OnWordSlotClicked;
+        slot.OnInvalidClick = HandleInvalidClick;
+        slot.OnHover = HandleSlotHover;
     }
 
     private void SetupGarbageOnlySlot(TerminalWordSlot slot, string address)
@@ -289,7 +423,11 @@ public class FalloutTerminalManager : MonoBehaviour
         slot.isDudRemovalBracket = false;
         slot.SetText(address + BuildGarbageLine(10 + Random.Range(0, 6)));
         slot.SetInteractable(false);
+        slot.isSelectable = false;
+        slot.OnSelected = null;
         slot.SetHighlight(TerminalVisualState.Normal);
+        slot.OnInvalidClick = HandleInvalidClick;
+        slot.OnHover = HandleSlotHover;
     }
 
     private void SetupBracketSlot(TerminalWordSlot slot, string address)
@@ -302,8 +440,25 @@ public class FalloutTerminalManager : MonoBehaviour
         slot.isDudRemovalBracket = true;
         slot.SetText(address + line);
         slot.SetInteractable(true);
+        slot.isSelectable = true;
         slot.SetHighlight(TerminalVisualState.Normal);
-        slot.Button.onClick.AddListener(() => OnBracketSlotClicked(slot));
+        slot.OnSelected = OnBracketSlotClicked;
+        slot.OnInvalidClick = HandleInvalidClick;
+        slot.OnHover = HandleSlotHover;
+    }
+
+    /// <summary>Bấm vào dòng rác (không phải từ, không phải bracket): không tốn lượt, không có tác dụng gì,
+    /// chỉ phát tiếng báo hiệu — đúng như bấm vào khoảng trống trong bản gốc.</summary>
+    private void HandleInvalidClick(TerminalWordSlot slot)
+    {
+        if (_solved || _locked) return;
+        PlaySound(invalidSelectSound);
+    }
+
+    /// <summary>Phát tiếng "blip" khi rê chuột vào bất kỳ dòng nào, kể cả dòng garbage không click được — giống bản gốc.</summary>
+    private void HandleSlotHover(TerminalWordSlot slot, bool entered)
+    {
+        if (entered) PlaySound(hoverSound);
     }
 
     private string BuildLineWithWord(string word)
@@ -334,8 +489,24 @@ public class FalloutTerminalManager : MonoBehaviour
     {
         if (_solved || _locked || slot.isUsed) return;
         slot.isUsed = true;
+        slot.isSelectable = false;
         slot.SetInteractable(false);
         slot.SetHighlight(TerminalVisualState.Disabled);
+
+        // Giống bản gốc: bracket cho 1 trong 2 hiệu ứng ngẫu nhiên.
+        bool canReplenish = _attemptsLeft < Mathf.Max(1, maxAttempts);
+        bool doReplenish = canReplenish && Random.value < replenishAllowanceChance;
+
+        if (doReplenish)
+        {
+            PlaySound(allowanceReplenishedSound != null ? allowanceReplenishedSound : dudRemovedSound);
+            _attemptsLeft = Mathf.Max(1, maxAttempts);
+            UpdateAttemptsText();
+            AppendHistory("Allowance replenished.");
+            RefreshNavigableSlots(false);
+            return;
+        }
+
         PlaySound(dudRemovedSound);
 
         var removableSlots = wordSlots
@@ -349,6 +520,7 @@ public class FalloutTerminalManager : MonoBehaviour
             int targetIndex = System.Array.IndexOf(wordSlots, target);
             string targetAddress = targetIndex >= 0 ? BuildAddressPrefix(targetIndex) : "";
             target.isUsed = true;
+            target.isSelectable = false;
             target.SetInteractable(false);
             target.SetHighlight(TerminalVisualState.Disabled);
             target.SetText(targetAddress + BuildGarbageLine(10 + Random.Range(0, 6)));
@@ -358,6 +530,8 @@ public class FalloutTerminalManager : MonoBehaviour
         {
             AppendHistory("No wrong password left to remove.");
         }
+
+        RefreshNavigableSlots(false);
     }
 
     private void OnWordSlotClicked(TerminalWordSlot slot)
@@ -376,6 +550,7 @@ public class FalloutTerminalManager : MonoBehaviour
         }
 
         slot.isUsed = true;
+        slot.isSelectable = false;
         slot.SetInteractable(false);
         slot.SetHighlight(TerminalVisualState.Wrong);
         PlaySound(wrongSound);
@@ -384,6 +559,8 @@ public class FalloutTerminalManager : MonoBehaviour
         _attemptsLeft--;
         UpdateAttemptsText();
         AppendHistory($"> {guess}\nACCESS DENIED — Likeness: {likeness}/{_correctWord.Length}");
+
+        RefreshNavigableSlots(false);
 
         if (_attemptsLeft <= 0)
             Lock();
@@ -400,9 +577,99 @@ public class FalloutTerminalManager : MonoBehaviour
 
     private void AppendHistory(string line)
     {
-        if (historyText == null) return;
+        if (historyText == null)
+        {
+            _historyBuilder.AppendLine(line);
+            return;
+        }
+
+        string alreadyShown = _historyBuilder.ToString();
         _historyBuilder.AppendLine(line);
-        historyText.text = _historyBuilder.ToString();
+        string fullText = _historyBuilder.ToString();
+
+        if (_historyTypeCoroutine != null) StopCoroutine(_historyTypeCoroutine);
+        _historyTypeCoroutine = StartCoroutine(TypeAppend(historyText, alreadyShown, fullText));
+    }
+
+    private void PlayMessageTypewriter(string fullText)
+    {
+        if (terminalMessageText == null) return;
+        if (_messageTypeCoroutine != null) StopCoroutine(_messageTypeCoroutine);
+        _messageTypeCoroutine = StartCoroutine(TypeText(terminalMessageText, fullText));
+    }
+
+    /// <summary>Gõ toàn bộ text từ đầu (dùng cho message chính: intro / solved / locked).</summary>
+    private IEnumerator TypeText(TMP_Text target, string fullText)
+    {
+        if (!useTypewriterEffect || target == null)
+        {
+            if (target != null) target.text = fullText;
+            yield break;
+        }
+
+        target.text = "";
+        var sb = new StringBuilder();
+        bool inTag = false;
+
+        foreach (char c in fullText)
+        {
+            bool isTagChar = false;
+            if (c == '<') inTag = true;
+            if (inTag) isTagChar = true;
+            sb.Append(c);
+            if (c == '>') inTag = false;
+
+            target.text = sb.ToString();
+
+            if (!isTagChar)
+            {
+                PlayTypeCharSound();
+                yield return new WaitForSecondsRealtime(typewriterCharDelay);
+            }
+        }
+    }
+
+    /// <summary>Chỉ gõ phần text MỚI được thêm vào, giữ nguyên phần đã hiện trước đó (dùng cho history log).</summary>
+    private IEnumerator TypeAppend(TMP_Text target, string alreadyShown, string fullText)
+    {
+        if (target == null) yield break;
+
+        if (!useTypewriterEffect)
+        {
+            target.text = fullText;
+            yield break;
+        }
+
+        target.text = alreadyShown;
+        var sb = new StringBuilder(alreadyShown);
+        string toType = fullText.Length >= alreadyShown.Length ? fullText.Substring(alreadyShown.Length) : fullText;
+        bool inTag = false;
+
+        foreach (char c in toType)
+        {
+            bool isTagChar = false;
+            if (c == '<') inTag = true;
+            if (inTag) isTagChar = true;
+            sb.Append(c);
+            if (c == '>') inTag = false;
+
+            target.text = sb.ToString();
+
+            if (!isTagChar)
+            {
+                PlayTypeCharSound();
+                yield return new WaitForSecondsRealtime(typewriterCharDelay);
+            }
+        }
+    }
+
+    private void PlayTypeCharSound()
+    {
+        if (typeCharSound == null || audioSource == null) return;
+        float originalPitch = audioSource.pitch;
+        audioSource.pitch = Random.Range(typeCharPitchRange.x, typeCharPitchRange.y);
+        audioSource.PlayOneShot(typeCharSound);
+        audioSource.pitch = originalPitch;
     }
 
     private void UpdateAttemptsText()
@@ -422,11 +689,14 @@ public class FalloutTerminalManager : MonoBehaviour
         _solved = true;
         PlaySound(correctSound);
 
+        _keyboardHighlightedSlot?.SetRowHighlighted(false);
+        _keyboardHighlightedSlot = null;
+
         foreach (var slot in wordSlots)
-            if (slot != null) slot.SetInteractable(false);
+            if (slot != null) { slot.SetInteractable(false); slot.isSelectable = false; }
 
         if (terminalMessageText != null)
-            terminalMessageText.text = solvedMessage;
+            PlayMessageTypewriter(solvedMessage);
 
         StartCoroutine(SolveSequence());
     }
@@ -472,10 +742,13 @@ public class FalloutTerminalManager : MonoBehaviour
         _locked = true;
         PlaySound(lockedSound);
 
+        _keyboardHighlightedSlot?.SetRowHighlighted(false);
+        _keyboardHighlightedSlot = null;
+
         foreach (var slot in wordSlots)
-            if (slot != null) slot.SetInteractable(false);
+            if (slot != null) { slot.SetInteractable(false); slot.isSelectable = false; }
 
         if (terminalMessageText != null)
-            terminalMessageText.text = lockedMessage;
+            PlayMessageTypewriter(lockedMessage);
     }
 }
