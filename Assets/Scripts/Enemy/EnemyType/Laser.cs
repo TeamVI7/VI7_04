@@ -1,10 +1,6 @@
 using System;
 using UnityEngine;
 
-/// <summary>
-/// Drone laser attack. Drop this on the Drone enemy.
-/// Reads range, fires at player, emits event for audio.
-/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public class LaserBehaviour : MonoBehaviour
 {

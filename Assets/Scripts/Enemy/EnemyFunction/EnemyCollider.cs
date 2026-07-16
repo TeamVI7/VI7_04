@@ -1,10 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Auto-configures colliders for the enemy based on Stats SO.
-/// Run this once in editor via the context menu button, or let it run in Awake.
-/// No need to manually add/size colliders in the Inspector.
-/// </summary>
 [RequireComponent(typeof(EnemySetup))]
 [DefaultExecutionOrder(-99)] // after EnemySetup(-100), before everything else
 public class EnemyColliderSetup : MonoBehaviour
@@ -85,16 +80,9 @@ public class EnemyColliderSetup : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// MeleeAttackBehaviour (EnemyMelee.cs) checks range via Vector3.Distance in Update() —
-    /// it needs no trigger collider, so this method is now a no-op left here only as a
-    /// placeholder in case a future trigger-based ability needs the same slot.
-    /// </summary>
     private void EnsureMeleeTrigger()
     {
-        // Intentionally empty — MeleeAttackBehaviour does not use a trigger collider.
-        // If you bring back a tick-damage melee variant later, rebuild this method
-        // around that component instead.
+
     }
 
     private T GetOrAdd<T>() where T : Component
@@ -102,11 +90,6 @@ public class EnemyColliderSetup : MonoBehaviour
         return TryGetComponent(out T existing) ? existing : gameObject.AddComponent<T>();
     }
 
-    /// <summary>
-    /// Converts a single-layer LayerMask (as picked in the Inspector dropdown) into the
-    /// int layer index gameObject.layer expects. Returns 0 (Default) if EnemyLayerMask
-    /// was left unset or has multiple layers checked.
-    /// </summary>
     private static int LayerMaskToLayer(LayerMask mask)
     {
         int value = mask.value;

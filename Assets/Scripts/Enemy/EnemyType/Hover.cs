@@ -1,9 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Visual-only hover bob and spin for drone enemies.
-/// Reads EnemyHealth to stop on death automatically.
-/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 public class HoverAnimation : MonoBehaviour
 {

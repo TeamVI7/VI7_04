@@ -43,7 +43,7 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public bool  IsAlive    => CurrentHP > 0f && !_dead;
 
     // ── Events — everything else hooks here ──────────────────────────────────
-    public event Action<float, float> OnDamaged;        // (currentHP, maxHP)
+    public event Action<float, float, float, Vector3, Vector3> OnDamaged; // (amount, currentHP, maxHP, hitDirection, hitPoint)
     public event Action<float>        OnHealed;         // (currentHP)
     public event Action               OnStaggerEntered;
     public event Action               OnStaggerExpired;
@@ -82,7 +82,7 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         if (!IsAlive) return;
 
         CurrentHP = Mathf.Max(0f, CurrentHP - amount);
-        OnDamaged?.Invoke(CurrentHP, MaxHP);
+        OnDamaged?.Invoke(amount, CurrentHP, MaxHP, hitDirection, hitPoint);
 
         SoundManager.Instance?.PlaySFX(SFXType.Pain, transform.position);
 

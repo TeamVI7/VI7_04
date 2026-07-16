@@ -2,10 +2,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
-/// <summary>
-/// Armor that absorbs damage first. Shield mesh dissolves on break.
-/// Break stagger effect is a material flash on the enemy body, not a prefab.
-/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 [RequireComponent(typeof(EnemyBrain))]
 public class ShieldBehaviour : MonoBehaviour, IDamageable

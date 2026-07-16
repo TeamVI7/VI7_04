@@ -115,6 +115,7 @@ GameObject:
   - component: {fileID: 4970343645748975476}
   - component: {fileID: 6667765914966959566}
   - component: {fileID: 2510446317609636294}
+  - component: {fileID: 8668773473941383088}
   - component: {fileID: 7318359407448321586}
   - component: {fileID: 5113700776521284538}
   - component: {fileID: 2669995170966321435}
@@ -237,6 +238,9 @@ MonoBehaviour:
   PreferredRange: 5
   PatrolRadius: 12
   WaypointWaitTime: 2.5
+  MovementStyle: 0
+  StrafeRadius: 3
+  StrafeInterval: 1.2
 --- !u!114 &3135865885040181290
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -321,6 +325,9 @@ MonoBehaviour:
   TimingMode: 0
   WindupTime: 0.35
   RecoveryTime: 0.25
+  TurnSpeed: 12
+  LungeDistance: 1.5
+  LungeSpeed: 14
   AnimCtrl: {fileID: 2398941731770491885}
   debugLog: 1
   drawGizmos: 0
@@ -370,9 +377,45 @@ MonoBehaviour:
   ObstacleLayers:
     serializedVersion: 2
     m_Bits: 513
+  TelegraphTime: 0
+  TelegraphVFX: {fileID: 0}
   DamagePerShot: 2
   BulletTrailPrefab: {fileID: 7685767005900697430, guid: 5dab58b3cc85f3a4f9b965d9de570641, type: 3}
   TracerSpeed: 300
+--- !u!114 &8668773473941383088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 588893862398308319}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3885dda6744ece842ad0568a08c87ce2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyHitReaction
+  VisualRoot: {fileID: 0}
+  MaxKickDistance: 0.12
+  KickDuration: 0.15
+  DamageFractionForMaxKick: 0.35
+  MinDamageFraction: 0.01
+  TorsoBone: {fileID: 0}
+  MaxTorsoTwistAngle: 12
+  TorsoTwistDuration: 0.18
+  BodyRenderers: []
+  FlashMaterial: {fileID: 0}
+  FlashDuration: 0.08
+  HeadTransform: {fileID: 0}
+  HeadshotRadius: 0.35
+  HeadshotFlashMaterial: {fileID: 0}
+  HeadshotFlashDurationMultiplier: 1.75
+  StaggerFlashMaterial: {fileID: 0}
+  StaggerFlashDuration: 0.25
+  Limbs: []
+  LimbDismemberFraction: 0.5
+  LimbScaleDownDuration: 0.15
+  MeleeGate: {fileID: 0}
+  SniperGate: {fileID: 0}
 --- !u!195 &7318359407448321586
 NavMeshAgent:
   m_ObjectHideFlags: 0

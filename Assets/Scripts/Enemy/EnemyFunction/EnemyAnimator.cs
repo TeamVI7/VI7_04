@@ -2,28 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-/// <summary>
-/// Drives Base Layer Animator (Idle/Running/Punching) off EnemyBrain state +
-/// NavMeshAgent velocity. No IK — single float blend + trigger escape hatches.
-///
-/// SETUP:
-///   1. Attach next to EnemyBrain / NavMeshAgent / Animator.
-///   2. Animator needs: float "Speed" (drives Idle<->Running blend/threshold),
-///      trigger "Punch" (Any State -> Punching), optional "Stagger"/"Die" triggers.
-///   3. Idle<->Running transition: condition Speed > 0.1 (no Exit Time) both ways.
-///   4. Any State -> Punching: condition Punch trigger. Punching -> Idle: Exit Time,
-///      no condition (re-enters blend, picks Running automatically if still moving).
-///
-/// EXPANDABLE:
-///   - New EnemyState → add a case in HandleStateChanged(), one line.
-///   - New attack anim → expose TriggerXxx() like TriggerPunch(), call from any script.
-///   - Don't know the param name at compile time? Use TriggerCustom("ParamName").
-///   - Swap movement source → only GetCurrentSpeed() needs editing.
-///
-/// DEBUG:
-///   - debugLog logs every state reaction + trigger fire.
-///   - Missing Animator params are silently skipped (cached on Awake), no console spam.
-/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public class EnemyAnimatorController : MonoBehaviour
 {

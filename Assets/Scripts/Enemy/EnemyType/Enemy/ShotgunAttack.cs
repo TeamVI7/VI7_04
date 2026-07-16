@@ -1,10 +1,6 @@
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Shotgun blast — multiple pellets per shot, fading trails. Aggro/range/cooldown
-/// gating lives in EnemyRangedAttackBehaviour.
-/// </summary>
 public class ShotgunAttackBehaviour : EnemyRangedAttackBehaviour
 {
     [Header("Shotgun Setup")]
@@ -17,8 +13,6 @@ public class ShotgunAttackBehaviour : EnemyRangedAttackBehaviour
     [Tooltip("Thời gian tia đạn lưu lại và mờ dần trên màn hình")]
     public float TrailDuration = 0.2f;
 
-    // Kept as a pass-through alias so EnemySoundController's reflection-based
-    // lookup of "OnShotgunFired" keeps working unchanged.
     public event System.Action OnShotgunFired
     {
         add    => OnFired += value;

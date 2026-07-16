@@ -1,10 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-/// <summary>
-/// Activates ragdoll physics when EnemyHealth reports death.
-/// GDD §7.4 — all deaths physics-resolved, fast arrival = violent impact.
-/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 public class EnemyRagdoll : MonoBehaviour
 {

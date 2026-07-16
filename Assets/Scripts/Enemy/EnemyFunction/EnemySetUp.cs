@@ -54,6 +54,9 @@ public class EnemySetup : MonoBehaviour
             patrol.PreferredRange    = Stats.PreferredRange;
             patrol.PatrolRadius      = Stats.PatrolRadius;
             patrol.WaypointWaitTime  = Stats.WaypointWaitTime;
+            patrol.MovementStyle     = Stats.MovementStyle;
+            patrol.StrafeRadius      = Stats.StrafeRadius;
+            patrol.StrafeInterval    = Stats.StrafeInterval;
         }
 
         if (TryGetComponent(out ShieldBehaviour shield))
@@ -87,9 +90,11 @@ public class EnemySetup : MonoBehaviour
         // MeleeBehaviour — proper windup/cooldown instead of OnTriggerStay damage.
         if (TryGetComponent(out MeleeAttackBehaviour melee))
         {
-            melee.Damage      = Stats.MeleeDamage;
-            melee.Cooldown    = Stats.MeleeCooldown;
-            melee.AttackRange = Stats.MeleeRange;
+            melee.Damage        = Stats.MeleeDamage;
+            melee.Cooldown      = Stats.MeleeCooldown;
+            melee.AttackRange   = Stats.MeleeRange;
+            melee.LungeDistance = Stats.MeleeLungeDistance;
+            melee.LungeSpeed    = Stats.MeleeLungeSpeed;
         }
 
         if (TryGetComponent(out StealthBehaviour stealth))
@@ -117,6 +122,7 @@ public class EnemySetup : MonoBehaviour
             shotgun.PelletsPerShot  = Stats.ShotgunPelletsPerShot;
             shotgun.SpreadAngle     = Stats.ShotgunSpreadAngle;
             shotgun.FireRate        = Stats.ShotgunFireRate;
+            shotgun.TelegraphTime   = Stats.ShotgunTelegraphTime;
         }
 
         // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SMG ──────────────────────
@@ -125,6 +131,7 @@ public class EnemySetup : MonoBehaviour
             smg.AttackRange    = Stats.SMGAttackRange;
             smg.DamagePerShot  = Stats.SMGDamagePerShot;
             smg.FireRate       = Stats.SMGFireRate;
+            smg.TelegraphTime  = Stats.SMGTelegraphTime;
         }
 
         // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SNIPER ───────────────────
@@ -133,6 +140,37 @@ public class EnemySetup : MonoBehaviour
             sniper.AttackRange   = Stats.SniperAttackRange;
             sniper.FireCooldown  = Stats.SniperFireCooldown;
             sniper.Damage        = Stats.SniperDamage;
+        }
+
+        if (TryGetComponent(out EnemyHitReaction hitReaction))
+        {
+            hitReaction.MaxKickDistance          = Stats.HitReactionMaxKickDistance;
+            hitReaction.KickDuration             = Stats.HitReactionKickDuration;
+            hitReaction.DamageFractionForMaxKick = Stats.HitReactionDamageFractionForMaxKick;
+            hitReaction.MinDamageFraction        = Stats.HitReactionMinDamageFraction;
+            hitReaction.FlashDuration            = Stats.HitReactionFlashDuration;
+            hitReaction.HeadshotRadius           = Stats.HitReactionHeadshotRadius;
+            hitReaction.HeadshotFlashDurationMultiplier = Stats.HitReactionHeadshotFlashDurationMultiplier;
+            hitReaction.StaggerFlashDuration     = Stats.HitReactionStaggerFlashDuration;
+            hitReaction.LimbDismemberFraction    = Stats.HitReactionLimbDismemberFraction;
+            hitReaction.LimbScaleDownDuration    = Stats.HitReactionLimbScaleDownDuration;
+            hitReaction.MaxTorsoTwistAngle       = Stats.TorsoMaxTwistAngle;
+            hitReaction.TorsoTwistDuration       = Stats.TorsoTwistDuration;
+        }
+
+        if (TryGetComponent(out EnemyLookAt lookAt))
+        {
+            lookAt.HeadWeight    = Stats.LookHeadWeight;
+            lookAt.TorsoWeight   = Stats.LookTorsoWeight;
+            lookAt.MaxYawAngle   = Stats.LookMaxYawAngle;
+            lookAt.MaxPitchAngle = Stats.LookMaxPitchAngle;
+            lookAt.TurnSpeed     = Stats.LookTurnSpeed;
+        }
+
+        if (TryGetComponent(out EnemyImpactVFX impactVFX))
+        {
+            impactVFX.ImpactLifetime     = Stats.ImpactVFXLifetime;
+            impactVFX.MinDamageFraction  = Stats.ImpactVFXMinDamageFraction;
         }
     }
 

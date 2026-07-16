@@ -3,28 +3,6 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
-/// <summary>
-/// Active melee attack — closes distance via NavMeshAgent (owned by PatrolBehaviour),
-/// then swings when player is within AttackRange. Two hit-timing modes so it scales
-/// from "no animator yet" prototyping to fully anim-event-driven combat later.
-///
-/// SETUP:
-///   1. Attach next to EnemyBrain / EnemyHealth / NavMeshAgent.
-///   2. Optional: assign EnemyAnimatorController to trigger "Punch" + get anim-driven timing.
-///   3. Mode = Timed: swing lands after windupTime, no animator wiring needed.
-///      Mode = AnimationDriven: call AnimEvent_MeleeHit() from an Animation Event on
-///      the swing clip's impact frame (same pattern as AnimationEventReceiver).
-///
-/// EXTENDING:
-///   - Multiple attack variants → add an enum + pick windup/damage per variant in TryAttack().
-///   - Combo strings → chain coroutines off OnAttackLanded.
-///   - Block/parry reaction → have PlayerHealth check EnemyMeleeAttack.IsWindingUp before damage.
-///   - Cone check instead of sphere → swap the check in IsPlayerInRange().
-///
-/// DEBUG:
-///   - debugLog logs range checks, windup, hit/miss.
-///   - Gizmo sphere shows AttackRange in Scene view when selected.
-/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 [RequireComponent(typeof(EnemyHealth))]
 public class MeleeAttackBehaviour : MonoBehaviour
@@ -51,6 +29,14 @@ public class MeleeAttackBehaviour : MonoBehaviour
     public float WindupTime = 0.35f;
     [Tooltip("Seconds after damage before attack is fully 'done' and cooldown starts counting from.")]
     public float RecoveryTime = 0.25f;
+    [Tooltip("Degrees/sec the enemy turns to face the player during windup. Replaces an instant snap-to-face so the tell is actually readable mid-swing.")]
+    public float TurnSpeed = 12f;
+
+    [Header("Lunge")]
+    [Tooltip("Distance the enemy dashes toward the player the instant a swing starts, on top of normal chase movement. 0 disables the lunge.")]
+    public float LungeDistance = 1.5f;
+    [Tooltip("NavMeshAgent speed used only during the lunge burst.")]
+    public float LungeSpeed = 14f;
 
     [Header("References")]
     [Tooltip("Optional — triggers Punch anim + lets HitTiming.AnimationDriven work.")]
@@ -92,6 +78,7 @@ public class MeleeAttackBehaviour : MonoBehaviour
     private float          _cooldownTimer;
     private bool           _pendingAnimHit; // set true during AnimationDriven windup
     private Coroutine      _attackRoutine;
+    private Coroutine      _lungeRoutine;
 
     #endregion
 
@@ -157,17 +144,20 @@ public class MeleeAttackBehaviour : MonoBehaviour
         IsWindingUp = true;
         _pendingAnimHit = false;
 
-        // Stop moving while swinging — snappier read, no orbit-strafe-punch nonsense
+        // Stop normal chase movement — the lunge below drives any movement during the
+        // swing instead, so the dash reads as a deliberate burst, not just more chase.
         if (_nav != null && _nav.isOnNavMesh) _nav.isStopped = true;
 
-        FaceTarget();
         AnimCtrl?.TriggerPunch();
         OnAttackStarted?.Invoke();
         Log("Attack windup start.");
 
+        if (_lungeRoutine != null) StopCoroutine(_lungeRoutine);
+        _lungeRoutine = StartCoroutine(Co_Lunge());
+
         if (TimingMode == HitTiming.Timed)
         {
-            yield return new WaitForSeconds(WindupTime);
+            yield return StartCoroutine(Co_TurnDuringWindup(WindupTime));
             ResolveHit();
         }
         else // AnimationDriven — wait for AnimEvent_MeleeHit(), with a safety timeout
@@ -177,6 +167,7 @@ public class MeleeAttackBehaviour : MonoBehaviour
             float elapsed  = 0f;
             while (_pendingAnimHit && elapsed < timeout)
             {
+                FaceTargetSmooth();
                 elapsed += Time.deltaTime;
                 yield return null;
             }
@@ -223,12 +214,54 @@ public class MeleeAttackBehaviour : MonoBehaviour
         OnAttackLanded?.Invoke();
     }
 
-    private void FaceTarget()
+    private IEnumerator Co_TurnDuringWindup(float duration)
     {
+        float t = 0f;
+        while (t < duration)
+        {
+            FaceTargetSmooth();
+            t += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    private void FaceTargetSmooth()
+    {
+        if (PlayerHealth.Transform == null) return;
         Vector3 dir = PlayerHealth.Transform.position - transform.position;
         dir.y = 0f;
-        if (dir != Vector3.zero)
-            transform.rotation = Quaternion.LookRotation(dir);
+        if (dir.sqrMagnitude < 0.0001f) return;
+
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation, Quaternion.LookRotation(dir), TurnSpeed * 10f * Time.deltaTime);
+    }
+
+    private IEnumerator Co_Lunge()
+    {
+        if (LungeDistance <= 0f || _nav == null || !_nav.isOnNavMesh || PlayerHealth.Transform == null)
+            yield break;
+
+        Vector3 toPlayer = PlayerHealth.Transform.position - transform.position;
+        toPlayer.y = 0f;
+        if (toPlayer.sqrMagnitude < 0.01f) yield break;
+
+        Vector3 lungeTarget = transform.position + toPlayer.normalized * Mathf.Min(LungeDistance, toPlayer.magnitude);
+
+        float originalSpeed = _nav.speed;
+        _nav.speed = LungeSpeed;
+        _nav.isStopped = false;
+        _nav.SetDestination(lungeTarget);
+
+        float lungeWindow = Mathf.Min(WindupTime, LungeDistance / Mathf.Max(1f, LungeSpeed) + 0.05f);
+        yield return new WaitForSeconds(lungeWindow);
+
+        if (_nav != null && _nav.isOnNavMesh)
+        {
+            _nav.isStopped = true;
+            _nav.speed = originalSpeed;
+        }
+
+        _lungeRoutine = null;
     }
 
     #endregion
@@ -242,6 +275,7 @@ public class MeleeAttackBehaviour : MonoBehaviour
         if (state == EnemyState.Dead || state == EnemyState.Staggered)
         {
             if (_attackRoutine != null) { StopCoroutine(_attackRoutine); _attackRoutine = null; }
+            if (_lungeRoutine  != null) { StopCoroutine(_lungeRoutine);  _lungeRoutine  = null; }
             IsWindingUp = false;
             if (_nav != null && _nav.isOnNavMesh) _nav.isStopped = false;
         }

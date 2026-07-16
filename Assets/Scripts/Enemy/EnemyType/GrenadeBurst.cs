@@ -2,9 +2,6 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Grenade burst attack. Drop on Shielder or any enemy that lobs grenades.
-/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public class GrenadeBurstBehaviour : MonoBehaviour
 {

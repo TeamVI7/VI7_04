@@ -2,10 +2,6 @@ using System.Collections;
 using System.Linq;
 using UnityEngine;
 
-/// <summary>
-/// Cycles between visible and cloaked. Handles ALL materials on ALL renderers —
-/// each slot gets its own runtime stealth instance so multi-mat meshes work correctly.
-/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 public class StealthBehaviour : MonoBehaviour
 {

@@ -50,6 +50,12 @@ public class EnemyStatsSO : ScriptableObject
     public float PatrolRadius        = 12f;
     public float WaypointWaitTime    = 2.5f;
 
+    [Header("Combat Movement Style")]
+    [Tooltip("How this enemy behaves once in combat range. Standoff = old behaviour (walk to PreferredRange, stop). Strafe = holds range but sidesteps. Aggressive = never stops closing.")]
+    public PatrolBehaviour.CombatMovementStyle MovementStyle = PatrolBehaviour.CombatMovementStyle.Standoff;
+    public float StrafeRadius        = 3f;
+    public float StrafeInterval      = 1.2f;
+
     [Header("Armor")]
     public float MaxArmor            = 0f;     // 0 = no shield
     public float ShieldActivateRange = 10f;
@@ -77,6 +83,8 @@ public class EnemyStatsSO : ScriptableObject
     public float MeleeDamage         = 10f;
     public float MeleeCooldown       = 1f;
     public float MeleeRange          = 2f;
+    public float MeleeLungeDistance  = 1.5f;
+    public float MeleeLungeSpeed     = 14f;
 
     [Header("Stealth")]
     public float VisibleDuration     = 3f;
@@ -97,14 +105,45 @@ public class EnemyStatsSO : ScriptableObject
     public int   ShotgunPelletsPerShot  = 6;
     public float ShotgunSpreadAngle  = 0.12f;
     public float ShotgunFireRate     = 2f;
+    public float ShotgunTelegraphTime = 0.25f;
 
     [Header("New Weapons — SMG Setup")]
     public float SMGAttackRange      = 20f;
     public float SMGDamagePerShot    = 2f;
     public float SMGFireRate         = 0.1f;
+    public float SMGTelegraphTime    = 0.12f;
 
     [Header("New Weapons — Sniper Setup")]
     public float SniperAttackRange   = 40f;
     public float SniperFireCooldown  = 3.5f;
     public float SniperDamage        = 25f;
+
+    [Header("Hit Reaction")]
+    public float HitReactionMaxKickDistance = 0.06f;
+    public float HitReactionKickDuration    = 0.15f;
+    public float HitReactionDamageFractionForMaxKick = 0.35f;
+    [Range(0f, 0.2f)]
+    public float HitReactionMinDamageFraction = 0.01f;
+    public float HitReactionFlashDuration   = 0.08f;
+    public float HitReactionHeadshotRadius  = 0.35f;
+    public float HitReactionHeadshotFlashDurationMultiplier = 1.75f;
+    public float HitReactionStaggerFlashDuration = 0.25f;
+    public float HitReactionLimbDismemberFraction = 0.5f;
+    public float HitReactionLimbScaleDownDuration  = 0.15f;
+
+    [Header("Impact VFX")]
+    public float ImpactVFXLifetime = 2f;
+    [Range(0f, 0.2f)]
+    public float ImpactVFXMinDamageFraction = 0.01f;
+
+    [Header("Torso Reaction")]
+    public float TorsoMaxTwistAngle = 12f;
+    public float TorsoTwistDuration = 0.18f;
+
+    [Header("Look At")]
+    [Range(0f, 1f)] public float LookHeadWeight = 0.6f;
+    [Range(0f, 1f)] public float LookTorsoWeight = 0.25f;
+    public float LookMaxYawAngle = 70f;
+    public float LookMaxPitchAngle = 35f;
+    public float LookTurnSpeed = 8f;
 }

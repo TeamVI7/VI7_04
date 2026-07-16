@@ -153,10 +153,6 @@ public class EnemyAudio : MonoBehaviour
     {
         _isAggro = state == EnemyState.Aggro;
 
-        // Fires once, the instant this enemy spots the player and enters Aggro
-        // from Idle. Deliberately checks _lastState (not just "wasn't aggro")
-        // so the Staggered -> Aggro recovery bounce doesn't replay the detect
-        // bark — the enemy was already engaged before it got staggered.
         if (state == EnemyState.Aggro && _lastState == EnemyState.Idle)
             PlayDetect();
 

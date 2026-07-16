@@ -2,10 +2,6 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-/// <summary>
-/// Thợ săn bắn tỉa tầm xa (Sniper Mode).
-/// Cải tiến: Ép quái luôn tự động quay mặt/nòng súng chính diện về phía Player khi nhắm bắn từ xa.
-/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public class SniperAttackBehaviour : MonoBehaviour
 {
@@ -44,6 +40,8 @@ public class SniperAttackBehaviour : MonoBehaviour
     public Color LockColor        = new Color(1f, 0.3f, 0f); 
 
     public event Action OnSniperShot;          
+
+    public bool IsAimingOrLocking => _isShooting;
 
     private EnemyBrain _brain;
     private bool       _isShooting;            
@@ -85,8 +83,6 @@ public class SniperAttackBehaviour : MonoBehaviour
             return;
         }
 
-        // 1. Quét tìm Player bằng raycast (thay cho OverlapSphere) — vừa rẻ hơn, vừa
-        //    tôn trọng che khuất: quái không còn "thấy" Player xuyên tường trong tầm bắn nữa.
         ScanForPlayerTarget();
 
         if (_targetPlayer == null)
@@ -95,13 +91,11 @@ public class SniperAttackBehaviour : MonoBehaviour
             return;
         }
 
-        // CHỐT CHẶN XOAY NGƯỜI: Khi quái đang nhắm bắn (_isShooting), ép nó phải xoay mặt về Player
         if (_isShooting)
         {
             RotateTowardsPlayer();
         }
 
-        // 2. Đếm thời gian hồi chiêu
         if (_isCooldown)
         {
             _cooldownTimer += Time.deltaTime;
@@ -113,59 +107,40 @@ public class SniperAttackBehaviour : MonoBehaviour
             return; 
         }
 
-        // 3. Khởi động chu kỳ ngắm bắn nếu sẵn sàng
         if (!_isShooting)
         {
             _shootRoutine = StartCoroutine(CombineSniperSequence());
         }
     }
 
-    /// <summary>
-    /// Tính toán và ép trục Y của quái quay chính xác hướng về phía mục tiêu thực tế
-    /// </summary>
     private void RotateTowardsPlayer()
     {
         Vector3 targetPos = _isLocking && _lockedTargetPos != Vector3.zero
             ? _lockedTargetPos 
             : _targetPlayer.position;
 
-        // Chỉ tính hướng xoay trên mặt phẳng ngang (Trục Y), tránh làm quái bị chúi đầu xuống đất
         Vector3 lookDirection = (targetPos - transform.position);
         lookDirection.y = 0f; 
 
         if (lookDirection != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
-            // Xoay mượt mà theo thời gian dựa vào RotationSpeed
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, RotationSpeed * Time.deltaTime);
         }
     }
 
-    /// <summary>
-    /// Raycast straight at PlayerHealth.Transform — no more OverlapSphere + tag scan.
-    /// Fails (no target) if out of range OR if something in ObstacleLayers blocks the shot,
-    /// so the sniper can no longer lock through walls.
-    /// </summary>
     private void ScanForPlayerTarget()
     {
         _targetPlayer = null;
 
         if (PlayerHealth.Transform == null) return;
 
-        Vector3 origin      = GetFireOrigin();
-        Vector3 targetPoint = PlayerHealth.Transform.position + Vector3.up * TargetHeightOffset;
-        Vector3 toTarget    = targetPoint - origin;
-        float   distance    = toTarget.magnitude;
-
+        Vector3 origin = GetFireOrigin();
+        float distance = Vector3.Distance(origin, PlayerHealth.Transform.position);
         if (distance > AttackRange) return;
 
-        Vector3 dir = toTarget / distance;
-
-        // Blocked by an obstacle before reaching the player → no line of sight, no target.
-        if (Physics.Raycast(origin, dir, out RaycastHit hit, distance, ObstacleLayers))
-            return;
-
-        _targetPlayer = PlayerHealth.Transform;
+        if (EnemyVision.HasLineOfSight(origin, PlayerHealth.Transform, AttackRange, ObstacleLayers))
+            _targetPlayer = PlayerHealth.Transform;
     }
 
     private IEnumerator CombineSniperSequence()
@@ -176,9 +151,6 @@ public class SniperAttackBehaviour : MonoBehaviour
         _isLocking  = false;
         LaserRenderer.enabled = true;
 
-        // =================================================================
-        // GIAI ĐOẠN 1: NHẮM MỤC TIÊU (AIMING) - LASER ĐỎ BÁM THEO PLAYER TỪ XA
-        // =================================================================
         float timer = 0f;
         LaserRenderer.startColor = AimColor;
         LaserRenderer.endColor = AimColor;
@@ -205,9 +177,6 @@ public class SniperAttackBehaviour : MonoBehaviour
             yield return null;
         }
 
-        // =================================================================
-        // GIAI ĐOẠN 2: KHÓA VỊ TRÍ (LOCKING) - LASER CAM CHỐT CHẶN CỐ ĐỊNH TẠI CHỖ
-        // =================================================================
         if (_targetPlayer == null) yield break;
         
         timer = 0f;
@@ -235,9 +204,6 @@ public class SniperAttackBehaviour : MonoBehaviour
             yield return null;
         }
 
-        // =================================================================
-        // GIAI ĐOẠN 3: KHAI HỎA (FIRING) - BẮN ĐẠN THẲNG VÀO ĐIỂM KHÓA
-        // =================================================================
         FireSniperBulletAtLockedPosition();
 
         ResetLaserAfterShot();
@@ -248,12 +214,6 @@ public class SniperAttackBehaviour : MonoBehaviour
         Vector3 origin  = GetFireOrigin();
         Vector3 fireDir = (_lockedTargetPos - origin).normalized;
 
-        // Instant hitscan — the shot was already locked to a fixed point during
-        // GIAI ĐOẠN 2, so there's nothing a travelling projectile adds here.
-        //
-        // NOTE: PlayerHealth does not implement IDamageable — it's always the single,
-        // known target for enemy attacks, so every other enemy weapon (SMG, Shotgun)
-        // hits it via a tag check + PlayerHealth.Instance directly, not GetComponentInParent.
         if (Physics.Raycast(origin, fireDir, out RaycastHit hit, AttackRange))
         {
             if (hit.collider.CompareTag("Player"))
