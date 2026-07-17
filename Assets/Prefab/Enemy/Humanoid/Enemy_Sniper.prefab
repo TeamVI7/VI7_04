@@ -1006,6 +1006,8 @@ MonoBehaviour:
   DelayBetweenExplosions: 0.4
   ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
+  DropChance: 1
+  DropTable: []
   DropUpwardForce: 4
   DeathVFXPrefab: {fileID: 0}
   DeathVFXLifetime: 3
@@ -1092,6 +1094,7 @@ MonoBehaviour:
   BombClip: {fileID: 0}
   SMGClip: {fileID: 0}
   ShotgunClip: {fileID: 0}
+  PistolClip: {fileID: 0}
   SniperMuzzleClip: {fileID: 0}
   SniperImpactClip: {fileID: 0}
   SniperWhizClip: {fileID: 0}
@@ -1168,6 +1171,7 @@ MonoBehaviour:
   LimbScaleDownDuration: 0.15
   MeleeGate: {fileID: 6158516016351799950}
   SniperGate: {fileID: 1317610812641092913}
+  debugLog: 0
 --- !u!114 &6309810722467292518
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2487,7 +2491,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 172548550020821758}
+  m_Father: {fileID: 201608866969622647}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5141477244968735739
 GameObject:
@@ -4750,16 +4754,11 @@ PrefabInstance:
     - {fileID: -2986948670515129352, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
     - {fileID: 5531241066609784180, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: -8708843807601750686, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2076344804836018933}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
---- !u!4 &172548550020821758 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8708843807601750686, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}
-  m_PrefabInstance: {fileID: 380267536319938460}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &201608866969622647 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5d6d05639fd484c4abb6bd8f3884f194, type: 3}

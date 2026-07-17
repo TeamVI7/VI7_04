@@ -1,9 +1,5 @@
 using UnityEngine;
 
-// Gắn vào Player hoặc Camera của Player.
-// Mỗi frame bắn 1 raycast theo hướng camera nhìn, nếu trúng nút chọn tầng
-// (object có ElevatorFloorButtonLookable + Collider) thì làm nút đó sáng lên.
-// Nhấn phím tương tác (mặc định E) để xác nhận chọn tầng đang nhìn.
 public class PlayerElevatorInteractor : MonoBehaviour
 {
     [Header("Tham chiếu")]

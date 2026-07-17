@@ -1,6 +1,11 @@
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 
+/// <summary>
+/// Activates ragdoll physics when EnemyHealth reports death.
+/// GDD §7.4 — all deaths physics-resolved, fast arrival = violent impact.
+/// </summary>
 [RequireComponent(typeof(EnemyHealth))]
 public class EnemyRagdoll : MonoBehaviour
 {
@@ -22,7 +27,12 @@ public class EnemyRagdoll : MonoBehaviour
     {
         _health = GetComponent<EnemyHealth>();
         _bodies       = GetComponentsInChildren<Rigidbody>();
-        _colliders    = GetComponentsInChildren<Collider>();
+        // Limb hitboxes are gameplay hit-detection colliders, not ragdoll body
+        // parts — they must stay enabled while the enemy is alive, so they're
+        // excluded from the set this component is allowed to switch off below.
+        _colliders    = GetComponentsInChildren<Collider>()
+            .Where(c => c.GetComponent<EnemyLimbHitbox>() == null)
+            .ToArray();
         _animator     = GetComponent<Animator>();
         _nav          = GetComponent<NavMeshAgent>();
         _mainCollider = GetComponent<Collider>();

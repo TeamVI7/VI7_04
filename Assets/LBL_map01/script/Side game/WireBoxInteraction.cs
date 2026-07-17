@@ -54,6 +54,10 @@ public class WireBoxInteraction : MonoBehaviour
     [SerializeField] private float morseCameraMoveDuration = 0.6f;
     [SerializeField] private Ease morseCameraMoveEase = Ease.InOutSine;
 
+    [Header("Dialogue — plays after the wire puzzle is solved")]
+    [Tooltip("Drag a DialogueData asset (lines + voice) here. Leave empty to skip dialogue.")]
+    [SerializeField] private DialogueData dialogueOnSolved;
+
     [Header("Âm thanh")]
     [Tooltip("AudioSource để phát SFX. Để trống = tự thêm AudioSource lên chính object này.")]
     [SerializeField] private AudioSource sfxSource;
@@ -335,6 +339,10 @@ public class WireBoxInteraction : MonoBehaviour
 
         // Đóng UI + trả lại cam người chơi như cũ (wire puzzle camera logic không đổi)
         ExitWireBox();
+
+        // Dialogue (text + voice) runs AFTER the player's camera is restored.
+        if (dialogueOnSolved != null && DialogueManager.Instance != null)
+            DialogueManager.Instance.Play(dialogueOnSolved);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

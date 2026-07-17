@@ -1,13 +1,12 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using DG.Tweening;
 
 /// <summary>
 /// World-space canvas tablet UI. Tab toggles open/closed.
-/// Closing plays the open animation backward via manual normalizedTime scrub
-/// (Animator.speed can't go negative, so we drive it by hand).
+/// Open/close is a DOTween scale punch on tabletVisuals — no Animator dependency.
 /// Disables PlayerCam and other scripts while open.
 /// Click detection: camera-forward raycast against EventSystem raycasters —
 /// look at a button, click. No free cursor needed.
@@ -20,7 +19,6 @@ public class TabletController : MonoBehaviour
 
     [Header("Core References")]
     public GameObject tabletVisuals;
-    public Animator   tabletAnimator;
 
     [Header("UI / Gun Suppression")]
     public GameObject playerUI;
@@ -36,8 +34,9 @@ public class TabletController : MonoBehaviour
     public bool blockToggleDuringTransition = true;
 
     [Header("Animation")]
-    public float animationDuration = 0.5f;
-    public float openSpeed = 1f;
+    public float animationDuration = 0.3f;
+    public Ease openEase  = Ease.OutBack;
+    public Ease closeEase = Ease.InBack;
 
     [Header("World-Space Canvas Interaction")]
     [Tooltip("Auto-found via Camera.main if left empty.")]
@@ -92,8 +91,7 @@ public class TabletController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     private Coroutine  _transitionCoroutine;
-    private float      _lastNormalizedTime;
-    private int        _cachedStateHash;
+    private Tween      _scaleTween;
 
     private GameObject            _currentHoverTarget;
     private readonly List<RaycastResult> _raycastResults = new List<RaycastResult>(8);
@@ -107,14 +105,11 @@ public class TabletController : MonoBehaviour
 
     private void Start()
     {
-        if (tabletAnimator != null)
+        if (tabletVisuals != null)
         {
-            tabletAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
-            tabletAnimator.speed      = 0f;
-            _cachedStateHash          = tabletAnimator.GetCurrentAnimatorStateInfo(0).fullPathHash;
+            tabletVisuals.transform.localScale = Vector3.zero;
+            tabletVisuals.SetActive(false);
         }
-
-        if (tabletVisuals != null) tabletVisuals.SetActive(false);
         if (minimapCamera != null) minimapCamera.enabled = false;
         if (playerCam == null)         playerCam         = GetComponentInParent<PlayerCam>();
         if (interactionCamera == null) interactionCamera = Camera.main;
@@ -159,11 +154,15 @@ public class TabletController : MonoBehaviour
     public void StartOpen()
     {
         StopCoroutineIfRunning();
+        _scaleTween?.Kill();
         SetState(TabletState.Opening);
         OnTabletOpenStart?.Invoke();
 
-        if (tabletVisuals != null)  tabletVisuals.SetActive(true);
-        if (tabletAnimator != null) tabletAnimator.speed = 0f;
+        if (tabletVisuals != null)
+        {
+            tabletVisuals.SetActive(true);
+            tabletVisuals.transform.localScale = Vector3.zero;
+        }
         if (playerUI != null)       playerUI.SetActive(false);
         if (weaponHolder != null)   weaponHolder.SetActive(false);
 
@@ -174,17 +173,34 @@ public class TabletController : MonoBehaviour
 
         if (minimapCamera != null) minimapCamera.enabled = true;
 
-        _transitionCoroutine = StartCoroutine(Co_ScrubAnimation(forward: true));
+        if (tabletVisuals != null)
+        {
+            _scaleTween = tabletVisuals.transform
+                .DOScale(Vector3.one, animationDuration)
+                .SetEase(openEase)
+                .SetUpdate(true) // unscaled time, in case timeScale is ever paused
+                .OnComplete(() =>
+                {
+                    SetState(TabletState.Open);
+                    OnTabletOpened?.Invoke();
+                    Log("Open complete.");
+                });
+        }
+        else
+        {
+            SetState(TabletState.Open);
+            OnTabletOpened?.Invoke();
+        }
+
         Log("Open started.");
     }
 
     public void StartClose()
     {
         StopCoroutineIfRunning();
+        _scaleTween?.Kill();
         SetState(TabletState.Closing);
         OnTabletCloseStart?.Invoke();
-
-        if (tabletAnimator != null) tabletAnimator.speed = 0f;
 
         SetPlayerScriptsEnabled(true);
         SetUIHoverTarget(null);
@@ -194,49 +210,34 @@ public class TabletController : MonoBehaviour
 
         if (minimapCamera != null) minimapCamera.enabled = false;
 
-        _transitionCoroutine = StartCoroutine(Co_ScrubAnimation(forward: false));
-        Log("Close started.");
-    }
-
-    private IEnumerator Co_ScrubAnimation(bool forward)
-    {
-        float duration = Mathf.Max(0.0001f, animationDuration);
-        float elapsed  = forward ? _lastNormalizedTime * duration : (1f - _lastNormalizedTime) * duration;
-
-        while (elapsed < duration)
+        if (tabletVisuals != null)
         {
-            elapsed += Time.unscaledDeltaTime * openSpeed;
-            float t = Mathf.Clamp01(elapsed / duration);
-            _lastNormalizedTime = forward ? t : 1f - t;
-
-            if (tabletAnimator != null && _cachedStateHash != 0)
-                tabletAnimator.Play(_cachedStateHash, 0, _lastNormalizedTime);
-
-            yield return null;
-        }
-
-        _lastNormalizedTime = forward ? 1f : 0f;
-        if (tabletAnimator != null && _cachedStateHash != 0)
-            tabletAnimator.Play(_cachedStateHash, 0, _lastNormalizedTime);
-
-        if (forward)
-        {
-            SetState(TabletState.Open);
-            OnTabletOpened?.Invoke();
-            Log("Open complete.");
+            _scaleTween = tabletVisuals.transform
+                .DOScale(Vector3.zero, animationDuration)
+                .SetEase(closeEase)
+                .SetUpdate(true)
+                .OnComplete(() =>
+                {
+                    tabletVisuals.SetActive(false);
+                    FinishClose();
+                });
         }
         else
         {
-            if (tabletVisuals != null) tabletVisuals.SetActive(false);
-            if (playerUI != null)      playerUI.SetActive(true);
-            if (weaponHolder != null)  weaponHolder.SetActive(true);
-
-            SetState(TabletState.Closed);
-            OnTabletClosed?.Invoke();
-            Log("Close complete.");
+            FinishClose();
         }
 
-        _transitionCoroutine = null;
+        Log("Close started.");
+    }
+
+    private void FinishClose()
+    {
+        if (playerUI != null)     playerUI.SetActive(true);
+        if (weaponHolder != null) weaponHolder.SetActive(true);
+
+        SetState(TabletState.Closed);
+        OnTabletClosed?.Invoke();
+        Log("Close complete.");
     }
 
     private void StopCoroutineIfRunning()

@@ -3635,6 +3635,8 @@ MonoBehaviour:
   DelayBetweenExplosions: 0.4
   ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
+  DropChance: 1
+  DropTable: []
   DropUpwardForce: 4
   DeathVFXPrefab: {fileID: 0}
   DeathVFXLifetime: 3
@@ -3721,6 +3723,7 @@ MonoBehaviour:
   BombClip: {fileID: 0}
   SMGClip: {fileID: 0}
   ShotgunClip: {fileID: 0}
+  PistolClip: {fileID: 0}
   SniperMuzzleClip: {fileID: 0}
   SniperImpactClip: {fileID: 0}
   SniperWhizClip: {fileID: 0}
@@ -3778,6 +3781,7 @@ MonoBehaviour:
   LimbScaleDownDuration: 0.15
   MeleeGate: {fileID: 4605267740680181139}
   SniperGate: {fileID: 0}
+  debugLog: 0
 --- !u!114 &481507368088642946
 MonoBehaviour:
   m_ObjectHideFlags: 0

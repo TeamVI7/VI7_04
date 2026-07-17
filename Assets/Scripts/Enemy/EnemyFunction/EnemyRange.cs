@@ -2,6 +2,19 @@ using System;
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Shared gating for enemy hitscan-style attacks: Aggro-check, range-check, a
+/// fire-rate cooldown, and an optional visible telegraph before the shot actually
+/// lands. Concrete weapons only implement Fire() — the actual raycast/damage/trail
+/// logic.
+///
+/// Extracted from SMGAttackBehaviour / ShotgunAttackBehaviour, which were ~80%
+/// identical boilerplate around the same "am I allowed to shoot right now" check.
+///
+/// NOT used by SniperAttackBehaviour (charge/lock/fire state machine — already has
+/// its own, more elaborate telegraph) or LaserBehaviour (continuous beam, not a
+/// discrete cooldown-gated shot).
+/// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
 {
@@ -9,7 +22,13 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
     public Transform FirePoint;
     public float     AttackRange = 20f;
     public float     FireRate    = 0.1f;
+    [Tooltip("Layers that block/absorb this shot — walls, terrain, props. Should NOT include the player's own layer.")]
     public LayerMask ObstacleLayers;
+    [Tooltip("The player's own physics layer. Combined with ObstacleLayers for the actual firing raycast — without this, the shot can only ever hit obstacles and can never register a hit on the player at all.")]
+    public LayerMask PlayerLayer;
+
+    /// <summary>Obstacles + player combined — use this for the firing raycast, not ObstacleLayers alone.</summary>
+    protected LayerMask FireHitMask => ObstacleLayers | PlayerLayer;
 
     [Header("Telegraph")]
     [Tooltip("Seconds of visible wind-up before the shot actually fires, once the fire-rate timer trips. 0 = instant/legacy hitscan.")]
@@ -29,6 +48,7 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
 
     private float     _nextFireTimer;
     private Coroutine _telegraphRoutine;
+    private bool      _holdingFireSlot;
 
     protected virtual void Awake()
     {
@@ -49,6 +69,16 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         _nextFireTimer += Time.deltaTime;
         if (_nextFireTimer >= FireRate)
         {
+            if (!EnemySquadCoordinator.TryAcquireFireSlot())
+            {
+                // No slot free — hold at the threshold and retry next frame instead of
+                // letting the timer overshoot, so it fires the instant one opens up
+                // rather than waiting a full extra FireRate cycle.
+                _nextFireTimer = FireRate;
+                return;
+            }
+
+            _holdingFireSlot = true;
             _nextFireTimer = 0f;
 
             if (TelegraphTime > 0f)
@@ -67,6 +97,9 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         float t = 0f;
         while (t < TelegraphTime)
         {
+            // Bail if the target became invalid or left range mid wind-up — the shot
+            // never lands, so a player who breaks line of sight during the tell is
+            // actually rewarded for it instead of eating a shot fired at empty air anyway.
             if (Brain.State != EnemyState.Aggro || PlayerHealth.Transform == null ||
                 Vector3.Distance(transform.position, PlayerHealth.Transform.position) > AttackRange)
             {
@@ -89,6 +122,7 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
     {
         OnFired?.Invoke();
         Fire();
+        ReleaseFireSlot();
     }
 
     private void CancelTelegraph()
@@ -105,7 +139,18 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
             if (TelegraphVFX != null) TelegraphVFX.SetActive(false);
             OnTelegraphCancelled?.Invoke();
         }
+
+        ReleaseFireSlot();
     }
+
+    private void ReleaseFireSlot()
+    {
+        if (!_holdingFireSlot) return;
+        EnemySquadCoordinator.ReleaseFireSlot();
+        _holdingFireSlot = false;
+    }
+
+    private void OnDisable() => ReleaseFireSlot();
 
     /// <summary>Implement the actual shot here — raycast(s), damage, trail VFX.</summary>
     protected abstract void Fire();

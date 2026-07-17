@@ -4,10 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
-/// <summary>
-/// Debug script. Gắn vào bất kỳ GameObject nào.
-/// Khi minigame mở, click chuột → log chi tiết vào Console.
-/// </summary>
+
 public class RaycastDebugger : MonoBehaviour
 {
     private void Update()
@@ -31,7 +28,6 @@ public class RaycastDebugger : MonoBehaviour
             return;
         }
 
-        // Object đầu tiên là object nhận event
         var first = results[0];
         bool firstIsUI = first.module is GraphicRaycaster;
 
@@ -41,8 +37,6 @@ public class RaycastDebugger : MonoBehaviour
         if (!firstIsUI)
         {
             Debug.LogWarning($"⚠️ '{first.gameObject.name}' đang CHẶN UI! Cần tắt collider này khi minigame mở.");
-
-            // Tìm UI nào bị chặn phía sau
             for (int i = 1; i < results.Count; i++)
             {
                 if (results[i].module is GraphicRaycaster)
@@ -50,7 +44,6 @@ public class RaycastDebugger : MonoBehaviour
             }
         }
 
-        // Kiểm tra InputField cụ thể
         var allInputFields = FindObjectsOfType<TMP_InputField>();
         foreach (var field in allInputFields)
         {

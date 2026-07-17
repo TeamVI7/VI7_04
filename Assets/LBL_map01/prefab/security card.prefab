@@ -272,8 +272,8 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.008576235
-  m_Center: {x: 0.00027526857, y: 0.00063065765, z: 4.581369e-18}
+  m_Radius: 0.014307251
+  m_Center: {x: -0.00049947103, y: -0.0009514999, z: -4.0032754e-18}
 --- !u!114 &7330093582426950418
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -289,7 +289,7 @@ MonoBehaviour:
   cardId: card_vip
   cardDisplayName: "Th\u1EBB VIP"
   pickupSound: {fileID: 8300000, guid: 8b782a74ce942b147b7fdef6cd66996b, type: 3}
-  pickupEffectPrefab: {fileID: 662379494699630516, guid: 729e0f3a69193694f96928a13a40d253, type: 3}
+  pickupEffectPrefab: {fileID: 0}
   tooltipRoot: {fileID: 0}
   tooltipText: {fileID: 0}
   interactKey: 102

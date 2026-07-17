@@ -11,145 +11,167 @@ AvatarMask:
   m_Elements:
   - m_Path: 
     m_Weight: 1
-  - m_Path: ArmRIG
+  - m_Path: Armature Simplified.004
     m_Weight: 1
-  - m_Path: ArmRIG/Camera
+  - m_Path: Armature Simplified.004/Root
     m_Weight: 1
-  - m_Path: ArmRIG/Root
+  - m_Path: Armature Simplified.004/Root/Spine
     m_Weight: 1
-  - m_Path: ArmRIG/Root/hand_Controller_L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L
     m_Weight: 1
-  - m_Path: ArmRIG/Root/hand_R_Controller
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001
     m_Weight: 1
-  - m_Path: ArmRIG/Root/Pole_Target_L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002
     m_Weight: 1
-  - m_Path: ArmRIG/Root/Pole_Target_R
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003
     m_Weight: 1
-  - m_Path: ArmRIG/Root/upper_arm_L_Controller
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004/Foot.L
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004/Foot.L/Foot.L.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004/Foot.L/Foot.L.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004/Foot.L/Foot.L.002/Foot.L.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/f_index.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/f_index.01.L/f_index.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/f_index.01.L/f_index.02.L/f_index.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/f_index.01.L/f_index.02.L/f_index.03.L/f_index.03.L_end
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/f_index.Controller.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/thumb.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004/Foot.R
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/thumb.01.L/thumb.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004/Foot.R/Foot.R.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/thumb.01.L/thumb.02.L/thumb.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004/Foot.R/Foot.R.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/thumb.01.L/thumb.02.L/thumb.03.L/thumb.03.L_end
+  - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004/Foot.R/Foot.R.002/Foot.R.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.01.L/thumb.Controller.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L/f_middle.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L/f_middle.01.L/f_middle.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L/f_middle.01.L/f_middle.02.L/f_middle.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L/f_middle.01.L/f_middle.02.L/f_middle.03.L/f_middle.03.L_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.02.L/f_middle.Controller.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L/f_ring.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L/f_ring.01.L/f_ring.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L/f_ring.01.L/f_ring.02.L/f_ring.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.001/Hand.L.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L/f_ring.01.L/f_ring.02.L/f_ring.03.L/f_ring.03.L_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.001/Hand.L.002/Hand.L.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.03.L/f_ring.Controller.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.001/Hand.L.002/Hand.L.003/Hand.L.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.005
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L/f_pinky.01.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.005/Hand.L.006
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L/f_pinky.01.L/f_pinky.02.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.005/Hand.L.006/Hand.L.007
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L/f_pinky.01.L/f_pinky.02.L/f_pinky.03.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.005/Hand.L.006/Hand.L.007/Hand.L.008
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L/f_pinky.01.L/f_pinky.02.L/f_pinky.03.L/f_pinky.03.L_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.009
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.L/forearm.L/hand.L/palm.04.L/f_pinky.Controller.L
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.009/Hand.L.010
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.009/Hand.L.010/Hand.L.011
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.009/Hand.L.010/Hand.L.011/Hand.L.012
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.013
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.013/Hand.L.014
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/f_index.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.013/Hand.L.014/Hand.L.015
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/f_index.01.R/f_index.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.013/Hand.L.014/Hand.L.015/Hand.L.016
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/f_index.01.R/f_index.02.R/f_index.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L/Arm.L.001/Arm.L.002/Arm.L.003/Arm.L.004/Hand.L/Hand.L.013/Hand.L.014/Hand.L.015/Hand.L.016/Hand.L.017
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/f_index.01.R/f_index.02.R/f_index.03.R/f_index.03.R_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/thumb.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/thumb.01.R/thumb.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/thumb.01.R/thumb.02.R/thumb.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.01.R/thumb.01.R/thumb.02.R/thumb.03.R/thumb.03.R_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.02.R/f_middle.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.001
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.02.R/f_middle.01.R/f_middle.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.001/Hand.R.002
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.02.R/f_middle.01.R/f_middle.02.R/f_middle.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.001/Hand.R.002/Hand.R.003
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.02.R/f_middle.01.R/f_middle.02.R/f_middle.03.R/f_middle.03.R_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.001/Hand.R.002/Hand.R.003/Hand.R.004
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.005
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.03.R/f_ring.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.005/Hand.R.006
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.03.R/f_ring.01.R/f_ring.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.005/Hand.R.006/Hand.R.007
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.03.R/f_ring.01.R/f_ring.02.R/f_ring.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.005/Hand.R.006/Hand.R.007/Hand.R.008
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.03.R/f_ring.01.R/f_ring.02.R/f_ring.03.R/f_ring.03.R_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.009
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.04.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.009/Hand.R.010
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.04.R/f_pinky.01.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.009/Hand.R.010/Hand.R.011
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.04.R/f_pinky.01.R/f_pinky.02.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.009/Hand.R.010/Hand.R.011/Hand.R.012
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.04.R/f_pinky.01.R/f_pinky.02.R/f_pinky.03.R
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.013
     m_Weight: 1
-  - m_Path: ArmRIG/upper_arm.R/forearm.R/hand.R/palm.04.R/f_pinky.01.R/f_pinky.02.R/f_pinky.03.R/f_pinky.03.R_end
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.013/Hand.R.014
     m_Weight: 1
-  - m_Path: Base
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.013/Hand.R.014/Hand.R.015
     m_Weight: 1
-  - m_Path: Cube.009
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.013/Hand.R.014/Hand.R.015/Hand.R.016
     m_Weight: 1
-  - m_Path: Root
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.R/Arm.R.001/Arm.R.002/Arm.R.003/Arm.R.004/Hand.R/Hand.R.013/Hand.R.014/Hand.R.015/Hand.R.016/Hand.R.017
     m_Weight: 1
-  - m_Path: Root/Root
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Head
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Head/Head.001
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Head/Head.001/Head.002
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Head/Head.001/Head.002/Neck
+      Piston.L
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Head/Head.001/Head.002/Neck
+      Piston.R
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Neck
+      Piston.L.001
+    m_Weight: 1
+  - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Neck
+      Piston.R.001
+    m_Weight: 1
+  - m_Path: Primary Bottom.010
+    m_Weight: 1
+  - m_Path: Primary Top.008
+    m_Weight: 1
+  - m_Path: Secondary.006
     m_Weight: 1

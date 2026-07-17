@@ -263,6 +263,8 @@ MonoBehaviour:
   DelayBetweenExplosions: 0.4
   ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
+  DropChance: 1
+  DropTable: []
   DropUpwardForce: 4
   DeathVFXPrefab: {fileID: 0}
   DeathVFXLifetime: 3
@@ -349,6 +351,7 @@ MonoBehaviour:
   BombClip: {fileID: 0}
   SMGClip: {fileID: 8300000, guid: c818609ef6739be448b9b80b50cb7edb, type: 3}
   ShotgunClip: {fileID: 0}
+  PistolClip: {fileID: 0}
   SniperMuzzleClip: {fileID: 0}
   SniperImpactClip: {fileID: 0}
   SniperWhizClip: {fileID: 0}
@@ -377,6 +380,9 @@ MonoBehaviour:
   ObstacleLayers:
     serializedVersion: 2
     m_Bits: 513
+  PlayerLayer:
+    serializedVersion: 2
+    m_Bits: 0
   TelegraphTime: 0
   TelegraphVFX: {fileID: 0}
   DamagePerShot: 2
@@ -416,6 +422,7 @@ MonoBehaviour:
   LimbScaleDownDuration: 0.15
   MeleeGate: {fileID: 0}
   SniperGate: {fileID: 0}
+  debugLog: 0
 --- !u!195 &7318359407448321586
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -3847,7 +3854,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 3231593736802666368}
+  m_Father: {fileID: 7647742458749196994}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8347332855121636272
 GameObject:
@@ -4567,16 +4574,11 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 4715384411340044969, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2761eca323c250344a502ccf2020e841, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4528758922291841914}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2761eca323c250344a502ccf2020e841, type: 3}
---- !u!4 &3231593736802666368 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 4715384411340044969, guid: 2761eca323c250344a502ccf2020e841, type: 3}
-  m_PrefabInstance: {fileID: 7901710966664363305}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &7647742458749196994 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 2761eca323c250344a502ccf2020e841, type: 3}

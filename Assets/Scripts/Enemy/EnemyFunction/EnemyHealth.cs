@@ -6,6 +6,18 @@ using UnityEngine;
 /// Owns HP, stagger accumulation, death. Nothing else.
 /// All other systems subscribe to the events.
 /// </summary>
+[System.Serializable]
+public class LootDrop
+{
+    public GameObject Prefab;
+    [Range(0f, 1f)]
+    [Tooltip("Independent chance THIS entry drops — rolled separately from every other entry, so any number of entries can succeed from the same kill, not just one.")]
+    public float Chance = 1f;
+    [Tooltip("How many copies to spawn if this entry's roll succeeds.")]
+    public int MinCount = 1;
+    public int MaxCount = 1;
+}
+
 [DisallowMultipleComponent]
 public class EnemyHealth : MonoBehaviour, IDamageable
 {
@@ -29,7 +41,13 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float ExplosionScatterRadius      = 1.2f;
 
     [Header("Drop")]
+    [Tooltip("Legacy single-drop field — used when DropTable is empty. Leave set for enemies that always drop exactly one specific thing.")]
     public GameObject DropPrefab;
+    [Range(0f, 1f)]
+    [Tooltip("Overall chance this enemy drops anything at all on death. 1 = always drops (if DropPrefab or DropTable has something to drop).")]
+    public float DropChance = 1f;
+    [Tooltip("Independent-roll drop pool — every entry is rolled separately, so a single kill can drop none, one, or several of these at once. Leave empty to just use DropPrefab.")]
+    public LootDrop[] DropTable;
     public float      DropUpwardForce        = 4f;
 
     [Header("VFX")]
@@ -181,10 +199,37 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
     private void SpawnDrop(Vector3 spawnPosition)
     {
-        if (DropPrefab == null) return;
-        
-        var drop = Instantiate(DropPrefab, spawnPosition + Vector3.up, Quaternion.identity);
+        if (UnityEngine.Random.value > DropChance) return;
+
+        if (DropTable != null && DropTable.Length > 0)
+        {
+            foreach (var entry in DropTable)
+            {
+                if (entry == null || entry.Prefab == null) continue;
+                if (UnityEngine.Random.value > entry.Chance) continue;
+
+                int count = UnityEngine.Random.Range(entry.MinCount, entry.MaxCount + 1);
+                for (int i = 0; i < count; i++)
+                    SpawnOneDrop(entry.Prefab, spawnPosition);
+            }
+            return;
+        }
+
+        if (DropPrefab != null) SpawnOneDrop(DropPrefab, spawnPosition);
+    }
+
+    private void SpawnOneDrop(GameObject prefab, Vector3 spawnPosition)
+    {
+        // Small horizontal scatter so multiple drops from the same kill don't spawn
+        // stacked exactly on top of each other.
+        Vector3 scatter = new Vector3(UnityEngine.Random.Range(-0.3f, 0.3f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f));
+
+        var drop = Instantiate(prefab, spawnPosition + Vector3.up + scatter, Quaternion.identity);
         if (drop.TryGetComponent(out Rigidbody dropRb))
-            dropRb.AddForce(Vector3.up * DropUpwardForce, ForceMode.Impulse);
+        {
+            Vector3 force = Vector3.up * DropUpwardForce
+                          + new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f));
+            dropRb.AddForce(force, ForceMode.Impulse);
+        }
     }
 }

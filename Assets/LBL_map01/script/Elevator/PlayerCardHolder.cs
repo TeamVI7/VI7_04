@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Gắn component này vào object Player.
-// Khi người chơi nhặt được thẻ nhân viên (item trong game), gọi AddCard("ten_ma_the")
 public class PlayerCardHolder : MonoBehaviour
 {
     [Header("Danh sách mã thẻ đang sở hữu")]

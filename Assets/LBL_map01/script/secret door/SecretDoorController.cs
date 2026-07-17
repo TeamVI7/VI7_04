@@ -25,6 +25,8 @@ public class SecretDoorController : MonoBehaviour
     private Vector3 closedPos, openPos;
     private Quaternion closedRot, openRot;
 
+    public bool IsOpen => isOpen;   // Cho phép các interactable khác (vd: tay nắm phía bên kia) kiểm tra trạng thái cửa
+
     void Start()
     {
         if (door == null) door = transform;

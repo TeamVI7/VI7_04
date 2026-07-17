@@ -89,7 +89,11 @@ public class ComputerInteraction : MonoBehaviour
         if (playerCameraTransform == null) return;
         Ray ray = new Ray(playerCameraTransform.position, playerCameraTransform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance, interactableLayer))
-            EnterComputer();
+        {
+            // Only trigger if the hit collider belongs to THIS computer object
+            if (hit.transform == transform || hit.transform.IsChildOf(transform))
+                EnterComputer();
+        }
     }
 
     private void EnterComputer()

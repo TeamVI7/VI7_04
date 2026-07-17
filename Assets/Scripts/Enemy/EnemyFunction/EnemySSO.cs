@@ -38,6 +38,8 @@ public class EnemyStatsSO : ScriptableObject
     public float DeathImpulseScale   = 8f;
     public float DeathVFXLifetime    = 3f;
     public float DropUpwardForce     = 4f;
+    [Range(0f, 1f)]
+    public float DropChance          = 1f;
 
     [Header("Detection")]
     public float AggroRadius         = 15f;
@@ -112,6 +114,12 @@ public class EnemyStatsSO : ScriptableObject
     public float SMGDamagePerShot    = 2f;
     public float SMGFireRate         = 0.1f;
     public float SMGTelegraphTime    = 0.12f;
+
+    [Header("New Weapons — Pistol Setup")]
+    public float PistolAttackRange   = 18f;
+    public float PistolDamagePerShot = 6f;
+    public float PistolFireRate      = 0.5f;
+    public float PistolTelegraphTime = 0.15f;
 
     [Header("New Weapons — Sniper Setup")]
     public float SniperAttackRange   = 40f;

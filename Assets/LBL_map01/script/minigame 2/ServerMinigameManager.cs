@@ -1,32 +1,36 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Quản lý minigame 2: server trồi lên, player gắn SSD, cửa mở.
-/// Gắn vào một Empty GameObject "ServerManager".
-///
-/// Bản cập nhật: thêm âm thanh khi từng khối server trồi lên.
-/// </summary>
 public class ServerMinigameManager : MonoBehaviour
 {
     [Header("Server Blocks")]
-    [Tooltip("Kéo 6 khối server vào đây")]
+    [Tooltip("Kéo 6 khối server vào đây. Thứ tự trong mảng KHÔNG cần trùng số hiển thị — mỗi ServerBlock có field 'serverNumber' riêng là số CỐ ĐỊNH.")]
     public ServerBlock[] serverBlocks;
 
     [Header("Rise Animation")]
     [Tooltip("Server sẽ bị thụt xuống bao nhiêu đơn vị so với vị trí gốc (nhập số dương, VD: 5)")]
-    public float hiddenOffset  = 5f;
+    public float hiddenOffset = 5f;
     [Tooltip("Thời gian 1 khối trồi lên (giây)")]
-    public float riseDuration  = 1.2f;
+    public float riseDuration = 1.2f;
     [Tooltip("Độ trễ giữa mỗi khối trồi lên")]
-    public float riseDelay     = 0.2f;
+    public float riseDelay = 0.2f;
 
     [Header("Door")]
     public SlidingDoorController door;
+    [Tooltip("Bật nếu muốn manager này tự mở cửa khi tắt xong toàn bộ server. Tắt nếu việc mở cửa/đi tiếp do MinigameFlowController xử lý (dùng callback OnAllServersShutdown).")]
+    public bool openDoorOnComplete = true;
 
     [Header("UI (tuỳ chọn)")]
-    public GameObject puzzleUI;           // Panel "Gắn SSD vào server"
-    public TMPro.TMP_Text progressText;   // "3 / 6 SSD đã gắn"
+    public GameObject puzzleUI;
+    public TMPro.TMP_Text progressText;
+
+    [Header("Màn hình thông báo (DÙNG CHUNG với AI Shutdown Notice)")]
+    [Tooltip("Panel hiển thị 'TẮT SERVER X' / 'SAI THỨ TỰ'. Có thể để trống ở đây và để MinigameFlowController gán vào lúc runtime qua SetNoticeUI().")]
+    public GameObject noticePanel;
+    public TMPro.TMP_Text noticeText;
+    [Tooltip("Thời gian giữ thông báo SAI trước khi random lại thứ tự mới.")]
+    public float wrongResetDelay = 1.2f;
 
     [Header("Âm thanh")]
     [Tooltip("AudioSource để phát âm thanh server trồi lên (nếu để trống sẽ tự thêm 1 cái lúc runtime).")]
@@ -35,7 +39,7 @@ public class ServerMinigameManager : MonoBehaviour
     public AudioClip riseSound;
     [Range(0f, 1f)] public float riseSfxVolume = 1f;
 
-    [Tooltip("Âm thanh phát khi ĐÃ GẮN XONG toàn bộ SSD (hoàn thành minigame, lúc cửa chuẩn bị mở).")]
+    [Tooltip("Âm thanh phát khi ĐÃ TẮT XONG toàn bộ server đúng thứ tự (hoàn thành minigame).")]
     public AudioClip allDoneSound;
     [Range(0f, 1f)] public float allDoneSfxVolume = 1f;
 
@@ -47,11 +51,17 @@ public class ServerMinigameManager : MonoBehaviour
     [Tooltip("Thời gian tồn tại của VFX prefab trước khi tự huỷ (giây).")]
     public float riseVFXLifetime = 2f;
 
-    // ── State ─────────────────────────────────────────────────────
-    private bool    _triggered = false;
-    private bool    _solved    = false;
-    private int     _filled    = 0;
-    private float[] _originalY;           // lưu Y gốc của từng khối
+    /// <summary>Được gọi khi player đã tắt ĐÚNG toàn bộ server theo đúng thứ tự random (sau khi SolveSequence chạy xong).</summary>
+    public System.Action OnAllServersShutdown;
+
+    private bool _triggered = false;
+    private bool _solved = false;
+    private float[] _originalY;
+
+    // Danh sách index (trong serverBlocks) theo ĐÚNG thứ tự phải tắt — được random mỗi lần bắt đầu / mỗi lần bấm sai
+    private List<int> _shutdownOrder = new List<int>();
+    private int _currentStep = 0;
+    private bool _puzzleActive = false;
 
     private void Start()
     {
@@ -64,32 +74,43 @@ public class ServerMinigameManager : MonoBehaviour
                 audioSource.playOnAwake = false;
             }
         }
-
-        // Lưu Y gốc rồi ẩn từng khối xuống dưới đất
         _originalY = new float[serverBlocks.Length];
 
         for (int i = 0; i < serverBlocks.Length; i++)
         {
             if (serverBlocks[i] == null) continue;
 
-            _originalY[i] = serverBlocks[i].transform.position.y; // nhớ vị trí gốc
+            _originalY[i] = serverBlocks[i].transform.position.y;
 
             Vector3 pos = serverBlocks[i].transform.position;
-            pos.y = _originalY[i] - hiddenOffset;                 // thụt xuống
+            pos.y = _originalY[i] - hiddenOffset;
             serverBlocks[i].transform.position = pos;
         }
 
         if (puzzleUI) puzzleUI.SetActive(false);
+        if (noticePanel) noticePanel.SetActive(false);
         UpdateProgressUI();
     }
 
-    // ── Trigger Zone ──────────────────────────────────────────────
+    /// <summary>Cho phép nơi khác (VD: MinigameFlowController) gán màn hình thông báo dùng chung lúc runtime, thay vì gán tay trong Inspector.</summary>
+    public void SetNoticeUI(GameObject panel, TMPro.TMP_Text text)
+    {
+        noticePanel = panel;
+        noticeText = text;
+    }
+
     public void OnPlayerEnterTrigger()
     {
         if (_triggered) return;
         _triggered = true;
-        StartCoroutine(RiseAllBlocks());
+        StartCoroutine(RiseThenStartPuzzle());
         if (puzzleUI) puzzleUI.SetActive(true);
+    }
+
+    private IEnumerator RiseThenStartPuzzle()
+    {
+        yield return StartCoroutine(RiseAllBlocks());
+        StartShutdownPuzzle();
     }
 
     private IEnumerator RiseAllBlocks()
@@ -103,6 +124,8 @@ public class ServerMinigameManager : MonoBehaviour
             StartCoroutine(RiseBlock(serverBlocks[i].transform, _originalY[i]));
             yield return new WaitForSeconds(riseDelay);
         }
+        // Đợi thêm cho khối cuối cùng trồi lên xong hẳn trước khi bắt đầu puzzle
+        yield return new WaitForSeconds(riseDuration);
     }
 
     private void PlayRiseSound()
@@ -111,10 +134,6 @@ public class ServerMinigameManager : MonoBehaviour
             audioSource.PlayOneShot(riseSound, riseSfxVolume);
     }
 
-    /// <summary>
-    /// Ưu tiên dùng riseVFX gán sẵn trên từng ServerBlock (nếu có).
-    /// Nếu không có, fallback sang riseVFXPrefab dùng chung (Instantiate tại vị trí khối).
-    /// </summary>
     private void PlayRiseVFX(ServerBlock block)
     {
         if (block.riseVFX != null)
@@ -132,42 +151,117 @@ public class ServerMinigameManager : MonoBehaviour
 
     private IEnumerator RiseBlock(Transform t, float targetY)
     {
-        Vector3 start  = t.position;
+        Vector3 start = t.position;
         Vector3 target = new Vector3(t.position.x, targetY, t.position.z);
-        float elapsed  = 0f;
+        float elapsed = 0f;
 
         while (elapsed < riseDuration)
         {
             elapsed += Time.deltaTime;
             float curve = Mathf.SmoothStep(0f, 1f, elapsed / riseDuration); // mượt
-            t.position  = Vector3.Lerp(start, target, curve);
+            t.position = Vector3.Lerp(start, target, curve);
             yield return null;
         }
 
         t.position = target;
     }
 
-    // ── Check Complete ────────────────────────────────────────────
-
-    /// <summary>Được gọi bởi ServerBlock mỗi khi 1 khối được gắn SSD.</summary>
-    public void CheckAllFilled()
+    public float GetRiseSequenceDuration()
     {
-        if (_solved) return;
+        int count = serverBlocks != null ? serverBlocks.Length : 0;
+        if (count <= 0) return riseDuration;
+        return (count - 1) * riseDelay + riseDuration;
+    }
 
-        _filled = 0;
+    // ==================== PUZZLE: TẮT SERVER THEO THỨ TỰ RANDOM ====================
+
+    private void StartShutdownPuzzle()
+    {
+        _puzzleActive = true;
+        if (noticePanel) noticePanel.SetActive(true);
+        GenerateNewOrder();
+    }
+
+    /// <summary>Random lại thứ tự phải tắt (đáp án mới), reset toàn bộ đèn/trạng thái về ban đầu.</summary>
+    private void GenerateNewOrder()
+    {
+        _shutdownOrder.Clear();
+        for (int i = 0; i < serverBlocks.Length; i++)
+            _shutdownOrder.Add(i);
+
+        // Fisher-Yates shuffle
+        for (int i = _shutdownOrder.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (_shutdownOrder[i], _shutdownOrder[j]) = (_shutdownOrder[j], _shutdownOrder[i]);
+        }
+
+        _currentStep = 0;
+
         foreach (var block in serverBlocks)
-            if (block != null && block.IsFilled) _filled++;
+            if (block != null) block.ResetState();
 
         UpdateProgressUI();
-        Debug.Log($"[ServerMinigame] {_filled} / {serverBlocks.Length} SSD đã gắn");
+        ShowCurrentTarget();
+    }
 
-        if (_filled >= serverBlocks.Length)
-            StartCoroutine(SolveSequence());
+    private void ShowCurrentTarget()
+    {
+        if (!_puzzleActive || _currentStep >= _shutdownOrder.Count) return;
+
+        var target = serverBlocks[_shutdownOrder[_currentStep]];
+        if (noticeText != null && target != null)
+            noticeText.text = $"TẮT SERVER {target.serverNumber}";
+    }
+
+    /// <summary>Gọi bởi ServerBlock khi player bấm F ở gần nó.</summary>
+    public void TryShutdownServer(ServerBlock block)
+    {
+        if (!_puzzleActive || _solved || block == null) return;
+
+        int blockIndex = System.Array.IndexOf(serverBlocks, block);
+        if (blockIndex < 0) return;
+
+        int expectedIndex = _shutdownOrder[_currentStep];
+
+        if (blockIndex == expectedIndex)
+        {
+            block.SetShutdown(true);
+            _currentStep++;
+            UpdateProgressUI();
+
+            if (_currentStep >= _shutdownOrder.Count)
+            {
+                if (noticeText != null) noticeText.text = "✓ TẤT CẢ SERVER ĐÃ TẮT";
+                StartCoroutine(SolveSequence());
+            }
+            else
+            {
+                ShowCurrentTarget();
+            }
+        }
+        else
+        {
+            block.PlayWrongFeedback();
+            StartCoroutine(WrongOrderThenReset());
+        }
+    }
+
+    private IEnumerator WrongOrderThenReset()
+    {
+        _puzzleActive = false;
+        if (noticeText != null) noticeText.text = "✗ SAI THỨ TỰ! Đang random lại...";
+
+        yield return new WaitForSeconds(wrongResetDelay);
+
+        _puzzleActive = true;
+        GenerateNewOrder();
     }
 
     private IEnumerator SolveSequence()
     {
         _solved = true;
+        _puzzleActive = false;
 
         if (progressText)
             progressText.text = "✓ GIẢI MÃ HOÀN TẤT — Cửa đang mở...";
@@ -177,17 +271,21 @@ public class ServerMinigameManager : MonoBehaviour
 
         yield return new WaitForSeconds(1.5f);
 
-        door?.UnlockAndOpen();
+        if (openDoorOnComplete)
+            door?.UnlockAndOpen();
 
         yield return new WaitForSeconds(1f);
 
         if (puzzleUI) puzzleUI.SetActive(false);
+        if (noticePanel) noticePanel.SetActive(false);
+
+        OnAllServersShutdown?.Invoke();
     }
 
     private void UpdateProgressUI()
     {
         if (progressText == null) return;
         int total = serverBlocks != null ? serverBlocks.Length : 6;
-        progressText.text = $"SSD đã gắn: {_filled} / {total}";
+        progressText.text = $"Server đã tắt: {_currentStep} / {total}";
     }
 }

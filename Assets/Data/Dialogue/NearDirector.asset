@@ -17,9 +17,14 @@ MonoBehaviour:
     text: "T\u1ED1t l\u1EAFm b\u1EA1n \u0111\xE3 k\xEDch ho\u1EA1t \u0111\u01B0\u1EE3c
       m\xE1y ph\xE1t \u0111i\u1EC7n."
     portrait: {fileID: 0}
+    voiceClip: {fileID: 0}
+    duration: 6
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "B\xE2y gi\u1EDD ti\u1EBFn t\u1EDBi, ph\xF2ng gi\xE1m \u0111\u1ED1c \u0111i
       n\xE0o"
     portrait: {fileID: 0}
+    voiceClip: {fileID: 0}
+    duration: 6
+  fullVoiceClip: {fileID: 8300000, guid: 22ff3a03df43501488b5fef6c8f15672, type: 3}
   autoPlay: 1
   autoPlayDelay: 3

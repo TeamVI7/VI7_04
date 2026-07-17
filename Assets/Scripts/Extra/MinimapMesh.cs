@@ -5,10 +5,6 @@ public class MinimapMesh : MonoBehaviour
 {
     [SerializeField] 
     MeshFilter meshFilter;
-    void Awake()
-    {
-        BakeNavMesh();
-    }
 
     [ContextMenu("Bake NavMesh")]
     void BakeNavMesh()

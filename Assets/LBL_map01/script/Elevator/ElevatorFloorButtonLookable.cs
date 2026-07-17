@@ -1,10 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-
-// Gắn vào từng nút chọn tầng ĐẶT SẴN THỦ CÔNG trong Scene (vd: dán trực tiếp lên
-// tấm panel trong cabin), không còn sinh ra bằng prefab + Instantiate nữa.
-// Nút được chọn bằng cách nhìn vào + nhấn E, xử lý bởi PlayerElevatorInteractor.cs
-// (raycast từ camera).
 [RequireComponent(typeof(Collider))]
 public class ElevatorFloorButtonLookable : MonoBehaviour
 {
@@ -30,7 +25,6 @@ public class ElevatorFloorButtonLookable : MonoBehaviour
 
     void Awake()
     {
-        // Nếu quên kéo elevator, thử tự tìm ở object cha (phòng khi nút là con của cabin)
         if (elevator == null)
             elevator = GetComponentInParent<ElevatorController>();
     }
@@ -47,10 +41,7 @@ public class ElevatorFloorButtonLookable : MonoBehaviour
 
         if (targetGraphic != null)
             targetGraphic.color = value ? highlightColor : normalColor;
-    }
-
-    // Gọi khi người chơi nhấn nút tương tác (E) lúc đang nhìn vào nút này
-    public void Select()
+    }    public void Select()
     {
         if (!isSelectable) return;
         if (elevator == null)

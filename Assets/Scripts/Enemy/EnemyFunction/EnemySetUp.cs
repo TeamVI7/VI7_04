@@ -34,6 +34,7 @@ public class EnemySetup : MonoBehaviour
             health.DeathImpulseScale = Stats.DeathImpulseScale;
             health.DeathVFXLifetime  = Stats.DeathVFXLifetime;
             health.DropUpwardForce   = Stats.DropUpwardForce;
+            health.DropChance        = Stats.DropChance;
         }
 
         if (TryGetComponent(out EnemyBrain brain))
@@ -132,6 +133,14 @@ public class EnemySetup : MonoBehaviour
             smg.DamagePerShot  = Stats.SMGDamagePerShot;
             smg.FireRate       = Stats.SMGFireRate;
             smg.TelegraphTime  = Stats.SMGTelegraphTime;
+        }
+
+        if (TryGetComponent(out PistolAttackBehaviour pistol))
+        {
+            pistol.AttackRange    = Stats.PistolAttackRange;
+            pistol.DamagePerShot  = Stats.PistolDamagePerShot;
+            pistol.FireRate       = Stats.PistolFireRate;
+            pistol.TelegraphTime  = Stats.PistolTelegraphTime;
         }
 
         // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SNIPER ───────────────────

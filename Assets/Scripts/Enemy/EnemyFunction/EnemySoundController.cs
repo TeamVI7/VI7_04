@@ -15,6 +15,7 @@ public class EnemyAudio : MonoBehaviour
     public AudioClip BombClip;
     public AudioClip SMGClip;
     public AudioClip ShotgunClip; 
+    public AudioClip PistolClip;
     
     [Header("Sniper Realistic Settings")]
     [Tooltip("Tiếng nổ tại nòng súng của quái (Có đuôi phiuuuu vang xa)")]
@@ -48,6 +49,7 @@ public class EnemyAudio : MonoBehaviour
     private LaserBehaviour        _laser;
     private GrenadeBurstBehaviour _burst;
     private SMGAttackBehaviour    _smg;
+    private PistolAttackBehaviour _pistol;
     private NavMeshAgent           _nav; 
     private SniperAttackBehaviour _sniper; 
     private MeleeAttackBehaviour  _melee;
@@ -63,6 +65,7 @@ public class EnemyAudio : MonoBehaviour
         _laser  = GetComponent<LaserBehaviour>();
         _burst  = GetComponent<GrenadeBurstBehaviour>();
         _smg    = GetComponent<SMGAttackBehaviour>();
+        _pistol = GetComponent<PistolAttackBehaviour>();
         _sniper = GetComponent<SniperAttackBehaviour>(); 
         _nav    = GetComponent<NavMeshAgent>(); 
         _melee  = GetComponent<MeleeAttackBehaviour>();
@@ -82,6 +85,7 @@ public class EnemyAudio : MonoBehaviour
         if (_laser != null)  _laser.OnLaserToggled += HandleLaserToggled;
         if (_burst != null)  _burst.OnBurstStarted += PlayBomb;
         if (_smg    != null) _smg.OnSMGFired       += PlaySMG;
+        if (_pistol != null) _pistol.OnPistolFired += PlayPistol;
         if (_sniper != null) _sniper.OnSniperShot  += PlaySniper; 
 
         if (_melee != null)
@@ -114,6 +118,7 @@ public class EnemyAudio : MonoBehaviour
         if (_laser  != null) _laser.OnLaserToggled -= HandleLaserToggled;
         if (_burst  != null) _burst.OnBurstStarted -= PlayBomb;
         if (_smg    != null) _smg.OnSMGFired       -= PlaySMG;
+        if (_pistol != null) _pistol.OnPistolFired -= PlayPistol;
         if (_sniper != null) _sniper.OnSniperShot  -= PlaySniper; 
 
         if (_melee != null)
@@ -153,6 +158,10 @@ public class EnemyAudio : MonoBehaviour
     {
         _isAggro = state == EnemyState.Aggro;
 
+        // Fires once, the instant this enemy spots the player and enters Aggro
+        // from Idle. Deliberately checks _lastState (not just "wasn't aggro")
+        // so the Staggered -> Aggro recovery bounce doesn't replay the detect
+        // bark — the enemy was already engaged before it got staggered.
         if (state == EnemyState.Aggro && _lastState == EnemyState.Idle)
             PlayDetect();
 
@@ -183,8 +192,14 @@ public class EnemyAudio : MonoBehaviour
 
     private void PlayBomb() { if (BombClip != null) _oneShotSource.PlayOneShot(BombClip); }
     private void PlaySMG() { if (SMGClip != null) _oneShotSource.PlayOneShot(SMGClip); }
+    private void PlayPistol() { if (PistolClip != null) _oneShotSource.PlayOneShot(PistolClip); }
     private void PlayShotgun() { if (ShotgunClip != null) _oneShotSource.PlayOneShot(ShotgunClip); }
-    private void PlayDetect() { if (DetectClip != null) _oneShotSource.PlayOneShot(DetectClip); }
+    private void PlayDetect()
+    {
+        if (DetectClip == null) return;
+        if (!EnemySquadCoordinator.TryPlayDetectBark()) return; // squad gate, cooldown 0.35s
+        _oneShotSource.PlayOneShot(DetectClip);
+    }
     private void PlayMeleeSwing() { if (MeleeSwingClip != null) _oneShotSource.PlayOneShot(MeleeSwingClip); }
     private void PlayMeleeHit() { if (MeleeHitClip != null) _oneShotSource.PlayOneShot(MeleeHitClip); }
 

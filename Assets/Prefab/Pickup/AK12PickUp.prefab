@@ -64,9 +64,25 @@ PrefabInstance:
       propertyPath: m_ConstrainProportionsScale
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: -3735887825062471615, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 2761eca323c250344a502ccf2020e841, type: 3}
       propertyPath: m_Name
       value: AK12PickUp
+      objectReference: {fileID: 0}
+    - target: {fileID: 5234386778470984230, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5234386778470984230, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+      propertyPath: 'm_Materials.Array.data[2]'
+      value: 
+      objectReference: {fileID: 1765970620557348480, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+    - target: {fileID: 8544603290050085048, guid: 2761eca323c250344a502ccf2020e841, type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
