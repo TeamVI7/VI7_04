@@ -14,8 +14,8 @@ public class EnemyBrain : MonoBehaviour
     public float AggroRadius = 15f;
     public float RadarRange = 40f;
     public float ViewAngle = 100f; // Cải tiến: FOV (đây là TỔNG góc nhìn, ví dụ 100 = 50 độ mỗi bên)
-    [Tooltip("Trong phạm vi này, enemy phát hiện player dù KHÔNG nhìn thẳng mặt (mô phỏng phản xạ/giác quan khi bị áp sát, và bù cho việc NavMeshAgent tự xoay theo hướng di chuyển chứ không phải hướng player lúc patrol/investigate/về tổ). Vẫn bị chặn bởi LOSBlockingLayers (không xuyên tường).")]
-    public float CloseRangeRadius = 4f; // [NEW]
+    [Tooltip("Trong phạm vi này, enemy phát hiện player dù KHÔNG nhìn thẳng mặt (mô phỏng phản xạ/giác quan khi bị áp sát, và bù cho việc NavMeshAgent tự xoay theo hướng di chuyển chứ không phải hướng player lúc patrol/investigate/về tổ).")]
+    public float CloseRangeRadius = 4f;
     public LayerMask LOSBlockingLayers;
     [Tooltip("Khoảng thời gian giữa các lần quét tầm nhìn")]
     [SerializeField] private float detectionInterval = 0.2f;
@@ -33,6 +33,16 @@ public class EnemyBrain : MonoBehaviour
     public float PatrolWaitTime { get => patrolWaitTime; set => patrolWaitTime = value; }
     private float _patrolWaitTimer;
     private bool _returningToSpawn;
+
+    [Header("Predictive Investigate (Dự Đoán Hướng Tìm)")]
+    [Tooltip("Khi mất dấu player, enemy sẽ lệch tâm vùng lùng sục về phía hướng player đang chạy lúc mất dấu (thay vì chỉ dò đều 360 độ quanh 1 điểm tĩnh). 0 = tắt tính năng, dò đều như cũ.")]
+    public float PredictiveBiasDistance = 4f; // [NEW]
+    [Tooltip("Độ mượt khi ước lượng vận tốc player (0-1). Càng cao càng phản ứng nhanh nhưng dễ giật do rung số.")]
+    [Range(0.05f, 1f)] public float velocitySmoothing = 0.3f; // [NEW]
+    private Vector3 _prevPlayerPos; // [NEW]
+    private Vector3 _smoothedPlayerVelocity; // [NEW]
+    private bool _hasPrevPlayerPos; // [NEW]
+    private Vector3 _predictedSearchDirection; // [NEW] Hướng lệch tâm tìm kiếm, chốt lúc vừa vào Investigate
 
     [Header("Flanking System (Hội Đồng Bầy Đàn)")]
     [SerializeField] private float attackFlankRadius = 2.5f;
@@ -64,6 +74,10 @@ public class EnemyBrain : MonoBehaviour
 
     private float _investigationTimer;
 
+    // Thêm vào vùng khai báo private
+    private Vector3 _currentSearchPoint; // Điểm đích đang đi tới
+    private float _searchPointTimer;     // Timer để đổi hướng tìm kiếm
+
     private void Awake()
     {
         _agent = GetComponent<NavMeshAgent>();
@@ -94,6 +108,7 @@ public class EnemyBrain : MonoBehaviour
 
         TickHitSlowdown();
 
+        // Xử lý line of sight
         _detectionTimer -= Time.deltaTime;
         if (_detectionTimer <= 0)
         {
@@ -101,6 +116,11 @@ public class EnemyBrain : MonoBehaviour
             _detectionTimer = detectionInterval;
         }
 
+        // [NEW] Ước lượng vận tốc player MỖI FRAME (không gated theo detectionInterval để mượt hơn),
+        // chỉ tính khi đang thực sự thấy player. Giá trị này được dùng làm "dự đoán" lúc mất dấu.
+        TrackPlayerVelocityIfVisible();
+
+        // FSM thực thụ: Chỉ 1 state được quyền chạy logic
         switch (State)
         {
             case EnemyState.Idle: TickIdle(); break;
@@ -120,6 +140,28 @@ public class EnemyBrain : MonoBehaviour
         {
             _agent.speed = _baseAgentSpeed * CurrentSpeedMultiplier;
         }
+    }
+
+    // [NEW] Theo dõi vị trí player mỗi frame để suy ra vận tốc (đã làm mượt bằng Lerp chống rung số).
+    // Khi mất dấu (canSeePlayerCache == false), KHÔNG reset _smoothedPlayerVelocity - giữ nguyên giá trị
+    // cuối cùng để dùng làm dự đoán hướng tìm kiếm trong Investigate. Chỉ reset _hasPrevPlayerPos để
+    // tránh tính sai vận tốc "giật cục" khi thấy lại player sau một khoảng thời gian dài không track.
+    private void TrackPlayerVelocityIfVisible()
+    {
+        if (!_canSeePlayerCache || PlayerHealth.Transform == null)
+        {
+            _hasPrevPlayerPos = false;
+            return;
+        }
+
+        Vector3 currentPos = PlayerHealth.Transform.position;
+        if (_hasPrevPlayerPos && Time.deltaTime > 0f)
+        {
+            Vector3 instantVelocity = (currentPos - _prevPlayerPos) / Time.deltaTime;
+            _smoothedPlayerVelocity = Vector3.Lerp(_smoothedPlayerVelocity, instantVelocity, velocitySmoothing);
+        }
+        _prevPlayerPos = currentPos;
+        _hasPrevPlayerPos = true;
     }
 
     private void TickIdle()
@@ -155,8 +197,7 @@ public class EnemyBrain : MonoBehaviour
         if (Vector3.Distance(_spawnPos, PlayerHealth.Transform.position) > RadarRange)
         {
             LeavePack();
-            _investigationTimer = 0f;
-            SetState(EnemyState.Investigate);
+            EnterInvestigate(); // [CHANGED] gộp về hàm chung, xem mục EnterInvestigate()
             return;
         }
 
@@ -171,8 +212,7 @@ public class EnemyBrain : MonoBehaviour
             _lostSightTimer -= Time.deltaTime;
             if (_lostSightTimer <= 0)
             {
-                _investigationTimer = 0f;
-                SetState(EnemyState.Investigate);
+                EnterInvestigate(); // [CHANGED]
             }
         }
     }
@@ -180,8 +220,14 @@ public class EnemyBrain : MonoBehaviour
 
     private void TickInvestigate()
     {
-        if (_canSeePlayerCache && Vector3.Distance(_spawnPos, PlayerHealth.Transform.position) <= RadarRange)
+        // 1. Check điều kiện phát hiện: Nhìn thấy OR Player đứng quá gần (giác quan áp sát)
+        float distToPlayer = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
+
+        // Nếu thấy hoặc chạy vào phạm vi "sát sườn"
+        if ((_canSeePlayerCache || distToPlayer <= CloseRangeRadius)
+            && Vector3.Distance(_spawnPos, PlayerHealth.Transform.position) <= RadarRange)
         {
+            _agent.ResetPath(); // Cắt đường tìm kiếm cũ, quái sẽ dừng "rè rè" ngay
             JoinPack();
             _investigationTimer = 0f;
             _lostSightTimer = lostSightCooldown;
@@ -189,36 +235,42 @@ public class EnemyBrain : MonoBehaviour
             return;
         }
 
-        if (Vector3.Distance(transform.position, LastKnownPosition) > 1.0f)
-        {
-            _agent.SetDestination(LastKnownPosition);
-            return;
-        }
-
-        _agent.ResetPath();
+        // 2. Logic tìm kiếm (giữ nguyên)
         _investigationTimer += Time.deltaTime;
-
-        if (_investigationTimer < 2.0f)
+        if (_investigationTimer < 10.0f)
         {
-            transform.Rotate(0, 45 * Time.deltaTime, 0);
-        }
-        else if (_investigationTimer < 6.0f)
-        {
-            if (!_agent.hasPath || _agent.remainingDistance < 0.5f)
+            _searchPointTimer -= Time.deltaTime;
+            if (_searchPointTimer <= 0 || _agent.remainingDistance < 0.5f)
             {
-                Vector3 randomTarget = LastKnownPosition + (UnityEngine.Random.insideUnitSphere * 3f);
-                if (NavMesh.SamplePosition(randomTarget, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
+                Vector3 searchCenter = LastKnownPosition + _predictedSearchDirection * PredictiveBiasDistance;
+                Vector3 randomOffset = UnityEngine.Random.insideUnitSphere * 3f;
+                Vector3 target = searchCenter + randomOffset;
+
+                if (NavMesh.SamplePosition(target, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
+                {
                     _agent.SetDestination(hit.position);
+                    _agent.isStopped = false;
+                }
+                _searchPointTimer = UnityEngine.Random.Range(2.0f, 4.0f);
             }
         }
         else
         {
-            _investigationTimer = 0;
             ReturnToPatrol();
         }
     }
 
-
+    // [NEW] Điểm vào duy nhất khi chuyển sang Investigate - chốt hướng dự đoán tại thời điểm này
+    // (dùng _smoothedPlayerVelocity đã tích luỹ được lúc còn thấy player), tránh việc hướng dự đoán
+    // bị cập nhật lung tung giữa chừng investigate (vì lúc đó không còn thấy player để track vận tốc nữa).
+    private void EnterInvestigate()
+    {
+        _investigationTimer = 0f;
+        _predictedSearchDirection = _smoothedPlayerVelocity.sqrMagnitude > 0.01f
+            ? _smoothedPlayerVelocity.normalized
+            : Vector3.zero;
+        SetState(EnemyState.Investigate);
+    }
 
     private void ReturnToPatrol()
     {
@@ -265,10 +317,6 @@ public class EnemyBrain : MonoBehaviour
         Vector3 dir = (PlayerHealth.Transform.position - transform.position).normalized;
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
 
-        // [FIX] Nếu ngoài FOV NHƯNG player áp sát trong CloseRangeRadius -> vẫn coi là phát hiện được
-        // (bù cho việc transform.forward lúc patrol/investigate/về tổ tự xoay theo NavMeshAgent,
-        // không phải hướng player - nguyên nhân enemy "trơ ra" dù player đứng ngay trước mặt).
-        // Raycast chặn tường (LOSBlockingLayers) vẫn giữ nguyên bên dưới - không xuyên tường được.
         bool withinFOV = Vector3.Angle(transform.forward, dir) <= ViewAngle * 0.5f;
         bool withinCloseRange = dist <= CloseRangeRadius;
 
@@ -285,12 +333,21 @@ public class EnemyBrain : MonoBehaviour
         Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(radarCenter, RadarRange);
         Gizmos.color = Color.cyan; Gizmos.DrawWireSphere(_spawnPos, patrolRadius);
         Gizmos.color = Color.blue; Gizmos.DrawWireSphere(transform.position, AggroRadius);
-        Gizmos.color = Color.green; Gizmos.DrawWireSphere(transform.position, CloseRangeRadius); // [NEW]
+        Gizmos.color = Color.green; Gizmos.DrawWireSphere(transform.position, CloseRangeRadius);
         if (Application.isPlaying && (State == EnemyState.Aggro || State == EnemyState.Investigate))
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireCube(LastKnownPosition, Vector3.one * 0.4f);
             Gizmos.DrawLine(transform.position, LastKnownPosition);
+
+            // [NEW] Vẽ mũi tên trắng thể hiện hướng dự đoán + tâm vùng lùng sục thực tế (lệch tâm)
+            if (State == EnemyState.Investigate && _predictedSearchDirection != Vector3.zero)
+            {
+                Gizmos.color = Color.white;
+                Vector3 searchCenter = LastKnownPosition + _predictedSearchDirection * PredictiveBiasDistance;
+                Gizmos.DrawLine(LastKnownPosition, searchCenter);
+                Gizmos.DrawWireSphere(searchCenter, 3f);
+            }
         }
     }
 }

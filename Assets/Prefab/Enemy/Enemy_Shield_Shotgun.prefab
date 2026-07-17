@@ -1296,6 +1296,8 @@ MonoBehaviour:
   patrolRadius: 6
   patrolWaitTime: 2.5
   arriveThreshold: 0.5
+  PredictiveBiasDistance: 4
+  velocitySmoothing: 0.3
   attackFlankRadius: 2.5
   hitSlowdownMultiplier: 0.4
   hitSlowdownDuration: 0.6
