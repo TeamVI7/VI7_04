@@ -39,7 +39,7 @@ public class VoltageCalibrationMinigame : MonoBehaviour
     public KeyCode rotateRightKey = KeyCode.D;
     public KeyCode barUpKey = KeyCode.W;
     public KeyCode barDownKey = KeyCode.S;
-    public KeyCode confirmKey = KeyCode.Space;
+    public KeyCode confirmKey = KeyCode.Return;
 
     private float _dialValue;
     private float _barValue;
@@ -49,13 +49,11 @@ public class VoltageCalibrationMinigame : MonoBehaviour
     private float _barTargetMax;
     private Action _onComplete;
     private bool _active;
+    private bool _paused;
 
     public void StartMinigame(Action onComplete)
     {
         _onComplete = onComplete;
-
-        _dialValue = UnityEngine.Random.Range(1f, 361f);
-        _barValue = UnityEngine.Random.Range(1f, 361f);
 
         _dialTargetMin = UnityEngine.Random.Range(1f, 361f - targetRangeWidth);
         _dialTargetMax = _dialTargetMin + targetRangeWidth;
@@ -63,7 +61,14 @@ public class VoltageCalibrationMinigame : MonoBehaviour
         _barTargetMin = UnityEngine.Random.Range(1f, 361f - targetRangeWidth);
         _barTargetMax = _barTargetMin + targetRangeWidth;
 
+        // Pick starting values that are guaranteed to sit outside each target
+        // zone's proximity falloff range, so the player always starts at 0%
+        // instead of sometimes spawning already close to (or on) the answer.
+        _dialValue = GenerateValueAwayFromZone(_dialTargetMin, _dialTargetMax, circular: true);
+        _barValue = GenerateValueAwayFromZone(_barTargetMin, _barTargetMax, circular: false);
+
         _active = true;
+        _paused = false;
 
         if (statusText) statusText.text = "";
 
@@ -73,9 +78,21 @@ public class VoltageCalibrationMinigame : MonoBehaviour
         UpdatePercent();
     }
 
+    // Freezes dial/bar input. _dialValue and _barValue (and therefore the
+    // current percent match) are preserved exactly as the player left them.
+    public void Pause()
+    {
+        _paused = true;
+    }
+
+    public void Resume()
+    {
+        _paused = false;
+    }
+
     private void Update()
     {
-        if (!_active) return;
+        if (!_active || _paused) return;
 
         if (Input.GetKey(rotateLeftKey)) _dialValue -= rotateSpeed * Time.deltaTime;
         if (Input.GetKey(rotateRightKey)) _dialValue += rotateSpeed * Time.deltaTime;
@@ -90,6 +107,34 @@ public class VoltageCalibrationMinigame : MonoBehaviour
         UpdatePercent();
 
         if (Input.GetKeyDown(confirmKey)) TryComplete();
+    }
+
+    // Picks a random value in [1, 360] that is both outside the target zone
+    // itself AND at least `proximityFalloff` away from its nearest edge, so
+    // GetAxisPercent evaluates to exactly 0 for it (i.e. the minigame always
+    // starts at 0%, never already "warm").
+    private float GenerateValueAwayFromZone(float targetMin, float targetMax, bool circular)
+    {
+        float falloff = Mathf.Max(proximityFalloff, 0.0001f);
+
+        for (int attempts = 0; attempts < 100; attempts++)
+        {
+            float candidate = UnityEngine.Random.Range(1f, 361f);
+            bool insideZone = candidate >= targetMin && candidate <= targetMax;
+            if (insideZone) continue;
+
+            float distance = circular
+                ? Mathf.Min(Mathf.Abs(Mathf.DeltaAngle(candidate, targetMin)), Mathf.Abs(Mathf.DeltaAngle(candidate, targetMax)))
+                : Mathf.Min(Mathf.Abs(candidate - targetMin), Mathf.Abs(candidate - targetMax));
+
+            if (distance >= falloff) return candidate;
+        }
+
+        // Fallback (only reachable if the falloff is so large no valid spot
+        // exists): place the value directly opposite the zone's midpoint.
+        float mid = (targetMin + targetMax) / 2f;
+        float opposite = circular ? Mathf.Repeat(mid + 180f, 360f) : (mid > 180.5f ? mid - 180f : mid + 180f);
+        return Mathf.Clamp(opposite, 1f, 360f);
     }
 
     private bool IsDialMatched()

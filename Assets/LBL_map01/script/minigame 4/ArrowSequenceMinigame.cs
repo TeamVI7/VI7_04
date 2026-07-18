@@ -23,6 +23,7 @@ public class ArrowSequenceMinigame : MonoBehaviour
     private int _currentIndex;
     private Action _onComplete;
     private bool _active;
+    private bool _paused;
 
     public void StartMinigame(Action onComplete)
     {
@@ -31,13 +32,26 @@ public class ArrowSequenceMinigame : MonoBehaviour
         BuildIcons();
         _currentIndex = 0;
         _active = true;
+        _paused = false;
         UpdateProgress();
         UpdateHighlight();
     }
 
+    // Freezes input handling without resetting progress (icons/_currentIndex stay as-is).
+    public void Pause()
+    {
+        _paused = true;
+    }
+
+    // Un-freezes input handling, continuing exactly where the player left off.
+    public void Resume()
+    {
+        _paused = false;
+    }
+
     private void Update()
     {
-        if (!_active) return;
+        if (!_active || _paused) return;
 
         if (Input.GetKeyDown(KeyCode.W)) HandleInput(Direction.Up);
         else if (Input.GetKeyDown(KeyCode.S)) HandleInput(Direction.Down);

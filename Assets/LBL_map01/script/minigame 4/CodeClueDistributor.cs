@@ -1,16 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-
-// Randomly generates the access code for CodeInputMinigame and scatters
-// "letter + digit" clues across a pool of world-space canvases placed in
-// another room (e.g. computer screens). The letter tells the player WHICH
-// digit position it is (A = 1st digit, B = 2nd digit, C = 3rd digit, ...),
-// the number tells the VALUE of that digit.
-//
-// Example: 3 clue canvases end up showing "A3", "B4", "C2" (in random
-// order, on random canvases). The player has to find all of them and sort
-// by letter to reconstruct the code: A=3, B=4, C=2 -> "342".
 public class CodeClueDistributor : MonoBehaviour
 {
     [Header("Clue Canvases (place these around the other room)")]
@@ -36,9 +26,6 @@ public class CodeClueDistributor : MonoBehaviour
         if (generateOnStart) GenerateAndDistribute();
     }
 
-    // Generates a new random code and randomly assigns the A/B/C... clues
-    // to random canvases from clueDisplays. Returns the generated code
-    // (e.g. "342") so callers can feed it into CodeInputMinigame.
     public string GenerateAndDistribute()
     {
         if (clueDisplays == null || clueDisplays.Length < codeLength)
@@ -47,7 +34,6 @@ public class CodeClueDistributor : MonoBehaviour
             return _generatedCode;
         }
 
-        // 1) Random digits -> the actual code
         int[] digits = new int[codeLength];
         for (int i = 0; i < codeLength; i++)
             digits[i] = Random.Range(0, 10);
@@ -56,7 +42,6 @@ public class CodeClueDistributor : MonoBehaviour
         foreach (int d in digits) codeBuilder.Append(d);
         _generatedCode = codeBuilder.ToString();
 
-        // 2) Build "letter+digit" clue strings: a=position0, b=position1, ...
         string[] clues = new string[codeLength];
         for (int i = 0; i < codeLength; i++)
         {
@@ -64,12 +49,9 @@ public class CodeClueDistributor : MonoBehaviour
             clues[i] = $"{letter}{digits[i]}";
         }
 
-        // 3) Clear every canvas first (so leftovers show the decoy text)
         for (int i = 0; i < clueDisplays.Length; i++)
             if (clueDisplays[i]) clueDisplays[i].text = decoyText;
 
-        // 4) Pick codeLength random, distinct canvases out of the pool and
-        //    hand out one clue to each, in random order/location.
         List<int> availableIndices = new List<int>();
         for (int i = 0; i < clueDisplays.Length; i++) availableIndices.Add(i);
         Shuffle(availableIndices);

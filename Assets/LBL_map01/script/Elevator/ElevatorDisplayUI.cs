@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 
 // Gắn vào màn hình hiển thị trong cabin (vd: 1 Canvas nhỏ phía trên cửa).
 public class ElevatorDisplayUI : MonoBehaviour
@@ -11,6 +12,12 @@ public class ElevatorDisplayUI : MonoBehaviour
     public GameObject arrowUp;      // object mũi tên chỉ lên
     public GameObject arrowDown;    // object mũi tên chỉ xuống
     public Text floorNumberText;    // text hiển thị số tầng (đổi sang TMP_Text nếu dùng TextMeshPro)
+
+    [Header("Hiệu ứng chớp")]
+    public float blinkInterval = 0.4f;   // thời gian giữa mỗi lần bật/tắt
+
+    private Coroutine blinkUpRoutine;
+    private Coroutine blinkDownRoutine;
 
     void Start()
     {
@@ -55,8 +62,39 @@ public class ElevatorDisplayUI : MonoBehaviour
 
     void SetArrows(bool up, bool down)
     {
-        if (arrowUp) arrowUp.SetActive(up);
-        if (arrowDown) arrowDown.SetActive(down);
+        SetArrowBlinking(arrowUp, up, ref blinkUpRoutine);
+        SetArrowBlinking(arrowDown, down, ref blinkDownRoutine);
+    }
+
+    void SetArrowBlinking(GameObject arrow, bool shouldBlink, ref Coroutine routine)
+    {
+        if (arrow == null) return;
+
+        if (shouldBlink)
+        {
+            if (routine == null)
+                routine = StartCoroutine(BlinkRoutine(arrow));
+        }
+        else
+        {
+            if (routine != null)
+            {
+                StopCoroutine(routine);
+                routine = null;
+            }
+            arrow.SetActive(false);
+        }
+    }
+
+    IEnumerator BlinkRoutine(GameObject arrow)
+    {
+        while (true)
+        {
+            arrow.SetActive(true);
+            yield return new WaitForSeconds(blinkInterval);
+            arrow.SetActive(false);
+            yield return new WaitForSeconds(blinkInterval);
+        }
     }
 
     void UpdateFloorText(int floorIndex)

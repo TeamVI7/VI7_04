@@ -28,17 +28,16 @@ public class ElevatorController : MonoBehaviour
     [Header("Âm thanh")]
     public AudioClip moveSound;
     public AudioClip arriveSound;
-    public AudioClip deniedSound; // tiếng báo từ chối khi không đủ thẻ
+    public AudioClip deniedSound; 
     public AudioSource audioSource;
 
-    // ===== Events cho UI (màn hình chỉ hướng + số tầng, panel chọn tầng) =====
-    public event Action<int> OnFloorSelectionOpened;     // gọi khi state vào WaitingForSelection (kèm currentFloorIndex)
-    public event Action OnFloorSelectionClosed;           // gọi khi rời WaitingForSelection
-    public event Action<int> OnFloorSelected;             // tầng được chọn thành công
-    public event Action<int> OnAccessDenied;               // chọn tầng bị khóa mà không đủ thẻ
-    public event Action<bool> OnMoveStarted;               // true = đang đi lên, false = đang đi xuống
-    public event Action<int, bool> OnPassingFloor;         // (index tầng gần nhất hiện tại, đang đi lên hay xuống) - cập nhật liên tục khi di chuyển
-    public event Action<int> OnArrivedFloor;               // tầng đã đến
+    public event Action<int> OnFloorSelectionOpened;     
+    public event Action OnFloorSelectionClosed;           
+    public event Action<int> OnFloorSelected;             
+    public event Action<int> OnAccessDenied;               
+    public event Action<bool> OnMoveStarted;               
+    public event Action<int, bool> OnPassingFloor;         
+    public event Action<int> OnArrivedFloor;               
 
     private State state = State.Idle;
     private int currentFloorIndex = 0;
@@ -102,7 +101,6 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.WaitingForSelection:
-                // Việc chọn tầng đến từ UI gọi TrySelectFloor(index), không cần xử lý input ở đây
                 waitTimer -= Time.deltaTime;
                 if (waitTimer <= 0f)
                 {
@@ -114,7 +112,6 @@ public class ElevatorController : MonoBehaviour
                     }
                     else
                     {
-                        // người chơi vẫn còn trong cabin, chưa chọn tầng -> reset hẹn giờ, đứng chờ tiếp
                         waitTimer = doorOpenWaitTime;
                     }
                 }
@@ -161,7 +158,6 @@ public class ElevatorController : MonoBehaviour
         }
     }
 
-    // ===== Gọi từ ElevatorProximityZone =====
     public void OnPlayerEnterZone()
     {
         if (state == State.Idle)
@@ -173,11 +169,8 @@ public class ElevatorController : MonoBehaviour
 
     public void OnPlayerExitZone()
     {
-        // cửa tự đóng theo timer, không cần làm gì
     }
 
-    // ===== Gọi từ UI chọn tầng =====
-    // floorIndex là vị trí trong list "floors". Trả về true nếu chọn thành công.
     public bool TrySelectFloor(int floorIndex)
     {
         if (state != State.WaitingForSelection) return false;
@@ -200,7 +193,6 @@ public class ElevatorController : MonoBehaviour
         return true;
     }
 
-    // Tầng có khóa và người chơi hiện tại có đủ thẻ để mở không
     public bool CanAccessFloor(int floorIndex)
     {
         if (floorIndex < 0 || floorIndex >= floors.Count) return false;
@@ -248,9 +240,6 @@ public class ElevatorController : MonoBehaviour
         if (clip != null && audioSource != null)
             audioSource.PlayOneShot(clip);
     }
-
-    // Trong lúc đang di chuyển, tìm tầng có Y gần nhất với vị trí hiện tại
-    // để màn hình hiển thị đúng số tầng "đang đi qua"
     void ReportPassingFloor(bool isGoingUp)
     {
         int nearest = currentFloorIndex;

@@ -29,7 +29,8 @@ public class MinigameFlowController : MonoBehaviour
     public GameObject voltagePanel;
     public VoltageCalibrationMinigame voltageMinigame;
 
-    [Header("AI Shutdown Notice")]
+    [Header("AI Shutdown Notice (dùng chung cho cả bước Tắt Server)")]
+    [Tooltip("Panel này được TÁI SỬ DỤNG cho 2 việc: (1) hiển thị 'TẮT SERVER X' / 'SAI THỨ TỰ' trong lúc chơi minigame tắt server, (2) hiển thị thông báo 'AI CORE OFFLINE' ở cuối chuỗi minigame.")]
     public GameObject aiShutdownPanel;
     public TMP_Text aiShutdownText;
     public string aiShutdownMessage = "AI CORE OFFLINE";
@@ -39,11 +40,30 @@ public class MinigameFlowController : MonoBehaviour
     public Light[] lightsToTurnOn;
 
     private bool _isRunning = false;
+    private bool _isPaused = false;
 
     public void StartTerminal()
     {
-        if (_isRunning) return;
+        if (!_isRunning)
+        {
+            BeginFreshRun();
+            return;
+        }
+
+        if (!_isPaused)
+        {
+            PauseTerminal();
+        }
+        else
+        {
+            ResumeTerminal();
+        }
+    }
+
+    private void BeginFreshRun()
+    {
         _isRunning = true;
+        _isPaused = false;
 
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(true);
         if (minigameCamera) minigameCamera.gameObject.SetActive(true);
@@ -52,6 +72,41 @@ public class MinigameFlowController : MonoBehaviour
 
         ShowOnly(arrowPanel);
         arrowMinigame.StartMinigame(OnArrowComplete);
+    }
+
+    private void PauseTerminal()
+    {
+        _isPaused = true;
+
+        if (inputBlocker) inputBlocker.UnblockInput();
+        if (minigameCamera) minigameCamera.gameObject.SetActive(false);
+
+        PauseAllMinigames();
+    }
+
+    private void ResumeTerminal()
+    {
+        _isPaused = false;
+
+        if (minigameCamera) minigameCamera.gameObject.SetActive(true);
+        if (raycastFixer) raycastFixer.FixAll();
+        if (inputBlocker) inputBlocker.BlockInput();
+
+        ResumeAllMinigames();
+    }
+
+    private void PauseAllMinigames()
+    {
+        if (arrowMinigame) arrowMinigame.Pause();
+        if (codeMinigame) codeMinigame.Pause();
+        if (voltageMinigame) voltageMinigame.Pause();
+    }
+
+    private void ResumeAllMinigames()
+    {
+        if (arrowMinigame) arrowMinigame.Resume();
+        if (codeMinigame) codeMinigame.Resume();
+        if (voltageMinigame) voltageMinigame.Resume();
     }
 
     private void OnArrowComplete()
@@ -67,21 +122,33 @@ public class MinigameFlowController : MonoBehaviour
 
     private void OnCodeComplete()
     {
-        ShowOnly(null);
-        StartCoroutine(RiseAndShowVoltage());
-    }
-
-    private IEnumerator RiseAndShowVoltage()
-    {
-        serverMinigameManager.OnPlayerEnterTrigger();
-        float wait = serverMinigameManager.GetRiseSequenceDuration();
-        yield return new WaitForSeconds(wait);
-
         ShowOnly(voltagePanel);
         voltageMinigame.StartMinigame(OnVoltageComplete);
     }
 
+    // Cả 3 minigame (Arrow, Code, Voltage) đã xong ở đây -> mới được phép bắt đầu puzzle tắt server.
     private void OnVoltageComplete()
+    {
+        ShowOnly(null);
+        StartServerShutdownPuzzle();
+    }
+
+    /// <summary>
+    /// Bước 4: Server trồi lên rồi bắt đầu puzzle "tắt đúng server theo đúng thứ tự".
+    /// Chỉ được gọi SAU KHI cả 3 minigame (Arrow, Code, Voltage) đã hoàn thành.
+    /// Thứ tự là RANDOM mỗi lần (kể cả sau khi bấm sai bị reset) — số hiệu server thì CỐ ĐỊNH (ServerBlock.serverNumber).
+    /// Màn hình thông báo dùng CHUNG với AI Shutdown Panel/Text ở dưới, không cần UI riêng.
+    /// </summary>
+    private void StartServerShutdownPuzzle()
+    {
+        ShowOnly(aiShutdownPanel);
+
+        serverMinigameManager.SetNoticeUI(aiShutdownPanel, aiShutdownText);
+        serverMinigameManager.OnAllServersShutdown = OnServersShutdownComplete;
+        serverMinigameManager.OnPlayerEnterTrigger();
+    }
+
+    private void OnServersShutdownComplete()
     {
         ShowOnly(aiShutdownPanel);
         if (aiShutdownText) aiShutdownText.text = aiShutdownMessage;
@@ -109,6 +176,7 @@ public class MinigameFlowController : MonoBehaviour
         if (minigameCamera) minigameCamera.gameObject.SetActive(false);
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(false);
         _isRunning = false;
+        _isPaused = false;
     }
 
     private void ShowOnly(GameObject panel)
