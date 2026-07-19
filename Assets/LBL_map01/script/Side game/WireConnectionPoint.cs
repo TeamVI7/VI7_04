@@ -1,12 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-/// <summary>
-/// Gắn vào MỖI điểm nối dây (UI Image hình tròn).
-///
-/// FIX: OnPointerUp bị xoá — EndDrag() nay chạy trong Update() của WirePuzzleManager
-/// dùng Raycast tìm target, tránh bug "kéo đúng màu nhưng không dính".
-/// </summary>
+
 [RequireComponent(typeof(RectTransform))]
 public class WireConnectionPoint : MonoBehaviour, IPointerDownHandler, IPointerEnterHandler, IPointerExitHandler
 {
@@ -34,14 +29,12 @@ public class WireConnectionPoint : MonoBehaviour, IPointerDownHandler, IPointerE
         _manager = manager;
     }
 
-    // Bắt đầu kéo dây từ điểm TRÁI
     public void OnPointerDown(PointerEventData eventData)
     {
         if (isConnected || !isSourceSide) return;
         _manager?.BeginDrag(this);
     }
 
-    // Hint hover (không dùng để xác định kết nối nữa)
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (!isSourceSide && !isConnected)
@@ -54,5 +47,4 @@ public class WireConnectionPoint : MonoBehaviour, IPointerDownHandler, IPointerE
             _manager?.ClearHoverTarget(this);
     }
 
-    // OnPointerUp đã XOÁ — EndDrag() chạy ở Update() của Manager qua Raycast
 }
