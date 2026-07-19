@@ -51,6 +51,36 @@ public class ServerMinigameManager : MonoBehaviour
     [Tooltip("Thời gian tồn tại của VFX prefab trước khi tự huỷ (giây).")]
     public float riseVFXLifetime = 2f;
 
+    [Header("Hiệu ứng khi TẮT XONG toàn bộ server (trụ giữa tối đi + đèn báo đỏ chớp)")]
+    [Tooltip("Renderer(s) của cái trụ ở giữa map. Khi tắt xong hết server, trụ sẽ đổi màu tối đi và tắt emission (giống như mất điện).")]
+    public Renderer[] centerPillarRenderers;
+    [Tooltip("Màu thân trụ sau khi tối đi (lúc còn hoạt động thì giữ nguyên material gốc, cái này chỉ áp dụng SAU KHI tắt xong).")]
+    public Color pillarDimColor = new Color(0.05f, 0.05f, 0.05f);
+    [Tooltip("Độ sáng emission của trụ sau khi tối đi. Để 0 = tắt hẳn glow.")]
+    public float pillarDimEmissionIntensity = 0f;
+
+    [Tooltip("Các đèn báo hiệu (Light) đặt rải rác quanh map, sẽ chớp màu đỏ liên tục sau khi tắt xong toàn bộ server.")]
+    public Light[] redWarningLights;
+    public Color warningLightColor = Color.red;
+    [Tooltip("Thời gian giữa mỗi lần chớp (giây).")]
+    public float warningBlinkInterval = 0.5f;
+
+    private MaterialPropertyBlock _pillarMpb;
+    private Coroutine _warningBlinkCoroutine;
+
+    [Header("Nổ trần + TẤT CẢ server chui xuống đất (khi tắt xong toàn bộ)")]
+    [Tooltip("Kéo component CeilingExplosion vào đây. Sẽ tự gọi TriggerExplosion() ngay khi tắt xong server cuối cùng.")]
+    public CeilingExplosion ceilingExplosion;
+    [Tooltip("Các server TRANG TRÍ THÊM — KHÔNG tham gia puzzle (không có script ServerBlock, không cần tắt đúng thứ tự). " +
+             "Chỉ cần kéo Transform gốc của chúng vào đây để chúng chui xuống đất CÙNG LÚC với các server chính lúc kết thúc.")]
+    public Transform[] decorativeServers;
+    [Tooltip("Thời gian 1 khối (chính hoặc trang trí) chui xuống đất.")]
+    public float sinkDuration = 1f;
+    [Tooltip("Độ trễ giữa mỗi khối khi chui xuống (so le). Để 0 nếu muốn tất cả chui xuống CÙNG LÚC.")]
+    public float sinkDelay = 0f;
+
+    private float[] _decorativeOriginalY;
+
     /// <summary>Được gọi khi player đã tắt ĐÚNG toàn bộ server theo đúng thứ tự random (sau khi SolveSequence chạy xong).</summary>
     public System.Action OnAllServersShutdown;
 
@@ -90,6 +120,13 @@ public class ServerMinigameManager : MonoBehaviour
         if (puzzleUI) puzzleUI.SetActive(false);
         if (noticePanel) noticePanel.SetActive(false);
         UpdateProgressUI();
+
+        _decorativeOriginalY = new float[decorativeServers != null ? decorativeServers.Length : 0];
+        for (int i = 0; i < _decorativeOriginalY.Length; i++)
+        {
+            if (decorativeServers[i] == null) continue;
+            _decorativeOriginalY[i] = decorativeServers[i].position.y;
+        }
     }
 
     /// <summary>Cho phép nơi khác (VD: MinigameFlowController) gán màn hình thông báo dùng chung lúc runtime, thay vì gán tay trong Inspector.</summary>
@@ -269,7 +306,11 @@ public class ServerMinigameManager : MonoBehaviour
         if (audioSource != null && allDoneSound != null)
             audioSource.PlayOneShot(allDoneSound, allDoneSfxVolume);
 
-        yield return new WaitForSeconds(1.5f);
+        DimCenterPillar();
+        StartWarningLights();
+
+        if (ceilingExplosion != null) ceilingExplosion.TriggerExplosion();
+        yield return StartCoroutine(SinkAllBlocks());
 
         if (openDoorOnComplete)
             door?.UnlockAndOpen();
@@ -280,6 +321,108 @@ public class ServerMinigameManager : MonoBehaviour
         if (noticePanel) noticePanel.SetActive(false);
 
         OnAllServersShutdown?.Invoke();
+    }
+
+    /// <summary>Cho toàn bộ server (chính lẫn trang trí) chui xuống đất — gọi khi tắt xong toàn bộ server (kèm nổ trần).</summary>
+    private IEnumerator SinkAllBlocks()
+    {
+        for (int i = 0; i < serverBlocks.Length; i++)
+        {
+            if (serverBlocks[i] == null) continue;
+            float targetY = _originalY[i] - hiddenOffset;
+            StartCoroutine(SinkBlock(serverBlocks[i].transform, targetY));
+            if (sinkDelay > 0f) yield return new WaitForSeconds(sinkDelay);
+        }
+
+        if (decorativeServers != null)
+        {
+            for (int i = 0; i < decorativeServers.Length; i++)
+            {
+                if (decorativeServers[i] == null) continue;
+                float targetY = _decorativeOriginalY[i] - hiddenOffset;
+                StartCoroutine(SinkBlock(decorativeServers[i], targetY));
+                if (sinkDelay > 0f) yield return new WaitForSeconds(sinkDelay);
+            }
+        }
+
+        // Đợi cho khối cuối cùng chui xuống xong hẳn trước khi cửa mở
+        yield return new WaitForSeconds(sinkDuration);
+    }
+
+    private IEnumerator SinkBlock(Transform t, float targetY)
+    {
+        Vector3 start = t.position;
+        Vector3 target = new Vector3(t.position.x, targetY, t.position.z);
+        float elapsed = 0f;
+
+        while (elapsed < sinkDuration)
+        {
+            elapsed += Time.deltaTime;
+            float curve = Mathf.SmoothStep(0f, 1f, elapsed / sinkDuration);
+            t.position = Vector3.Lerp(start, target, curve);
+            yield return null;
+        }
+
+        t.position = target;
+    }
+
+    /// <summary>Làm tối trụ giữa map (tắt/giảm emission) — gọi khi đã tắt xong toàn bộ server.</summary>
+    private void DimCenterPillar()
+    {
+        if (centerPillarRenderers == null) return;
+
+        if (_pillarMpb == null) _pillarMpb = new MaterialPropertyBlock();
+        Color emissive = pillarDimColor * pillarDimEmissionIntensity;
+
+        foreach (var r in centerPillarRenderers)
+        {
+            if (r == null) continue;
+
+            r.GetPropertyBlock(_pillarMpb);
+            _pillarMpb.SetColor("_BaseColor", pillarDimColor);
+            _pillarMpb.SetColor("_Color", pillarDimColor);
+            _pillarMpb.SetColor("_EmissionColor", emissive);
+            r.SetPropertyBlock(_pillarMpb);
+        }
+    }
+
+    /// <summary>Bắt đầu chớp đèn báo đỏ khắp map — gọi khi đã tắt xong toàn bộ server.</summary>
+    public void StartWarningLights()
+    {
+        if (redWarningLights == null || redWarningLights.Length == 0) return;
+
+        if (_warningBlinkCoroutine != null) StopCoroutine(_warningBlinkCoroutine);
+        _warningBlinkCoroutine = StartCoroutine(BlinkWarningLights());
+    }
+
+    /// <summary>Tắt hẳn đèn báo đỏ (VD: gọi lúc bật lại đèn thường ở cuối chuỗi minigame).</summary>
+    public void StopWarningLights()
+    {
+        if (_warningBlinkCoroutine != null)
+        {
+            StopCoroutine(_warningBlinkCoroutine);
+            _warningBlinkCoroutine = null;
+        }
+
+        if (redWarningLights == null) return;
+        foreach (var l in redWarningLights)
+            if (l != null) l.enabled = false;
+    }
+
+    private IEnumerator BlinkWarningLights()
+    {
+        bool on = false;
+        while (true)
+        {
+            on = !on;
+            foreach (var l in redWarningLights)
+            {
+                if (l == null) continue;
+                l.color = warningLightColor;
+                l.enabled = on;
+            }
+            yield return new WaitForSeconds(warningBlinkInterval);
+        }
     }
 
     private void UpdateProgressUI()
