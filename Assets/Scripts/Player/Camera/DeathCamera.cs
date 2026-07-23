@@ -48,6 +48,11 @@ public class DeathCamera : MonoBehaviour
 
     void Play()
     {
+        // Raise this first, before anything else — every other system (weapon fire,
+        // reload, melee, switching) checks PlayerActionLock.IsDead through IsInputBlocked
+        // / CanMelee / CanSwitch, so this one line is what stops all player actions on death.
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Dead, true);
+
         if (!cam) cam = Camera.main;
         if (!_cachedOrigin && cam) CacheCamOrigin();
 
@@ -105,6 +110,12 @@ public class DeathCamera : MonoBehaviour
         if (mouseLook) mouseLook.enabled = true;
 
         PlayerHealth.Instance?.Respawn();
+
+        // Hard reset, not just "release Dead" — if a coroutine got silently killed by
+        // deactivation while the player was dead (weapon mid-reload, mid-switch, etc.),
+        // this guarantees respawn always hands back a completely clean, unblocked state
+        // instead of inheriting a stuck lock from whatever was happening at the moment of death.
+        PlayerActionLock.Instance.ClearAll();
 
         if (deathFade) deathFade.DOFade(0f, fadeDuration);
     }

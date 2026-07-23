@@ -5,11 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-/// <summary>
-/// Quản lý puzzle nối dây — hỗ trợ World Space Canvas với camera riêng.
-///
-/// ĐÃ CẬP NHẬT: Dùng 3D Capsule thay cho UI Image (Canvas) + Bật Emission.
-/// </summary>
 public class WirePuzzleManager : MonoBehaviour
 {
     [Header("Điểm nối dây")]
@@ -31,6 +26,22 @@ public class WirePuzzleManager : MonoBehaviour
 
     [Tooltip("Rút ngắn 2 đầu dây một khoảng RẤT NHỎ. Để 0 nếu muốn dây chạm thẳng vào đúng tâm.")]
     public float lineEndTrim = 0f;
+
+    [Header("Model dây thật (nếu KHÔNG dùng Capsule mặc định)")]
+    [Tooltip("Tên GameObject CON bên trong wirePrefab3D đại diện cho phần VỎ dây (phần sẽ đổi màu theo wireId). " +
+             "VD prefab có cấu trúc: WireModel > Vo (Mesh phần vỏ nhựa), DauNoi (đầu jack kim loại, KHÔNG đổi màu). " +
+             "Nhập đúng tên 'Vo' vào đây. Để TRỐNG = giữ hành vi cũ: tự lấy Renderer đầu tiên tìm thấy và tô màu cả nó.")]
+    public string wireShellChildName = "";
+
+    [Tooltip("Dùng khi phần vỏ và các phần khác (đầu nối, chữ in...) nằm CHUNG 1 Renderer/1 Mesh nhưng " +
+             "KHÁC material slot (Element 0, Element 1...). Nhập số thứ tự slot của vật liệu VỎ (0, 1, 2...). " +
+             "Để -1 nếu không dùng cách này (chỉ áp dụng khi wireShellChildName để trống).")]
+    public int wireShellMaterialIndex = -1;
+
+    [Tooltip("Chiều dài GỐC của model dây theo trục Y (world units, lúc Scale = 1), tính từ đầu này sang đầu kia. " +
+             "Capsule mặc định của Unity = 2. Nếu dùng model thật, dùng công cụ đo trong Scene (hoặc xem Size Z/Y " +
+             "trong Mesh Filter > Bounds khi Scale=1) rồi nhập đúng số đó vào, nếu không dây sẽ bị kéo dài/ngắn sai tỉ lệ.")]
+    public float wireModelBaseLength = 2f;
 
     [Header("Màu sắc theo wireId")]
     public WireColorEntry[] wireColors =
@@ -95,7 +106,6 @@ public class WirePuzzleManager : MonoBehaviour
         public Color  color;
     }
 
-    // ── Internal state ──────────────────────────────────────────────
     private readonly Dictionary<string, Color>     _colorMap    = new();
     private readonly Dictionary<string, Transform> _activeLines = new();
 
@@ -113,7 +123,6 @@ public class WirePuzzleManager : MonoBehaviour
     private Vector3   _shakeCamOriginalLocalPos;
     private bool      _isShaking;
 
-    // ───────────────────────────────────────────────────────────────
 
     private void Awake()
     {
@@ -484,7 +493,6 @@ public class WirePuzzleManager : MonoBehaviour
         }
     }
 
-    // ── VẼ DÂY BẰNG 3D CAPSULE ──────────────────────────────────────
 
     private Transform CreateLineInstance()
     {
@@ -508,42 +516,87 @@ public class WirePuzzleManager : MonoBehaviour
         Vector3 adjustedFrom = from + dirNorm * inset;
         float distance = Mathf.Max(0f, fullDist - inset * 2f);
 
-        // 1. Position: Đặt tại trung điểm của 2 điểm nối
         Vector3 midPoint = adjustedFrom + dirNorm * (distance * 0.5f);
         line.localPosition = midPoint;
 
-        // 2. Rotation: Quay trục Y (trục dài của Capsule) hướng theo Vector nối
         line.localRotation = Quaternion.FromToRotation(Vector3.up, dirNorm);
 
-        // 3. Scale: X & Z là độ dày, Y là chiều dài chia đôi (Vì Capsule mặc định cao 2 units)
-        line.localScale = new Vector3(wireThickness, distance * 0.5f, wireThickness);
+        float baseLength = Mathf.Max(0.0001f, wireModelBaseLength);
+        line.localScale = new Vector3(wireThickness, distance / baseLength, wireThickness);
 
-        // 4. Color: Đổi màu và bật Emission trên Material
-        var renderer = line.GetComponentInChildren<Renderer>();
-        if (renderer != null && renderer.material != null)
+        ApplyWireColor(line, color);
+    }
+
+    /// <summary>
+    /// Tô màu cho instance dây vừa dựng. Ưu tiên tìm đúng GameObject con tên
+    /// wireShellChildName (phần vỏ) để CHỈ tô riêng phần đó. Nếu không tìm thấy
+    /// (hoặc không cấu hình), fallback về Renderer đầu tiên tìm được — có thể
+    /// tô theo material slot cụ thể (wireShellMaterialIndex) nếu vỏ và các phần
+    /// khác dùng chung 1 Renderer nhưng khác slot vật liệu.
+    /// </summary>
+    private void ApplyWireColor(Transform line, Color color)
+    {
+        Renderer targetRenderer = null;
+        bool     useSlotIndex   = false;
+
+        if (!string.IsNullOrEmpty(wireShellChildName))
         {
-            renderer.material.color = color;
-            
-            // Kích hoạt tính năng phát sáng
-            renderer.material.EnableKeyword("_EMISSION");
-            
-            // Set màu phát sáng (Nhân lên 2.5 lần để tạo độ chói sáng HDR)
-            renderer.material.SetColor("_EmissionColor", color * 2.5f);
+            var shellChild = FindChildRecursive(line, wireShellChildName);
+            if (shellChild != null)
+                targetRenderer = shellChild.GetComponent<Renderer>();
+
+            if (targetRenderer == null)
+                Debug.LogWarning($"[WirePuzzleManager] Không tìm thấy child '{wireShellChildName}' " +
+                                  $"(hoặc child đó không có Renderer) trong '{line.name}'. " +
+                                  $"Đang fallback về Renderer đầu tiên.", line);
+        }
+
+        if (targetRenderer == null)
+        {
+            targetRenderer = line.GetComponentInChildren<Renderer>();
+            useSlotIndex   = wireShellMaterialIndex >= 0;
+        }
+
+        if (targetRenderer == null) return;
+
+        if (useSlotIndex && wireShellMaterialIndex < targetRenderer.materials.Length)
+        {
+            var mats = targetRenderer.materials; // tạo bản instance riêng cho renderer này
+            var mat  = mats[wireShellMaterialIndex];
+            mat.color = color;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", color * 2.5f);
+            targetRenderer.materials = mats;
+        }
+        else
+        {
+            var mat = targetRenderer.material; // instance của slot 0
+            mat.color = color;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", color * 2.5f);
         }
     }
 
-   // ── Coordinate helpers ───────────────────────────────────────────
+    /// <summary>Tìm đệ quy 1 child theo tên chính xác (không phân biệt cấp con/cháu).</summary>
+    private Transform FindChildRecursive(Transform parent, string name)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == name) return child;
+            var found = FindChildRecursive(child, name);
+            if (found != null) return found;
+        }
+        return null;
+    }
 
     private static readonly Vector3[] _cornersBuffer = new Vector3[4];
 
     private Vector3 GetLocalPos(RectTransform target)
     {
-        // Lấy 4 góc của điểm nối UI trong không gian World
         target.GetWorldCorners(_cornersBuffer);
         Vector3 worldCenter = (_cornersBuffer[0] + _cornersBuffer[2]) * 0.5f;
         
-        // CHỈNH SỬA: Chuyển thẳng từ World Space sang Local Space của LineContainer
-        // Không dùng công thức cộng trừ Pivot của UI nữa.
+  
         return lineContainer.InverseTransformPoint(worldCenter);
     }
 
@@ -551,14 +604,12 @@ public class WirePuzzleManager : MonoBehaviour
     {
         Camera cam = GetEventCamera();
 
-        // Chuyển vị trí chuột thành điểm 3D trên mặt phẳng của LineContainer
         if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
                 lineContainer, screenPos, cam, out Vector3 worldPt))
         {
             return lineContainer.InverseTransformPoint(worldPt);
         }
 
-        // Fallback
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             lineContainer, screenPos, cam, out Vector2 localPt);
         return (Vector3)localPt;

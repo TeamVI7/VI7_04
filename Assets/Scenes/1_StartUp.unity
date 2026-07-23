@@ -723,7 +723,7 @@ MonoBehaviour:
   osWelcomeGroup: {fileID: 846144595}
   osLogo: {fileID: 25236510}
   welcomeText: {fileID: 104532873}
-  welcomeDuration: 10
+  welcomeDuration: 5
   holdDuration: 2
   mainMenuSceneName: 2_MainMenu
   audioSource: {fileID: 2078352130}

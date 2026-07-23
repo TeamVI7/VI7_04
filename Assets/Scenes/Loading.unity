@@ -611,6 +611,7 @@ GameObject:
   - component: {fileID: 913769615}
   - component: {fileID: 913769614}
   - component: {fileID: 913769616}
+  - component: {fileID: 913769617}
   m_Layer: 0
   m_Name: LoadingScreenController
   m_TagString: Untagged
@@ -631,10 +632,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LoadingScreenController
   persistAcrossScenes: 1
-  minimumDisplayTime: 0.5
-  completeHoldTime: 0.3
+  minimumDisplayTime: 10
+  completeHoldTime: 5
   debugLog: 1
   progressLogInterval: 0.25
+  debugTestKey: 290
+  debugTestDuration: 4
 --- !u!4 &913769615
 Transform:
   m_ObjectHideFlags: 0
@@ -647,7 +650,8 @@ Transform:
   m_LocalPosition: {x: 1188.8871, y: 381.29837, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 2113898919}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &913769616
@@ -663,6 +667,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BootstrapLoader
   firstSceneName: 1_StartUp
+--- !u!114 &913769617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 913769613}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e67ebd1cd5e8e44ba0e4404486bb99a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LoadingBIOSDisplay
+  controller: {fileID: 913769614}
+  screenGroup: {fileID: 1820717934}
+  terminalText: {fileID: 499627258}
+  percentText: {fileID: 1516996711}
+  progressBarFill: {fileID: 1069291595}
+  spinner: {fileID: 0}
+  injectFillBar: {fileID: 1069291595}
+  confirmKey: 101
+  allowMouseConfirm: 1
+  holdDuration: 1
+  injectHoldSound: {fileID: 0}
+  releaseDrainMultiplier: 3
+  flavourLines:
+  - Loading Shader...
+  - Please Wait...
+  - Almost there...
+  - Almost...
+  glitchIntensity: 2
+  glitchChance: 0.05
+  audioSource: {fileID: 0}
+  tickSound: {fileID: 0}
+  readySound: {fileID: 0}
+  fadeInDuration: 0.25
+  fadeOutDuration: 0.35
+  showDebugLogs: 1
 --- !u!1 &1009321650
 GameObject:
   m_ObjectHideFlags: 0
@@ -772,7 +813,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0.25}
   m_AnchorMax: {x: 1, y: 0.75}
   m_AnchoredPosition: {x: -5, y: 0}
-  m_SizeDelta: {x: -20, y: 0}
+  m_SizeDelta: {x: -20, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1069291593
 GameObject:
@@ -808,8 +849,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 10, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0.13960075}
+  m_SizeDelta: {x: 10, y: -25.4145}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1069291595
 MonoBehaviour:
@@ -996,7 +1037,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1820717933}
   - component: {fileID: 1820717934}
-  - component: {fileID: 1820717935}
   m_Layer: 5
   m_Name: LoadingPanel
   m_TagString: Untagged
@@ -1039,36 +1079,6 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &1820717935
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1820717932}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e67ebd1cd5e8e44ba0e4404486bb99a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LoadingBIOSDisplay
-  controller: {fileID: 913769614}
-  screenGroup: {fileID: 1820717934}
-  terminalText: {fileID: 499627258}
-  percentText: {fileID: 1516996711}
-  progressBarFill: {fileID: 1069291595}
-  flavourLines:
-  - Loading Shader...
-  - Please Wait...
-  - Almost there...
-  - Almost...
-  glitchIntensity: 2
-  glitchChance: 0.05
-  audioSource: {fileID: 0}
-  tickSound: {fileID: 0}
-  readySound: {fileID: 0}
-  fadeInDuration: 0.25
-  fadeOutDuration: 0.35
-  showDebugLogs: 0
 --- !u!1 &2032618003
 GameObject:
   m_ObjectHideFlags: 0
@@ -1103,8 +1113,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 20, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0.41900063}
+  m_SizeDelta: {x: 20, y: -25.4145}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2032618005
 MonoBehaviour:
@@ -1314,7 +1324,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1820717933}
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 913769615}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -1326,6 +1336,5 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 822783807}
-  - {fileID: 2113898919}
   - {fileID: 736277504}
   - {fileID: 913769615}

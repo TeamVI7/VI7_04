@@ -15,16 +15,27 @@ public class LockedDoor : MonoBehaviour
     public AudioClip openSound;
     public AudioClip lockedSound;
     public AudioSource audioSource;
+
     [Header("UI gợi ý")]
     [Tooltip("Kéo TMP Text vào đây — script tự ẩn/hiện.")]
     public TextMeshProUGUI hintLabel;
     [Tooltip("Thời gian hiện hint (giây) rồi tự ẩn.")]
     public float hintDisplayTime = 2.5f;
+
+    [Header("Nhấp nháy hint")]
+    [Tooltip("Thời gian (giây) cho 1 chu kỳ nhấp nháy (mờ -> rõ -> mờ).")]
+    public float blinkInterval = 0.6f;
+    [Tooltip("Độ mờ thấp nhất khi nhấp nháy (0 = tắt hẳn, 1 = không mờ).")]
+    [Range(0f, 1f)]
+    public float minBlinkAlpha = 0f;
+
     private Vector3   _closedPos;
     private Vector3   _openPos;
     private bool      _unlocked = false;
     private bool      _opened   = false;
+    private bool      _playerInTrigger = false;
     private Coroutine _hintCoroutine;
+
     private void Start()
     {
         if (slideDistance <= 0f)
@@ -44,6 +55,7 @@ public class LockedDoor : MonoBehaviour
         else
             Debug.LogWarning($"[LockedDoor] '{name}': Chưa gán WirePuzzleManager!", this);
     }
+
     private void OnDestroy()
     {
         if (wirePuzzleManager != null)
@@ -55,9 +67,12 @@ public class LockedDoor : MonoBehaviour
         _unlocked = true;
         Debug.Log($"[LockedDoor] '{name}' đã được mở khoá!");
     }
+
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
+        if (_playerInTrigger) return;
+        _playerInTrigger = true;
 
         if (_unlocked)
             TryOpen();
@@ -67,12 +82,20 @@ public class LockedDoor : MonoBehaviour
             ShowHint();
         }
     }
+
     private void OnTriggerStay(Collider other)
     {
         if (!other.CompareTag("Player")) return;
         if (_unlocked && !_opened)
             TryOpen();
     }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (!other.CompareTag("Player")) return;
+        _playerInTrigger = false;
+    }
+
     private void TryOpen()
     {
         if (_opened) return;
@@ -98,12 +121,11 @@ public class LockedDoor : MonoBehaviour
 
         transform.position = _openPos;
     }
+
     private void ShowHint()
     {
         if (hintLabel == null) return;
-
-        if (_hintCoroutine != null)
-            StopCoroutine(_hintCoroutine);
+        if (_hintCoroutine != null) return;
 
         _hintCoroutine = StartCoroutine(HintRoutine());
     }
@@ -117,21 +139,45 @@ public class LockedDoor : MonoBehaviour
         }
 
         if (hintLabel != null)
+        {
             hintLabel.enabled = false;
+            SetLabelAlpha(1f);
+        }
     }
 
     private IEnumerator HintRoutine()
     {
         hintLabel.enabled = true;
-        yield return new WaitForSeconds(hintDisplayTime);
+        float elapsed = 0f;
+
+        while (elapsed < hintDisplayTime)
+        {
+            float phase = (Mathf.Sin(elapsed * Mathf.PI * 2f / blinkInterval) + 1f) / 2f;
+            float alpha = Mathf.Lerp(minBlinkAlpha, 1f, phase);
+            SetLabelAlpha(alpha);
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
         hintLabel.enabled = false;
+        SetLabelAlpha(1f);
         _hintCoroutine = null;
     }
+
+    private void SetLabelAlpha(float alpha)
+    {
+        Color c = hintLabel.color;
+        c.a = alpha;
+        hintLabel.color = c;
+    }
+
     private void PlaySfx(AudioClip clip)
     {
         if (clip != null && audioSource != null)
             audioSource.PlayOneShot(clip);
     }
+
     private void OnDrawGizmosSelected()
     {
         float dist = slideDistance > 0f ? slideDistance : 3f;

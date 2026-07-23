@@ -4,22 +4,6 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 using UnityEngine.Animations.Rigging;
 
-/// <summary>
-/// Primary weapon controller for an FPS character.
-/// All tunable values live in a <see cref="WeaponData"/> ScriptableObject.
-///
-/// EXTENDING:
-///   - Subscribe to any public event (OnWeaponFired, OnMagOut, OnAmmoChanged, etc.)
-///     from external components — no modifications needed here.
-///   - Add new input locks by checking <see cref="IsInputBlocked"/> before any action.
-///   - New fire modes: add a FireMode enum to WeaponData and branch inside Co_Fire().
-///   - New reload phases: extend Co_Reload() with additional anim-signal wait steps.
-///
-/// DEBUG:
-///   - Toggle showDebugLogs in Inspector to see state transitions and events.
-///   - showSpreadGizmo / showRaycastGizmo visualize spread cone and hit ray in Scene view.
-///   - Use FPSDebug.GlobalEnabled to silence all FPS logs in builds.
-/// </summary>
 [RequireComponent(typeof(AudioSource))]
 public class WeaponsController : MonoBehaviour
 {
@@ -64,6 +48,12 @@ public class WeaponsController : MonoBehaviour
     [SerializeField] private bool showSpreadGizmo  = true;
     [SerializeField] private bool showRaycastGizmo = true;
 #endif
+
+    [Header("Debug — Force Fire")]
+    [Tooltip("When enabled, left-click ALWAYS fires — bypasses ammo, cooldown, weapon " +
+             "state, and PlayerActionLock (dead/meleeing/switching/reloading). " +
+             "For isolating animation/hitreg testing only. Leave OFF for normal play.")]
+    [SerializeField] private bool debugForceFireOnClick = false;
 
     #endregion
 
@@ -127,12 +117,27 @@ public class WeaponsController : MonoBehaviour
     }
 
     /// <summary>
-    /// True whenever the player cannot interact with the weapon.
-    /// Gate ALL new input paths through this instead of duplicating checks.
+    /// True whenever the player cannot reload/inspect/fire this weapon.
+    /// Gate ALL input paths through this instead of duplicating checks.
+    ///
+    /// Also asks the shared <see cref="PlayerActionLock"/> whether the player is dead or
+    /// mid-melee-swing — this is what stops fire/reload/inspect from starting while a melee
+    /// swing is resolving, and stops everything the instant the player dies, without this
+    /// script needing a direct reference to PlayerMelee or PlayerHealth.
     /// </summary>
     public bool IsInputBlocked =>
         _isSwitching
-        || CurrentState == WeaponState.Switching;
+        || CurrentState == WeaponState.Switching
+        || (PlayerActionLock.Instance != null && PlayerActionLock.Instance.IsBlockedBy(
+                PlayerActionLock.LockReason.Dead | PlayerActionLock.LockReason.Meleeing));
+
+    /// <summary>
+    /// Fire-specific alias for <see cref="IsInputBlocked"/>. Kept as a separate property
+    /// (rather than inlining IsInputBlocked at every fire call site) so a future change that
+    /// genuinely needs fire to behave differently from reload/inspect only has to edit this
+    /// one line instead of hunting through HandleFireInput/Co_Fire.
+    /// </summary>
+    public bool IsFireBlocked => IsInputBlocked;
 
     #endregion
 
@@ -254,10 +259,40 @@ public class WeaponsController : MonoBehaviour
 
     private void Update()
     {
-        HandleInput();
+        if (debugForceFireOnClick && Input.GetMouseButtonDown(0))
+            DebugForceFire();
+        else
+            HandleInput();
+
         TickSpreadRecovery();
         TickDryFireCooldown();
         TickAnimations();
+    }
+
+    private void DebugForceFire()
+    {
+        StartCoroutine(Co_Fire(true));
+    }
+
+    /// <summary>
+    /// Safety net — if this GameObject (or a parent) gets deactivated while Co_Reload/
+    /// Co_Inspect/Co_Fire is mid-yield (e.g. player dies mid-reload), Unity silently
+    /// kills the coroutine and skips its cleanup lines. Without this, the Reloading
+    /// lock would stay stuck ON forever — permanently blocking fire/switch/melee even
+    /// after respawn. OnDisable always fires in that scenario, so this guarantees the
+    /// lock (and CurrentState) can never get permanently wedged.
+    /// </summary>
+    private void OnDisable()
+    {
+        if (CurrentState == WeaponState.Reloading || CurrentState == WeaponState.BoltCycling
+            || _isInspecting || _isSwitching)
+        {
+            LogWarning("Disabled mid-action — force-resetting state so no lock stays stuck.");
+        }
+
+        _reloadCoroutine  = null;
+        _inspectCoroutine = null;
+        PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Reloading, false);
     }
 
     #endregion
@@ -307,9 +342,9 @@ public class WeaponsController : MonoBehaviour
 
     private void HandleInput()
     {
-        // ── MASTER GATE — no input while switching ──────────────────────────
-        // IsInputBlocked covers both _isSwitching and WeaponState.Switching,
-        // so a single check here locks everything below.
+        // ── MASTER GATE — no input while switching, meleeing, or dead ───────
+        // IsInputBlocked covers _isSwitching, WeaponState.Switching, Dead, and Meleeing,
+        // so a single check here locks fire/reload/inspect all together.
         if (IsInputBlocked) return;
 
         HandleFireInput();
@@ -319,6 +354,17 @@ public class WeaponsController : MonoBehaviour
 
     private void HandleFireInput()
     {
+        // Redundant-by-design: HandleInput() already early-returns on IsInputBlocked
+        // before this runs, but this direct check + log makes it obvious in the console
+        // exactly why a shot was refused, and protects this method if it's ever called
+        // from anywhere other than HandleInput() in the future.
+        if (IsFireBlocked)
+        {
+            if (Input.GetMouseButtonDown(0))
+                Log($"Fire blocked — locks active: {PlayerActionLock.Instance.CurrentLocks}");
+            return;
+        }
+
         bool fireInput = weaponData.isFullAuto
             ? Input.GetMouseButton(0)
             : Input.GetMouseButtonDown(0);
@@ -438,13 +484,34 @@ public class WeaponsController : MonoBehaviour
     #region Firing
     // ─────────────────────────────────────────────────────────────────────────
 
-    private IEnumerator Co_Fire()
+    private IEnumerator Co_Fire(bool bypassChecks = false)
     {
+        if (!bypassChecks)
+        {
+            // Last-instant safety check — closes the one-frame race where this coroutine was
+            // queued (StartCoroutine already called) the instant before Meleeing/Dead engaged.
+            if (PlayerActionLock.Instance.IsBlockedBy(
+                    PlayerActionLock.LockReason.Dead | PlayerActionLock.LockReason.Meleeing))
+            {
+                Log("Fire aborted — lock engaged before this shot could resolve.");
+                _canShoot = true;
+                yield break;
+            }
+        }
+
         _animSignal_BoltOut = false;
         _animSignal_BoltIn  = false;
         CancelInspect();
 
-        if (!_roundInChamber) { _canShoot = true; yield break; }
+        if (!bypassChecks && !_roundInChamber) { _canShoot = true; yield break; }
+        if (bypassChecks && !_roundInChamber && _currentAmmoInClip <= 0)
+        {
+            // Even in force-fire mode we don't fake ammo out of thin air for a clip that's
+            // truly empty — dry-fire instead so the sound/animation path still gets tested.
+            TriggerDryFire();
+            _canShoot = true;
+            yield break;
+        }
 
         SetState(WeaponState.Firing);
 
@@ -572,6 +639,7 @@ public class WeaponsController : MonoBehaviour
         CancelInspect();
         SetState(WeaponState.Reloading);
         ResetAnimSignals();
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Reloading, true);
 
         bool wasEmpty     = !_roundInChamber && _currentAmmoInClip == 0;
         bool needsChamber = wasEmpty || weaponData.requiresManualChamber;
@@ -642,6 +710,7 @@ public class WeaponsController : MonoBehaviour
         NotifyAmmoChanged();
         OnReloadComplete?.Invoke();
         SetState(_currentAmmoInClip > 0 || _roundInChamber ? WeaponState.Idle : WeaponState.Empty);
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Reloading, false);
     }
 
     public void CancelReload()
@@ -654,6 +723,7 @@ public class WeaponsController : MonoBehaviour
         OnReloadCancelled?.Invoke();
         SetState(WeaponState.Idle);
         _canShoot = true;
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Reloading, false);
     }
 
     #endregion
@@ -892,6 +962,15 @@ public class WeaponsController : MonoBehaviour
         _canShoot        = true;
         ResetAnimSignals();
         SetState(WeaponState.Idle);
+
+        // StopAllCoroutines() above can silently kill Co_Reload/Co_Inspect mid-yield —
+        // that skips their normal cleanup lines, which is exactly how a lock gets stuck
+        // ON forever. Clear stale references and release every lock this weapon could
+        // be holding so ForceIdle() is always a complete, guaranteed-clean reset.
+        _reloadCoroutine  = null;
+        _inspectCoroutine = null;
+        PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Reloading, false);
+
         Log("ForceIdle.");
     }
 

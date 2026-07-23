@@ -164,6 +164,8 @@ public class MinigameFlowController : MonoBehaviour
 
     private void TurnOnLights()
     {
+        if (serverMinigameManager) serverMinigameManager.StopWarningLights();
+
         if (lightsToTurnOn == null) return;
         foreach (var l in lightsToTurnOn)
             if (l != null) l.enabled = true;

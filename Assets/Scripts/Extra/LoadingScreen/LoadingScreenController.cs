@@ -23,6 +23,11 @@ using UnityEngine;
 ///   Enable debugLog to see per-step start/finish and blended progress ticks
 ///   in the console. Each tick is throttled (progressLogInterval) so it
 ///   doesn't spam every frame.
+///
+///   In the Editor, press debugTestKey (F9 default) at any time to fire a
+///   fake load (SceneLoadStep skipped, just a timed FakeDelayStep) so you
+///   can iterate on the BIOS visuals without playing through cutscenes/menus
+///   to trigger a real transition. Editor-only — compiled out of builds.
 /// </summary>
 public class LoadingScreenController : MonoBehaviour
 {
@@ -69,7 +74,7 @@ public class LoadingScreenController : MonoBehaviour
     [Header("Behaviour")]
     [Tooltip("Minimum seconds the loading screen stays up, even if loading " +
              "finishes instantly. Prevents a one-frame flash on fast loads.")]
-    public float minimumDisplayTime = 0.5f;
+    public float minimumDisplayTime = 2f;
 
     [Tooltip("Seconds to hold at 100% before firing OnLoadComplete — gives the " +
              "terminal text a moment to read 'READY' before cutting away.")]
@@ -78,6 +83,13 @@ public class LoadingScreenController : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
     [SerializeField] private float progressLogInterval = 0.25f;
+
+    [Header("Debug — Editor Test Load")]
+    [Tooltip("Editor-only. Press this key to fire a fake timed load, so you " +
+             "can iterate on the BIOS/spinner visuals without walking through " +
+             "cutscenes or menus to trigger a real scene transition.")]
+    [SerializeField] private KeyCode debugTestKey = KeyCode.F9;
+    [SerializeField] private float debugTestDuration = 4f;
 
     #endregion
 
@@ -141,6 +153,41 @@ public class LoadingScreenController : MonoBehaviour
 
         _loadCoroutine = StartCoroutine(Co_RunSteps(steps));
     }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Editor Debug Trigger
+    // ─────────────────────────────────────────────────────────────────────────
+
+#if UNITY_EDITOR
+    private void Update()
+    {
+        if (Input.GetKeyDown(debugTestKey))
+            TriggerDebugTestLoad();
+    }
+
+    /// <summary>
+    /// Fires a fake, no-scene-load sequence purely to preview/tune the BIOS
+    /// display and spinner. Skips SceneLoadStep entirely — nothing actually
+    /// loads, so it's safe to press mid-gameplay too, not just from menus.
+    /// </summary>
+    [ContextMenu("Trigger Debug Test Load")]
+    private void TriggerDebugTestLoad()
+    {
+        if (IsLoading)
+        {
+            LogWarning("Debug test load requested while already loading — ignored.");
+            return;
+        }
+
+        Log($"Debug test load triggered ({debugTestKey}) — {debugTestDuration}s fake load, no scene change.");
+        BeginLoad(new List<ILoadingStep>
+        {
+            new FakeDelayStep(debugTestDuration)
+        });
+    }
+#endif
 
     #endregion
 
@@ -236,4 +283,85 @@ public class LoadingScreenController : MonoBehaviour
     private void LogWarning(string msg) => Debug.LogWarning($"[LoadingScreenController] ⚠ {msg}", this);
 
     #endregion
+}
+
+/// <summary>
+/// Timed fake step with no real work — reports 0→1 progress over N seconds.
+/// Use for previewing/tuning the loading UI (BIOS text, spinner, progress
+/// bar, fades) without needing a real scene load or shader warmup to sit
+/// through. See LoadingScreenController's debugTestKey (F9) for the
+/// one-button trigger — this class is what it runs.
+/// </summary>
+public class FakeDelayStep : ILoadingStep
+{
+    public float Weight { get; }
+    public string StatusLabel { get; }
+
+    private readonly float _seconds;
+
+    public FakeDelayStep(float seconds, float weight = 1f, string statusLabel = "SIMULATING LOAD")
+    {
+        _seconds    = Mathf.Max(0f, seconds);
+        Weight      = weight;
+        StatusLabel = statusLabel;
+    }
+
+    public IEnumerator Run(Action<float> onProgress)
+    {
+        float t = 0f;
+        while (t < _seconds)
+        {
+            t += Time.unscaledDeltaTime;
+            onProgress?.Invoke(Mathf.Clamp01(t / _seconds));
+            yield return null;
+        }
+        onProgress?.Invoke(1f);
+    }
+}
+
+/// <summary>
+/// Put on whatever fires a real scene transition — a trigger volume, a
+/// portal, a level-end zone, a menu button. Holds a SceneTransitionConfig
+/// asset and kicks off LoadingScreenController.Instance when triggered.
+///
+/// This is the piece that was missing per-map: SceneTransitionConfig only
+/// holds data, it doesn't fire anything on its own. Something has to call
+/// config.BuildSteps() + controller.BeginLoad() — this is that something.
+///
+/// SETUP:
+///   1. Attach to the trigger/button GameObject for a given map transition.
+///   2. Assign a SceneTransitionConfig asset (Right-click > FPS > Loading >
+///      Scene Transition Config), targetSceneName set to the destination.
+///   3. If it's a trigger volume: make sure the Collider has "Is Trigger"
+///      checked, and the player has the "Player" tag — OnTriggerEnter below
+///      handles it automatically.
+///   4. If it's a button/interact instead: call Trigger() from that (e.g.
+///      wire a UI Button's OnClick to Trigger()).
+/// </summary>
+public class SceneTransitionTrigger : MonoBehaviour
+{
+    public SceneTransitionConfig config;
+
+    public void Trigger()
+    {
+        if (config == null)
+        {
+            Debug.LogError("[SceneTransitionTrigger] No config assigned.", this);
+            return;
+        }
+
+        if (LoadingScreenController.Instance == null)
+        {
+            Debug.LogError("[SceneTransitionTrigger] No LoadingScreenController.Instance found in scene.", this);
+            return;
+        }
+
+        LoadingScreenController.Instance.BeginLoad(config.BuildSteps());
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+            Trigger();
+    }
 }

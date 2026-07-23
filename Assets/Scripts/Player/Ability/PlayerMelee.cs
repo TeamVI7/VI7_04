@@ -18,7 +18,10 @@ public class PlayerMelee : MonoBehaviour
     public Animator meleeAnimator;
     [Tooltip("Weapon mesh — hidden except during the slash itself.")]
     public GameObject meleeMesh;
-    [Tooltip("Gun holder (procedural weapon sway/IK) — disabled during the slash, re-enabled after.")]
+    [Tooltip("Gun holder (procedural weapon sway/IK) — its VISUALS are hidden during the " +
+             "slash and shown again after. The GameObject itself is never deactivated, " +
+             "because WeaponsController lives on/under it — deactivating it would stop " +
+             "Update()/coroutines entirely and silently break \"shoot during melee\".")]
     public GameObject gunHolder;
     [Tooltip("Checked so melee can't start mid-reload.")]
     public WeaponsController activeWeapon;
@@ -83,6 +86,7 @@ public class PlayerMelee : MonoBehaviour
     private bool _meshRestCached;
     private float _baseFixedDeltaTime;
     private Coroutine _slowMoRoutine;
+    private Renderer[] _gunRenderers;
 
     private void Awake()
     {
@@ -95,6 +99,9 @@ public class PlayerMelee : MonoBehaviour
             _meshRestCached   = true;
             meleeMesh.SetActive(false);
         }
+
+        if (gunHolder != null)
+            _gunRenderers = gunHolder.GetComponentsInChildren<Renderer>(includeInactive: true);
 
         if (cameraShaker == null && playerCam != null)
             cameraShaker = playerCam.GetComponent<CameraShaker>();
@@ -112,6 +119,13 @@ public class PlayerMelee : MonoBehaviour
 
     private bool CanSwing()
     {
+        // Central gate first — covers Dead/Switching/Reloading/Meleeing in one call and is
+        // kept in sync automatically even if new abilities register new lock reasons later.
+        if (PlayerActionLock.Instance != null && !PlayerActionLock.Instance.CanMelee)
+        {
+            Log("Blocked — action lock active (dead/switching/reloading).");
+            return false;
+        }
         if (activeWeapon != null && activeWeapon.IsReloading)
         {
             Log("Blocked — weapon is reloading.");
@@ -125,13 +139,28 @@ public class PlayerMelee : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Hides/shows the gun's VISUALS only — never deactivates gunHolder itself.
+    /// WeaponsController (and everything else on gunHolder) keeps running the whole time,
+    /// which is what lets fire/reload logic keep functioning correctly during a swing.
+    /// </summary>
+    private void SetGunVisible(bool visible)
+    {
+        if (_gunRenderers == null) return;
+        foreach (var r in _gunRenderers)
+        {
+            if (r != null) r.enabled = visible;
+        }
+    }
+
     private System.Collections.IEnumerator Co_Swing()
     {
         _swinging = true;
         _cooldownTimer = Cooldown;
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Meleeing, true);
 
         if (meleeMesh != null) meleeMesh.SetActive(true);
-        if (gunHolder != null) gunHolder.SetActive(false);
+        if (gunHolder != null) SetGunVisible(false);
         if (meleeAnimator != null) meleeAnimator.SetTrigger(AnimSlash);
 
         _swingTween?.Kill();
@@ -169,8 +198,9 @@ public class PlayerMelee : MonoBehaviour
             yield return new WaitForSeconds(meshVisibleAfterHit);
 
         if (meleeMesh != null) meleeMesh.SetActive(false);
-        if (gunHolder != null) gunHolder.SetActive(true);
+        if (gunHolder != null) SetGunVisible(true);
         _swinging = false;
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Meleeing, false);
     }
 
     private void ResolveHit()
@@ -260,6 +290,16 @@ public class PlayerMelee : MonoBehaviour
             Time.timeScale      = 1f;
             Time.fixedDeltaTime = _baseFixedDeltaTime;
             _slowMoRoutine      = null;
+        }
+
+        // Safety net — if this gets disabled mid-swing (e.g. player died while swinging),
+        // don't leave the Meleeing lock stuck on forever, and don't leave the gun's
+        // renderers switched off with no code path left to turn them back on.
+        if (_swinging)
+        {
+            _swinging = false;
+            PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Meleeing, false);
+            SetGunVisible(true);
         }
     }
 

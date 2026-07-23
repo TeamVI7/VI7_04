@@ -35,7 +35,7 @@ MonoBehaviour:
   boltInSound: {fileID: 0}
   boltOutVolume: 1
   boltInVolume: 1
-  baseSpread: 0.1
+  baseSpread: 0.02
   adsSpreadMultiplier: 0.2
   moveSpreadMultiplier: 2.5
   sprintSpreadMultiplier: 5
@@ -43,7 +43,7 @@ MonoBehaviour:
   standSpreadMultiplier: 0.8
   spreadBuildPerShot: 0.01
   spreadRecoveryRate: 0.04
-  maxSpreadBuildup: 1
+  maxSpreadBuildup: 0.08
   reloadTotalTime: 2.4
   reloadMagOutDelay: 0.5
   reloadMagInDelay: 1

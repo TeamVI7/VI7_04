@@ -7,18 +7,18 @@ AvatarMask:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: HumanoidBot
-  m_Mask: 00000000000000000100000000000000000000000100000001000000010000000100000000000000000000000000000000000000
+  m_Mask: 01000000000000000100000001000000010000000100000001000000010000000100000001000000010000000000000000000000
   m_Elements:
   - m_Path: 
     m_Weight: 1
   - m_Path: Armature Simplified.004
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.L
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002
@@ -36,7 +36,7 @@ AvatarMask:
   - m_Path: Armature Simplified.004/Root/Spine/Leg.L/Leg.L.001/Leg.L.002/Leg.L.003/Leg.L.004/Foot.L/Foot.L.002/Foot.L.003
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.R
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002
@@ -54,9 +54,9 @@ AvatarMask:
   - m_Path: Armature Simplified.004/Root/Spine/Leg.R/Leg.R.001/Leg.R.002/Leg.R.003/Leg.R.004/Foot.R/Foot.R.002/Foot.R.003
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Spine.001
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003
     m_Weight: 1
   - m_Path: Armature Simplified.004/Root/Spine/Spine.001/Spine.002/Spine.003/Arm.L

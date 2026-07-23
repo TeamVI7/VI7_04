@@ -1,10 +1,6 @@
 using UnityEngine;
 
-/// <summary>
-/// Gắn vào WirePanel cùng chỗ với WirePuzzleManager.
-/// Nhấn D trong lúc minigame mở → log toàn bộ thông tin dây đang vẽ.
-/// ĐÃ CẬP NHẬT: Hỗ trợ debug dây 3D Transform thay vì RectTransform.
-/// </summary>
+
 public class WireDrawDebugger : MonoBehaviour
 {
     public RectTransform lineContainer;
@@ -30,7 +26,7 @@ public class WireDrawDebugger : MonoBehaviour
 
         for (int i = 0; i < lineContainer.childCount; i++)
         {
-            var child = lineContainer.GetChild(i); // Lấy Transform thường thay vì RectTransform
+            var child = lineContainer.GetChild(i); 
             if (child == null) continue;
             
             var meshRenderer = child.GetComponentInChildren<Renderer>();

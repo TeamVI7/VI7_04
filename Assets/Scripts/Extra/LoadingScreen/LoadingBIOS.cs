@@ -12,9 +12,16 @@ using UnityEngine.UI;
 ///
 /// SETUP:
 ///   1. Place on a Canvas (or child of one) alongside LoadingScreenController.
+///      IMPORTANT: this object must live under the SAME persistent root as
+///      LoadingScreenController (or be persisted itself) — if the Canvas
+///      gets destroyed on scene unload while the controller survives,
+///      screenGroup becomes a dead reference and nothing will render, with
+///      no error logged.
 ///   2. Assign controller, terminalText, progressBarFill (Image, Filled type),
 ///      percentText.
-///   3. Call controller.BeginLoad(...) from wherever you trigger a scene
+///   3. Optional: assign spinner (AsciiSpinner, defined below in this same
+///      file) for a "/ - \ |" spin while loading is active.
+///   4. Call controller.BeginLoad(...) from wherever you trigger a scene
 ///      change (CutsceneManager, BIOSMainMenu.OnDeploy, etc).
 ///
 /// EXTEND:
@@ -35,6 +42,10 @@ public class LoadingBIOSDisplay : MonoBehaviour
     public TextMeshProUGUI terminalText;
     public TextMeshProUGUI percentText;
     public Image progressBarFill;     // Image Type = Filled, Fill Method = Horizontal
+
+    [Header("Spinner")]
+    [Tooltip("Optional '/ - \\ |' ASCII spinner. Ticked every frame while loading is active.")]
+    public AsciiSpinner spinner;
 
     [Header("Flavour Lines")]
     [Tooltip("Random line shown above the status label, purely cosmetic.")]
@@ -70,6 +81,7 @@ public class LoadingBIOSDisplay : MonoBehaviour
 
     private readonly StringBuilder _textBuilder = new StringBuilder();
     private string _currentLabel = "";
+    private bool _isLoading;
 
     #endregion
 
@@ -103,6 +115,14 @@ public class LoadingBIOSDisplay : MonoBehaviour
         controller.OnLoadComplete    -= HandleLoadComplete;
     }
 
+    private void Update()
+    {
+        // Spinner runs off its own timer, driven here rather than via events
+        // since it needs a per-frame tick, not a per-change callback.
+        if (_isLoading && spinner != null)
+            spinner.Tick(Time.unscaledDeltaTime);
+    }
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -111,6 +131,7 @@ public class LoadingBIOSDisplay : MonoBehaviour
 
     private void HandleLoadStart()
     {
+        _isLoading = true;
         Log("Load start — showing terminal.");
         _textBuilder.Clear();
 
@@ -119,6 +140,10 @@ public class LoadingBIOSDisplay : MonoBehaviour
 
         SetTerminalText(_textBuilder.ToString());
         SetProgressVisual(0f);
+
+        if (spinner != null)
+            spinner.ResetSpinner();
+
         StartCoroutine(Co_FadeIn());
     }
 
@@ -152,6 +177,7 @@ public class LoadingBIOSDisplay : MonoBehaviour
 
     private void HandleLoadComplete()
     {
+        _isLoading = false;
         Log("Load complete — hiding terminal.");
         StartCoroutine(Co_FadeOut());
     }
@@ -262,4 +288,39 @@ public class LoadingBIOSDisplay : MonoBehaviour
     private void LogWarning(string msg) => Debug.LogWarning($"[LoadingBIOSDisplay] ⚠ {msg}", this);
 
     #endregion
+}
+
+/// <summary>
+/// Classic ASCII terminal spinner: / - \ | cycling on a timer.
+/// Doesn't run itself — LoadingBIOSDisplay calls Tick(deltaTime) every
+/// frame while loading is active. Kept dumb on purpose so it has no
+/// opinion on when loading starts/stops.
+/// </summary>
+public class AsciiSpinner : MonoBehaviour
+{
+    public TextMeshProUGUI spinnerText;
+    public float frameInterval = 0.1f;
+
+    private static readonly string[] Frames = { "/", "-", "\\", "|" };
+    private int _index;
+    private float _timer;
+
+    public void Tick(float deltaTime)
+    {
+        _timer += deltaTime;
+        if (_timer < frameInterval) return;
+
+        _timer = 0f;
+        _index = (_index + 1) % Frames.Length;
+        if (spinnerText != null) spinnerText.text = Frames[_index];
+    }
+
+    /// <summary>Reset to the first frame — call when a new load starts so
+    /// the spinner doesn't resume mid-cycle from the previous load.</summary>
+    public void ResetSpinner()
+    {
+        _index = 0;
+        _timer = 0f;
+        if (spinnerText != null) spinnerText.text = Frames[_index];
+    }
 }

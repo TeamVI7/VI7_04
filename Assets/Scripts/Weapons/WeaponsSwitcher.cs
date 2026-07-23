@@ -18,6 +18,12 @@ using UnityEngine;
 ///   3. Assign weaponPivot (the WeaponPivot Transform that ProceduralWeaponAnimator sits on).
 ///   4. The outgoing weapon's GameObject is hidden at the MIDPOINT of the switch,
 ///      not immediately — this is what gives the "dip out, rise in" feel.
+///
+/// CROSS-SYSTEM LOCKING:
+///   Switching raises/releases PlayerActionLock.LockReason.Switching for the whole
+///   coroutine, and TrySwitchTo() itself checks PlayerActionLock.CanSwitch before starting
+///   — this is what stops the player from switching mid-melee-swing or after dying, without
+///   this script needing a direct reference to PlayerMelee or PlayerHealth.
 /// </summary>
 public class WeaponSwitcherProcedural : MonoBehaviour
 {
@@ -145,6 +151,16 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         if (!IsSwitching) HandleSwitchInput();
     }
 
+    /// <summary>
+    /// Safety net — if this is disabled while Co_Switch is mid-yield, the coroutine dies
+    /// silently and the Switching lock would otherwise stay stuck ON forever.
+    /// </summary>
+    private void OnDisable()
+    {
+        _switchCoroutine = null;
+        PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Switching, false);
+    }
+
     #endregion
 
     #region Input
@@ -221,6 +237,12 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         if (GetWeapon(index) == null)            return;
         if (!IsUnlocked(index)) { Log($"Weapon [{index}] is locked — pick it up first."); return; }
 
+        if (PlayerActionLock.Instance != null && !PlayerActionLock.Instance.CanSwitch)
+        {
+            Log("Blocked — action lock active (dead/meleeing/reloading).");
+            return;
+        }
+
         _switchCoroutine = StartCoroutine(Co_Switch(index));
     }
 
@@ -230,6 +252,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         WeaponsController incoming = GetWeapon(nextIndex);
 
         OnSwitchStart?.Invoke(outgoing, incoming);
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Switching, true);
 
         if (outgoing != null) outgoing.ForceIdle();
         outgoing?.NotifyUnequipped();
@@ -286,6 +309,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
 
         incoming.NotifyEquipped();
         OnSwitchComplete?.Invoke(outgoing, incoming);
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Switching, false);
         _switchCoroutine = null;
     }
 
