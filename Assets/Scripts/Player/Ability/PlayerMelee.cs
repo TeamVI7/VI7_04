@@ -69,6 +69,9 @@ public class PlayerMelee : MonoBehaviour
     public float ExecuteSlowMoHold = 0.35f;
     [Tooltip("Real seconds to ease back up from slow-mo to normal speed.")]
     public float ExecuteSlowMoRecover = 0.15f;
+    [Tooltip("Spawned at the hit point when an execute lands. Leave empty to skip.")]
+    public GameObject ExecuteParticlePrefab;
+    public float ExecuteParticleLifetime = 3f;
 
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
@@ -228,11 +231,27 @@ public class PlayerMelee : MonoBehaviour
                     health.Execute(transform);
                     TriggerExecuteSlowMo();
                     cameraShaker?.Shake(ExecuteShake);
+                    SpawnExecuteParticle(hit.point);
 
                     Log($"Executed {health.name}.");
                     OnExecute?.Invoke(health);
                     return;
                 }
+            }
+
+            if (hit.collider.TryGetComponent(out IMeleeDamageable meleeDamageable))
+            {
+                Vector3 hitDir = playerCam.forward;
+                bool landed = meleeDamageable.TakeMeleeDamage(Damage, hitDir, hit.point);
+
+                if (landed && hit.rigidbody != null)
+                    hit.rigidbody.AddForce(hitDir * KnockbackForce, ForceMode.Impulse);
+
+                Log(landed
+                    ? $"Melee-damageable hit landed on {hit.collider.name}."
+                    : $"Melee-damageable hit blocked (not exposed) on {hit.collider.name}.");
+                OnHit?.Invoke();
+                return;
             }
 
             if (hit.collider.TryGetComponent(out IDamageable damageable))
@@ -252,6 +271,15 @@ public class PlayerMelee : MonoBehaviour
 
         Log("Swing missed.");
         OnMiss?.Invoke();
+    }
+
+    private void SpawnExecuteParticle(Vector3 point)
+    {
+        if (ExecuteParticlePrefab == null) return;
+
+        Quaternion rot = playerCam != null ? Quaternion.LookRotation(-playerCam.forward) : Quaternion.identity;
+        var fx = Instantiate(ExecuteParticlePrefab, point, rot);
+        Destroy(fx, ExecuteParticleLifetime);
     }
 
     private void TriggerExecuteSlowMo()

@@ -21,7 +21,11 @@ using UnityEngine.UI;
 ///      percentText.
 ///   3. Optional: assign spinner (AsciiSpinner, defined below in this same
 ///      file) for a "/ - \ |" spin while loading is active.
-///   4. Call controller.BeginLoad(...) from wherever you trigger a scene
+///   4. Optional: assign injectFillBar (Image, Filled type) for the hold-E
+///      confirm bar — only shows up on transitions whose SceneTransitionConfig
+///      has requireHoldToConfirm checked. Leave unassigned if you never use
+///      that feature.
+///   5. Call controller.BeginLoad(...) from wherever you trigger a scene
 ///      change (CutsceneManager, BIOSMainMenu.OnDeploy, etc).
 ///
 /// EXTEND:
@@ -44,8 +48,20 @@ public class LoadingBIOSDisplay : MonoBehaviour
     public Image progressBarFill;     // Image Type = Filled, Fill Method = Horizontal
 
     [Header("Spinner")]
-    [Tooltip("Optional '/ - \\ |' ASCII spinner. Ticked every frame while loading is active.")]
-    public AsciiSpinner spinner;
+    public TextMeshProUGUI spinnerText;
+    public float spinnerFrameInterval = 0.1f;
+
+    [Header("Hold To Confirm (optional, per-transition)")]
+    [Tooltip("Only appears on transitions whose SceneTransitionConfig has " +
+             "requireHoldToConfirm checked. Leave unassigned if unused.")]
+    public Image injectFillBar;       // Image Type = Filled, Fill Method = Horizontal
+    public KeyCode confirmKey = KeyCode.E;
+    public bool allowMouseConfirm = false; // mirrors Input.GetMouseButton(0) if true
+    public float holdDuration = 1f;
+    public AudioClip injectHoldSound;
+    [Tooltip("How fast the hold bar drains per second (as a multiple of " +
+             "holdDuration) when the key is released early.")]
+    public float releaseDrainMultiplier = 3f;
 
     [Header("Flavour Lines")]
     [Tooltip("Random line shown above the status label, purely cosmetic.")]
@@ -70,6 +86,15 @@ public class LoadingBIOSDisplay : MonoBehaviour
     public float fadeInDuration  = 0.25f;
     public float fadeOutDuration = 0.35f;
 
+    [Header("Shader Chatter")]
+    public string shaderStepLabelMatch = "WARMING RENDER CACHE";
+    public float chatterInterval = 0.12f;
+    public int maxChatterLines = 10;
+    [Tooltip("Even if the real load finishes instantly, the displayed bar " +
+             "won't jump — it animates toward the target at this much " +
+             "progress-per-second minimum. Higher = snappier, lower = slower crawl.")]
+    public float minFillSpeedPerSecond = 0.6f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugLogs = false;
 
@@ -82,6 +107,22 @@ public class LoadingBIOSDisplay : MonoBehaviour
     private readonly StringBuilder _textBuilder = new StringBuilder();
     private string _currentLabel = "";
     private bool _isLoading;
+
+    // Hold-to-confirm state
+    private bool  _awaitingConfirm;
+    private bool  _injecting;
+    private float _holdTimer;
+
+    // Bar smoothing: real progress can jump straight to 1 on fast loads,
+    // this keeps what's ON SCREEN crawling up instead of popping.
+    private float _targetProgress;
+    private float _displayedProgress;
+
+    private static readonly string[] SpinnerFrames = { "/", "-", "\\", "|" };
+    private int _spinnerIndex;
+    private float _spinnerTimer;
+
+    private Coroutine _chatterCoroutine;
 
     #endregion
 
@@ -101,6 +142,7 @@ public class LoadingBIOSDisplay : MonoBehaviour
         controller.OnStepChanged     += HandleStepChanged;
         controller.OnProgressChanged += HandleProgressChanged;
         controller.OnLoadComplete    += HandleLoadComplete;
+        controller.OnReadyForConfirm += HandleReadyForConfirm;
 
         SetVisible(false);
     }
@@ -113,14 +155,18 @@ public class LoadingBIOSDisplay : MonoBehaviour
         controller.OnStepChanged     -= HandleStepChanged;
         controller.OnProgressChanged -= HandleProgressChanged;
         controller.OnLoadComplete    -= HandleLoadComplete;
+        controller.OnReadyForConfirm -= HandleReadyForConfirm;
     }
 
     private void Update()
     {
-        // Spinner runs off its own timer, driven here rather than via events
-        // since it needs a per-frame tick, not a per-change callback.
-        if (_isLoading && spinner != null)
-            spinner.Tick(Time.unscaledDeltaTime);
+        if (_isLoading)
+            TickSpinner();
+
+        if (_awaitingConfirm)
+            TickHoldToConfirm();
+
+        TickProgressSmoothing();
     }
 
     #endregion
@@ -139,10 +185,13 @@ public class LoadingBIOSDisplay : MonoBehaviour
             _textBuilder.AppendLine(flavourLines[Random.Range(0, flavourLines.Length)]);
 
         SetTerminalText(_textBuilder.ToString());
+        _targetProgress = 0f;
+        _displayedProgress = 0f;
         SetProgressVisual(0f);
 
-        if (spinner != null)
-            spinner.ResetSpinner();
+        _spinnerIndex = 0;
+        _spinnerTimer = 0f;
+        if (spinnerText != null) spinnerText.text = SpinnerFrames[0];
 
         StartCoroutine(Co_FadeIn());
     }
@@ -157,14 +206,23 @@ public class LoadingBIOSDisplay : MonoBehaviour
 
         PlayTick();
         MaybeGlitch();
+
+        if (_chatterCoroutine != null)
+        {
+            StopCoroutine(_chatterCoroutine);
+            _chatterCoroutine = null;
+        }
+
+        if (label.ToUpperInvariant() == shaderStepLabelMatch.ToUpperInvariant())
+            _chatterCoroutine = StartCoroutine(Co_ShaderChatter());
     }
 
     private void HandleProgressChanged(float progress, string label)
     {
-        SetProgressVisual(progress);
-
-        if (percentText != null)
-            percentText.text = $"{Mathf.RoundToInt(progress * 100f)}%";
+        // Don't set the bar directly — feed the target and let
+        // TickProgressSmoothing crawl toward it, so fast/instant real loads
+        // still read as a load on screen instead of popping to full.
+        _targetProgress = progress;
 
         if (progress >= 1f && label == "READY")
         {
@@ -175,11 +233,134 @@ public class LoadingBIOSDisplay : MonoBehaviour
         }
     }
 
+    private void TickProgressSmoothing()
+    {
+        if (Mathf.Approximately(_displayedProgress, _targetProgress)) return;
+
+        _displayedProgress = Mathf.MoveTowards(
+            _displayedProgress, _targetProgress,
+            minFillSpeedPerSecond * Time.unscaledDeltaTime);
+
+        SetProgressVisual(_displayedProgress);
+        if (percentText != null)
+            percentText.text = $"{Mathf.RoundToInt(_displayedProgress * 100f)}%";
+    }
+
+    private void HandleReadyForConfirm()
+    {
+        Log("Awaiting hold-to-confirm.");
+        _awaitingConfirm = true;
+        _injecting = false;
+        _holdTimer = 0f;
+
+        if (injectFillBar != null)
+        {
+            injectFillBar.gameObject.SetActive(true);
+            injectFillBar.fillAmount = 0f;
+        }
+    }
+
     private void HandleLoadComplete()
     {
         _isLoading = false;
+        _awaitingConfirm = false;
+        if (injectFillBar != null) injectFillBar.gameObject.SetActive(false);
+
+        if (_chatterCoroutine != null)
+        {
+            StopCoroutine(_chatterCoroutine);
+            _chatterCoroutine = null;
+        }
+
         Log("Load complete — hiding terminal.");
         StartCoroutine(Co_FadeOut());
+    }
+
+    private void TickSpinner()
+    {
+        _spinnerTimer += Time.unscaledDeltaTime;
+        if (_spinnerTimer < spinnerFrameInterval) return;
+
+        _spinnerTimer = 0f;
+        _spinnerIndex = (_spinnerIndex + 1) % SpinnerFrames.Length;
+        if (spinnerText != null) spinnerText.text = SpinnerFrames[_spinnerIndex];
+    }
+
+    private IEnumerator Co_ShaderChatter()
+    {
+        int lines = 0;
+        while (lines < maxChatterLines)
+        {
+            uint hex = (uint)Random.Range(0, 0xFFFFFF);
+            _textBuilder.AppendLine($"C:\\SYS> compiling shader_variant_0x{hex:X6}.spv... OK");
+            SetTerminalText(_textBuilder.ToString());
+            PlayTick();
+            lines++;
+            yield return new WaitForSecondsRealtime(chatterInterval);
+        }
+        _chatterCoroutine = null;
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Hold To Confirm
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void TickHoldToConfirm()
+    {
+        bool holding = Input.GetKey(confirmKey) || (allowMouseConfirm && Input.GetMouseButton(0));
+
+        if (holding)
+        {
+            if (!_injecting)
+                PlayHoldSound();
+
+            _injecting = true;
+            if (injectFillBar != null) injectFillBar.gameObject.SetActive(true);
+
+            _holdTimer += Time.unscaledDeltaTime;
+            if (injectFillBar != null)
+                injectFillBar.fillAmount = _holdTimer / holdDuration;
+
+            if (_holdTimer >= holdDuration)
+            {
+                _awaitingConfirm = false;
+                StopHoldSound();
+                if (injectFillBar != null) injectFillBar.gameObject.SetActive(false);
+                controller.ConfirmReady();
+            }
+        }
+        else
+        {
+            if (_injecting) StopHoldSound();
+            _injecting = false;
+
+            _holdTimer = Mathf.Max(0f, _holdTimer - Time.unscaledDeltaTime * releaseDrainMultiplier);
+            if (injectFillBar != null)
+            {
+                injectFillBar.fillAmount = _holdTimer / holdDuration;
+                if (_holdTimer <= 0f)
+                    injectFillBar.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private void PlayHoldSound()
+    {
+        if (audioSource == null || injectHoldSound == null) return;
+        audioSource.clip  = injectHoldSound;
+        audioSource.loop  = true;
+        audioSource.pitch = 1f;
+        audioSource.Play();
+    }
+
+    private void StopHoldSound()
+    {
+        if (audioSource == null) return;
+        if (audioSource.clip == injectHoldSound && audioSource.isPlaying)
+            audioSource.Stop();
+        audioSource.loop = false;
     }
 
     #endregion
@@ -288,39 +469,4 @@ public class LoadingBIOSDisplay : MonoBehaviour
     private void LogWarning(string msg) => Debug.LogWarning($"[LoadingBIOSDisplay] ⚠ {msg}", this);
 
     #endregion
-}
-
-/// <summary>
-/// Classic ASCII terminal spinner: / - \ | cycling on a timer.
-/// Doesn't run itself — LoadingBIOSDisplay calls Tick(deltaTime) every
-/// frame while loading is active. Kept dumb on purpose so it has no
-/// opinion on when loading starts/stops.
-/// </summary>
-public class AsciiSpinner : MonoBehaviour
-{
-    public TextMeshProUGUI spinnerText;
-    public float frameInterval = 0.1f;
-
-    private static readonly string[] Frames = { "/", "-", "\\", "|" };
-    private int _index;
-    private float _timer;
-
-    public void Tick(float deltaTime)
-    {
-        _timer += deltaTime;
-        if (_timer < frameInterval) return;
-
-        _timer = 0f;
-        _index = (_index + 1) % Frames.Length;
-        if (spinnerText != null) spinnerText.text = Frames[_index];
-    }
-
-    /// <summary>Reset to the first frame — call when a new load starts so
-    /// the spinner doesn't resume mid-cycle from the previous load.</summary>
-    public void ResetSpinner()
-    {
-        _index = 0;
-        _timer = 0f;
-        if (spinnerText != null) spinnerText.text = Frames[_index];
-    }
 }

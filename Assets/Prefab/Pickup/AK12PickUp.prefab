@@ -91,9 +91,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2761eca323c250344a502ccf2020e841, type: 3}
       insertIndex: -1
       addedObject: {fileID: 3665876041505346288}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2761eca323c250344a502ccf2020e841, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 5512870786019810946}
   m_SourcePrefab: {fileID: 100100000, guid: 2761eca323c250344a502ccf2020e841, type: 3}
 --- !u!1 &869267137760317855 stripped
 GameObject:
@@ -121,28 +118,3 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 8.716444, y: 2.4885945, z: 1}
   m_Center: {x: -0.9640649, y: -0.32457855, z: 0}
---- !u!114 &5512870786019810946
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 869267137760317855}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 48df86aa64edf4b478e71359883b32fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponPickup
-  playerTag: Player
-  spin: 1
-  spinSpeed: 90
-  bob: 1
-  bobHeight: 0.15
-  bobSpeed: 2
-  pickupVFX: {fileID: 0}
-  pickupSFX: {fileID: 0}
-  sfxVolume: 1
-  respawnDelay: 0
-  weaponIndex: 2
-  switchToItImmediately: 1
-  bonusReserveAmmo: 0

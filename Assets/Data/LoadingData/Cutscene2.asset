@@ -17,5 +17,6 @@ MonoBehaviour:
   shaderWarmupWeight: 0.2
   shaderCollections:
   - {fileID: 20000000, guid: c88bec616be1722468703ff35c0d2c09, type: 2}
-  sceneLoadLabel: MOUNTING SECTOR DATA
+  sceneLoadLabel: LOADING SHADER
   shaderWarmupLabel: WARMING RENDER CACHE
+  requireHoldToConfirm: 0

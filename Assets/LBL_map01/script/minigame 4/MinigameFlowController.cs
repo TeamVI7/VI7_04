@@ -36,6 +36,16 @@ public class MinigameFlowController : MonoBehaviour
     public string aiShutdownMessage = "AI CORE OFFLINE";
     public float aiShutdownDisplayDuration = 3f;
 
+    [Header("Cutscene Cameras")]
+    public Camera playerCamera;
+    public Camera serverRiseCamera;
+    public Camera ceilingMechCamera;
+
+    [Header("Boss Spawn")]
+    public GameObject bossPrefab;
+    public Transform bossSpawnPoint;
+    public float ceilingCameraHoldDuration = 2.5f;
+
     [Header("Lights To Turn On")]
     public Light[] lightsToTurnOn;
 
@@ -126,32 +136,61 @@ public class MinigameFlowController : MonoBehaviour
         voltageMinigame.StartMinigame(OnVoltageComplete);
     }
 
-    // Cả 3 minigame (Arrow, Code, Voltage) đã xong ở đây -> mới được phép bắt đầu puzzle tắt server.
     private void OnVoltageComplete()
     {
         ShowOnly(null);
         StartServerShutdownPuzzle();
     }
 
-    /// <summary>
-    /// Bước 4: Server trồi lên rồi bắt đầu puzzle "tắt đúng server theo đúng thứ tự".
-    /// Chỉ được gọi SAU KHI cả 3 minigame (Arrow, Code, Voltage) đã hoàn thành.
-    /// Thứ tự là RANDOM mỗi lần (kể cả sau khi bấm sai bị reset) — số hiệu server thì CỐ ĐỊNH (ServerBlock.serverNumber).
-    /// Màn hình thông báo dùng CHUNG với AI Shutdown Panel/Text ở dưới, không cần UI riêng.
-    /// </summary>
+    private void EnterCutsceneCamera(Camera cam)
+    {
+        if (playerCamera) playerCamera.gameObject.SetActive(false);
+        if (cam) cam.gameObject.SetActive(true);
+    }
+
+    private void ExitCutsceneCamera(Camera cam)
+    {
+        if (cam) cam.gameObject.SetActive(false);
+        if (playerCamera) playerCamera.gameObject.SetActive(true);
+    }
+
     private void StartServerShutdownPuzzle()
     {
         ShowOnly(aiShutdownPanel);
 
+        EnterCutsceneCamera(serverRiseCamera);
+
         serverMinigameManager.SetNoticeUI(aiShutdownPanel, aiShutdownText);
+        serverMinigameManager.OnCeilingExplosionTriggered = OnCeilingExplode;
         serverMinigameManager.OnAllServersShutdown = OnServersShutdownComplete;
         serverMinigameManager.OnPlayerEnterTrigger();
+    }
+
+    private void OnCeilingExplode()
+    {
+        ExitCutsceneCamera(serverRiseCamera);
+        EnterCutsceneCamera(ceilingMechCamera);
+        SpawnBoss();
+        StartCoroutine(ReturnToPlayerCameraAfterDelay());
+    }
+
+    private IEnumerator ReturnToPlayerCameraAfterDelay()
+    {
+        yield return new WaitForSeconds(ceilingCameraHoldDuration);
+        ExitCutsceneCamera(ceilingMechCamera);
+    }
+
+    private void SpawnBoss()
+    {
+        if (bossPrefab == null || bossSpawnPoint == null) return;
+        Instantiate(bossPrefab, bossSpawnPoint.position, bossSpawnPoint.rotation);
     }
 
     private void OnServersShutdownComplete()
     {
         ShowOnly(aiShutdownPanel);
         if (aiShutdownText) aiShutdownText.text = aiShutdownMessage;
+
         StartCoroutine(FinishSequence());
     }
 
@@ -176,6 +215,7 @@ public class MinigameFlowController : MonoBehaviour
         ShowOnly(null);
         if (inputBlocker) inputBlocker.UnblockInput();
         if (minigameCamera) minigameCamera.gameObject.SetActive(false);
+        ExitCutsceneCamera(ceilingMechCamera);
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(false);
         _isRunning = false;
         _isPaused = false;

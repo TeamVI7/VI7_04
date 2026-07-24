@@ -31,6 +31,13 @@ public class SceneTransitionConfig : ScriptableObject
     public string sceneLoadLabel    = "MOUNTING SECTOR DATA";
     public string shaderWarmupLabel = "WARMING RENDER CACHE";
 
+    [Header("Hold To Confirm")]
+    [Tooltip("If true, once loading hits 100% the player must hold the " +
+             "confirm key/button before the scene actually activates — " +
+             "instead of auto-continuing. Leave off for normal transitions; " +
+             "turn on only for the specific scenes that need it.")]
+    public bool requireHoldToConfirm = false;
+
     /// <summary>Builds the ordered ILoadingStep list for this transition.</summary>
     public System.Collections.Generic.List<ILoadingStep> BuildSteps()
     {

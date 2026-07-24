@@ -84,6 +84,9 @@ public class ServerMinigameManager : MonoBehaviour
     /// <summary>Được gọi khi player đã tắt ĐÚNG toàn bộ server theo đúng thứ tự random (sau khi SolveSequence chạy xong).</summary>
     public System.Action OnAllServersShutdown;
 
+    /// <summary>Được gọi ĐÚNG lúc trần nổ (trước khi server chui xuống đất) — dùng để chuyển camera đúng thời điểm.</summary>
+    public System.Action OnCeilingExplosionTriggered;
+
     private bool _triggered = false;
     private bool _solved = false;
     private float[] _originalY;
@@ -310,6 +313,7 @@ public class ServerMinigameManager : MonoBehaviour
         StartWarningLights();
 
         if (ceilingExplosion != null) ceilingExplosion.TriggerExplosion();
+        OnCeilingExplosionTriggered?.Invoke();
         yield return StartCoroutine(SinkAllBlocks());
 
         if (openDoorOnComplete)

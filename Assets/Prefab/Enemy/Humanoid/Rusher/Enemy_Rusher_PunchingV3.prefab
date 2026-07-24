@@ -1082,11 +1082,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PatrolBehaviour
   PatrolSpeed: 2
-  ChaseSpeed: 10
+  ChaseSpeed: 5
   PreferredRange: 5
   PatrolRadius: 12
   WaypointWaitTime: 2.5
-  MovementStyle: 2
+  MovementStyle: 1
   StrafeRadius: 3
   StrafeInterval: 1.2
 --- !u!114 &550893705048755978
@@ -1107,7 +1107,7 @@ MonoBehaviour:
   StaggerDuration: 1.5
   StaggerWindow: 3
   DeathImpulseScale: 8
-  ExplosionCount: 3
+  ExplosionCount: 1
   DelayBetweenExplosions: 0.4
   ExplosionScatterRadius: 1.2
   DropPrefab: {fileID: 0}
@@ -1122,8 +1122,8 @@ MonoBehaviour:
     MinCount: 1
     MaxCount: 1
   DropUpwardForce: 4
-  DeathVFXPrefab: {fileID: 0}
-  DeathVFXLifetime: 3
+  DeathVFXPrefab: {fileID: 5627696518775099638, guid: 4567f1a4893865a4e99367437ee729af, type: 3}
+  DeathVFXLifetime: 1
   DamagePopupPrefab: {fileID: 0}
   PopupSpawnHeight: 2
 --- !u!114 &5071170660187992204
@@ -1468,7 +1468,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FIMSpace.FProceduralAnimation.LegsAnimator
   Mecanim: {fileID: 5066793060835446670}
   GroundedParameter: 
-  MovingParameter: Speed
+  MovingParameter: 
   User_IsMovingMecanim_NotMovingFloat_Threshold: 0.1
   Rigidbody: {fileID: 0}
   UseRigidbodyVelocityForIsMoving: 0
@@ -1925,8 +1925,8 @@ MonoBehaviour:
   _Editor_EnsureCount: 0
   _Editor_OnValidateTrigger: 0
   _EditorAllowAutoUpdateFeetParams: 1
-  _EditorCategory: 2
-  _EditorSetupCategory: 0
+  _EditorCategory: 0
+  _EditorSetupCategory: 1
   _EditorMotionCategory: 0
   _EditorExtraCategory: 2
   setupPose:
@@ -1956,7 +1956,7 @@ MonoBehaviour:
   FadeOffAtDistance: 0
   GroundMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 9
   RaycastHitTrigger: 1
   CastDistance: 1
   RaycastStartHeight: 0

@@ -109,6 +109,14 @@ public class LoadingScreenController : MonoBehaviour
     /// <summary>Fired once all steps finish and the hold time elapses.</summary>
     public event Action OnLoadComplete;
 
+    /// <summary>
+    /// Fired once progress hits 100%% ONLY when this load was started with
+    /// requireHoldToConfirm = true. UI (e.g. LoadingBIOSDisplay) should show
+    /// its hold-to-confirm prompt on this and call ConfirmReady() once the
+    /// hold completes.
+    /// </summary>
+    public event Action OnReadyForConfirm;
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -118,6 +126,11 @@ public class LoadingScreenController : MonoBehaviour
     public bool  IsLoading      { get; private set; }
     public float CurrentProgress { get; private set; }
 
+    /// <summary>True while a load is waiting on the player to hold the
+    /// confirm key — only ever true when this load started with
+    /// requireHoldToConfirm = true.</summary>
+    public bool  AwaitingConfirm { get; private set; }
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -126,6 +139,8 @@ public class LoadingScreenController : MonoBehaviour
 
     private Coroutine _loadCoroutine;
     private float     _lastLoggedProgress = -1f;
+    private bool      _requireHoldToConfirm;
+    private bool      _confirmReceived;
 
     #endregion
 
@@ -138,7 +153,13 @@ public class LoadingScreenController : MonoBehaviour
     /// already loading — a second call while IsLoading is true is ignored
     /// (with a warning) rather than stacking coroutines.
     /// </summary>
-    public void BeginLoad(List<ILoadingStep> steps)
+    /// <param name="requireHoldToConfirm">
+    /// If true, once all steps hit 100%% the coroutine pauses and fires
+    /// OnReadyForConfirm instead of auto-continuing — call ConfirmReady()
+    /// (typically from a hold-E UI) to let it proceed. Per-transition, not
+    /// global — pass config.requireHoldToConfirm from SceneTransitionConfig.
+    /// </param>
+    public void BeginLoad(List<ILoadingStep> steps, bool requireHoldToConfirm = false)
     {
         if (IsLoading)
         {
@@ -151,7 +172,24 @@ public class LoadingScreenController : MonoBehaviour
             return;
         }
 
+        _requireHoldToConfirm = requireHoldToConfirm;
+        _confirmReceived      = false;
         _loadCoroutine = StartCoroutine(Co_RunSteps(steps));
+    }
+
+    /// <summary>
+    /// Call once the player has finished holding the confirm input. No-op
+    /// if no load is currently waiting on a confirm — safe to call blindly
+    /// from UI without checking AwaitingConfirm first.
+    /// </summary>
+    public void ConfirmReady()
+    {
+        if (!AwaitingConfirm)
+        {
+            LogWarning("ConfirmReady called but nothing is awaiting confirm — ignored.");
+            return;
+        }
+        _confirmReceived = true;
     }
 
     #endregion
@@ -232,6 +270,16 @@ public class LoadingScreenController : MonoBehaviour
         }
 
         ReportProgress(1f, "READY");
+
+        if (_requireHoldToConfirm)
+        {
+            Log("Waiting for hold-to-confirm input...");
+            AwaitingConfirm = true;
+            OnReadyForConfirm?.Invoke();
+            yield return new WaitUntil(() => _confirmReceived);
+            AwaitingConfirm = false;
+            Log("Confirm received — continuing.");
+        }
 
         // Activate any pending scene load now that every step (incl. shader
         // warmup) has finished, so the new scene's first frame is already warm.
@@ -356,7 +404,7 @@ public class SceneTransitionTrigger : MonoBehaviour
             return;
         }
 
-        LoadingScreenController.Instance.BeginLoad(config.BuildSteps());
+        LoadingScreenController.Instance.BeginLoad(config.BuildSteps(), config.requireHoldToConfirm);
     }
 
     private void OnTriggerEnter(Collider other)
