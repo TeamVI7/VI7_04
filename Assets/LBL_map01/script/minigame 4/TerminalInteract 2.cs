@@ -8,7 +8,16 @@ public class TerminalInteract : MonoBehaviour
     [Header("Cài đặt phím")]
     public KeyCode interactKey = KeyCode.F;
 
+    [Header("Outline khi player đứng trong vùng")]
+    public Outline outline;
+
     private bool _isPlayerInZone = false;
+
+    private void Start()
+    {
+        if (outline == null) outline = GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
+    }
 
     private void Update()
     {
@@ -30,6 +39,7 @@ public class TerminalInteract : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             _isPlayerInZone = true;
+            if (outline != null) outline.enabled = true;
         }
     }
 
@@ -38,6 +48,10 @@ public class TerminalInteract : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             _isPlayerInZone = false;
+            if (outline != null) outline.enabled = false;
+
+            if (flowController != null)
+                flowController.ForceExitZone();
         }
     }
 }

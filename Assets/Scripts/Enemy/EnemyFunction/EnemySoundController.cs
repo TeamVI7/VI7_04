@@ -10,13 +10,20 @@ public class EnemyAudio : MonoBehaviour
     [Tooltip("Tốc độ tối thiểu để coi là đang di chuyển")]
     public float MinMoveSpeed = 0.1f;
 
-    [Header("Weapons")]
+    [Header("Weapons — Shoot Clips (randomized per shot)")]
     public AudioClip LaserClip;
     public AudioClip BombClip;
-    public AudioClip SMGClip;
-    public AudioClip ShotgunClip; 
-    public AudioClip PistolClip;
-    
+    [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
+    public AudioClip[] SMGClips;
+    [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
+    public AudioClip[] ShotgunClips;
+    [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
+    public AudioClip[] PistolClips;
+
+    [Header("Shoot Sound Variation")]
+    [Tooltip("Random pitch range applied to every gunfire one-shot, on top of clip variation, so even repeats of the same clip don't sound copy-pasted.")]
+    public Vector2 ShootPitchRange = new Vector2(0.95f, 1.05f);
+
     [Header("Sniper Realistic Settings")]
     [Tooltip("Tiếng nổ tại nòng súng của quái (Có đuôi phiuuuu vang xa)")]
     public AudioClip SniperMuzzleClip; 
@@ -191,9 +198,24 @@ public class EnemyAudio : MonoBehaviour
     }
 
     private void PlayBomb() { if (BombClip != null) _oneShotSource.PlayOneShot(BombClip); }
-    private void PlaySMG() { if (SMGClip != null) _oneShotSource.PlayOneShot(SMGClip); }
-    private void PlayPistol() { if (PistolClip != null) _oneShotSource.PlayOneShot(PistolClip); }
-    private void PlayShotgun() { if (ShotgunClip != null) _oneShotSource.PlayOneShot(ShotgunClip); }
+
+    private void PlaySMG()     => PlayRandomShootClip(SMGClips);
+    private void PlayPistol()  => PlayRandomShootClip(PistolClips);
+    private void PlayShotgun() => PlayRandomShootClip(ShotgunClips);
+
+    /// <summary>Picks a random clip from the array and plays it with a random pitch,
+    /// so repeated fire (SMG bursts, shotgun blasts) doesn't sound copy-pasted.</summary>
+    private void PlayRandomShootClip(AudioClip[] clips)
+    {
+        if (clips == null || clips.Length == 0) return;
+
+        var clip = clips[UnityEngine.Random.Range(0, clips.Length)];
+        if (clip == null) return;
+
+        _oneShotSource.pitch = UnityEngine.Random.Range(ShootPitchRange.x, ShootPitchRange.y);
+        _oneShotSource.PlayOneShot(clip);
+    }
+
     private void PlayDetect()
     {
         if (DetectClip == null) return;

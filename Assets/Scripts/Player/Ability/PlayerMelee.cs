@@ -32,7 +32,15 @@ public class PlayerMelee : MonoBehaviour
     [Tooltip("Defaults to a CameraShaker found on playerCam if left empty.")]
     public CameraShaker cameraShaker;
     public CameraShaker.ShakePreset ExecuteShake = CameraShaker.ShakePreset.Heavy;
+    [Tooltip("Optional — slices any Cuttable target the swing lands on. " +
+             "Assign swingOrigin on it to a blade-tip child of meleeMesh (not the pivot) " +
+             "so its position actually traces the swing arc.")]
 
+    public class MeleeCutterBehaviour : DynamicMeshCutter.CutterBehaviour { }
+    [Tooltip("Optional — slices any Cuttable target the swing lands on. " +
+            "Assign swingOrigin on it to a blade-tip child of meleeMesh (not the pivot) " +
+            "so its position actually traces the swing arc.")]
+    public MeleeMeshCutter meleeMeshCutter;
     [Header("Swing Tween")]
     [Tooltip("meleeMesh's local rotation at the start of the swing (wind-up pose).")]
     public Vector3 swingFromEuler = new Vector3(15f, -50f, 0f);
@@ -41,6 +49,17 @@ public class PlayerMelee : MonoBehaviour
     public Ease swingEase = Ease.OutQuad;
     [Tooltip("Time to snap back to rest rotation after the swing lands.")]
     public float swingReturnTime = 0.1f;
+
+    [Header("Slash VFX")]
+    public GameObject[] SlashEffectPrefabs;
+    public Transform SlashEffectSpawnPoint;
+    public float SlashEffectLifetime = 1.5f;
+    public Vector3 SlashEffectRotationOffset = Vector3.zero;
+
+    [Header("Melee Audio")]
+    public AudioSource meleeAudioSource;
+    public AudioClip[] SwingSounds;
+    public AudioClip[] HitSounds;
 
     /// <summary>True from key-press until the mesh hides again. Check this from
     /// WeaponsController/WeaponSwitcherProcedural before starting a reload or switch.</summary>
@@ -109,6 +128,9 @@ public class PlayerMelee : MonoBehaviour
         if (cameraShaker == null && playerCam != null)
             cameraShaker = playerCam.GetComponent<CameraShaker>();
 
+        if (meleeAudioSource == null)
+            meleeAudioSource = GetComponent<AudioSource>();
+
         _baseFixedDeltaTime = Time.fixedDeltaTime;
     }
 
@@ -118,6 +140,8 @@ public class PlayerMelee : MonoBehaviour
 
         if (Input.GetKeyDown(meleeKey) && _cooldownTimer <= 0f && !_swinging && CanSwing())
             StartCoroutine(Co_Swing());
+
+        meleeMeshCutter?.RegisterSwingSample();
     }
 
     private bool CanSwing()
@@ -182,6 +206,8 @@ public class PlayerMelee : MonoBehaviour
         }
 
         OnSwing?.Invoke();
+        SpawnSlashEffect();
+        PlayRandomClip(SwingSounds);
         Log("Swing start.");
 
         if (WindupTime > 0f)
@@ -206,6 +232,60 @@ public class PlayerMelee : MonoBehaviour
         PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Meleeing, false);
     }
 
+    private struct MeleeHitInfo
+    {
+        public Collider collider;
+        public Vector3 point;
+        public Vector3 normal;
+        public Rigidbody rigidbody;
+    }
+
+    private bool TryGetMeleeHit(out MeleeHitInfo hit)
+    {
+        Vector3 origin = playerCam.position;
+        Vector3 dir = playerCam.forward;
+
+        Collider[] overlaps = Physics.OverlapSphere(origin, SphereRadius, HitMask, QueryTriggerInteraction.Ignore);
+        if (overlaps.Length > 0)
+        {
+            Collider closest = null;
+            float closestDist = float.MaxValue;
+            foreach (var col in overlaps)
+            {
+                float d = Vector3.Distance(origin, col.ClosestPoint(origin));
+                if (d < closestDist)
+                {
+                    closestDist = d;
+                    closest = col;
+                }
+            }
+
+            hit = new MeleeHitInfo
+            {
+                collider = closest,
+                point = closest.ClosestPoint(origin),
+                normal = -dir,
+                rigidbody = closest.attachedRigidbody
+            };
+            return true;
+        }
+
+        if (Physics.SphereCast(origin, SphereRadius, dir, out RaycastHit rayHit, Range, HitMask, QueryTriggerInteraction.Ignore))
+        {
+            hit = new MeleeHitInfo
+            {
+                collider = rayHit.collider,
+                point = rayHit.point,
+                normal = rayHit.normal,
+                rigidbody = rayHit.rigidbody
+            };
+            return true;
+        }
+
+        hit = default;
+        return false;
+    }
+
     private void ResolveHit()
     {
         if (playerCam == null)
@@ -215,8 +295,7 @@ public class PlayerMelee : MonoBehaviour
             return;
         }
 
-        if (Physics.SphereCast(playerCam.position, SphereRadius, playerCam.forward,
-                out RaycastHit hit, Range, HitMask, QueryTriggerInteraction.Ignore))
+        if (TryGetMeleeHit(out MeleeHitInfo hit))
         {
             // Hitboxes live on child colliders (EnemyLimbHitbox) — the brain/health
             // that actually track Staggered state sit on the root, so search up.
@@ -232,6 +311,8 @@ public class PlayerMelee : MonoBehaviour
                     TriggerExecuteSlowMo();
                     cameraShaker?.Shake(ExecuteShake);
                     SpawnExecuteParticle(hit.point);
+                    meleeMeshCutter?.TryCutHit(hit.collider, hit.point, hit.normal);
+                    PlayRandomClip(HitSounds);
 
                     Log($"Executed {health.name}.");
                     OnExecute?.Invoke(health);
@@ -239,9 +320,11 @@ public class PlayerMelee : MonoBehaviour
                 }
             }
 
+            Vector3 hitDir = playerCam.forward;
+            bool damageApplied = false;
+
             if (hit.collider.TryGetComponent(out IMeleeDamageable meleeDamageable))
             {
-                Vector3 hitDir = playerCam.forward;
                 bool landed = meleeDamageable.TakeMeleeDamage(Damage, hitDir, hit.point);
 
                 if (landed && hit.rigidbody != null)
@@ -250,20 +333,27 @@ public class PlayerMelee : MonoBehaviour
                 Log(landed
                     ? $"Melee-damageable hit landed on {hit.collider.name}."
                     : $"Melee-damageable hit blocked (not exposed) on {hit.collider.name}.");
-                OnHit?.Invoke();
-                return;
+                damageApplied = landed;
             }
-
-            if (hit.collider.TryGetComponent(out IDamageable damageable))
+            else if (hit.collider.TryGetComponent(out IDamageable damageable))
             {
-                Vector3 hitDir = playerCam.forward;
-
                 damageable.TakeDamage(Damage, hitDir, hit.point);
 
                 if (hit.rigidbody != null)
                     hit.rigidbody.AddForce(hitDir * KnockbackForce, ForceMode.Impulse);
 
                 Log($"Hit {hit.collider.name} for {Damage} dmg.");
+                damageApplied = true;
+            }
+
+            // Runs regardless of which damage path fired above — also catches
+            // non-damageable Cuttable props (crates, scenery) on their own.
+            bool cutApplied = meleeMeshCutter != null
+                && meleeMeshCutter.TryCutHit(hit.collider, hit.point, hit.normal);
+
+            if (damageApplied || cutApplied)
+            {
+                PlayRandomClip(HitSounds);
                 OnHit?.Invoke();
                 return;
             }
@@ -271,6 +361,25 @@ public class PlayerMelee : MonoBehaviour
 
         Log("Swing missed.");
         OnMiss?.Invoke();
+    }
+
+    private void SpawnSlashEffect()
+    {
+        if (SlashEffectPrefabs == null || SlashEffectPrefabs.Length == 0) return;
+
+        Transform origin = SlashEffectSpawnPoint != null ? SlashEffectSpawnPoint : playerCam;
+        if (origin == null) return;
+
+        Quaternion rot = origin.rotation * Quaternion.Euler(SlashEffectRotationOffset);
+        GameObject prefab = SlashEffectPrefabs[Random.Range(0, SlashEffectPrefabs.Length)];
+        var fx = Instantiate(prefab, origin.position, rot);
+        Destroy(fx, SlashEffectLifetime);
+    }
+
+    private void PlayRandomClip(AudioClip[] clips)
+    {
+        if (meleeAudioSource == null || clips == null || clips.Length == 0) return;
+        meleeAudioSource.PlayOneShot(clips[Random.Range(0, clips.Length)]);
     }
 
     private void SpawnExecuteParticle(Vector3 point)

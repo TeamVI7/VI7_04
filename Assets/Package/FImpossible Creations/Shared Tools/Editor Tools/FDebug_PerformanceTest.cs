@@ -19,10 +19,8 @@ namespace FIMSpace
         long lastTicks = 0;
         long lastMS = 0;
 
-        /// <summary> Only in EDITOR </summary>
-        public long dispTicks { get; private set; } = 0;
-        /// <summary> Only in EDITOR </summary>
-        public double dispMS { get; private set; } = 0;
+        long dispTicks = 0;
+        double dispMS = 0;
 
         public long LastMinTicks { get; private set; }
         public long LastMaxTicks { get; private set; }
@@ -178,36 +176,6 @@ namespace FIMSpace
             Editor_DisplayAlways(prefix, false, drawAverages, displayRate);
         }
 
-
-        public bool CalculateResultToDisplay( float displayRate = 10f, bool drawAverages = true )
-        {
-            float dispTime = Application.isPlaying ? Time.unscaledTime : (float)EditorApplication.timeSinceStartup;
-
-            bool updateDisp = false;
-            if( displayRate < 0.1f ) updateDisp = true;
-            if( dispTime - lastDisplayTime > 1f / displayRate )
-            {
-                updateDisp = true;
-                lastDisplayTime = dispTime;
-            }
-
-            if( updateDisp )
-            {
-                if( !drawAverages )
-                {
-                    dispTicks = lastTicks;
-                    dispMS = TicksToMs( lastTicks );
-                }
-                else
-                {
-                    dispTicks = AverageTicks;
-                    dispMS = AverageMS;
-                }
-            }
-
-            return updateDisp;
-        }
-
         float lastDisplayTime = -100f;
         public bool Editor_DisplayAlways(string prefix = "", bool onlyPlaymode = true, bool drawAverages = true, float displayRate = 10f)
         {
@@ -247,7 +215,7 @@ namespace FIMSpace
 
             EditorGUILayout.EndVertical();
             var rect = GUILayoutUtility.GetLastRect();
-            if (GUI.Button(rect, GUIContent.none, EditorStyles.label)) { _foldout = !_foldout; }
+            if (GUI.Button(rect, GUIContent.none, EditorStyles.label)) { _foldout = false; }
 
             return updateDisp;
         }

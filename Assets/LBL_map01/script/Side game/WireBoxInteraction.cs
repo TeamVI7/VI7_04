@@ -65,6 +65,9 @@ public class WireBoxInteraction : MonoBehaviour
              "trước khi đèn Morse bật).")]
     [SerializeField] private AudioClip sfxGeneratorPowerUp;
 
+    [Header("Outline khi player đứng trong vùng")]
+    [SerializeField] private Outline outline;
+
     public static bool UIOpen        { get; private set; } = false;
     public static bool WireBoxSolved { get; private set; } = false;
 
@@ -116,6 +119,9 @@ public class WireBoxInteraction : MonoBehaviour
         var col = GetComponent<Collider>();
         if (col == null || !col.isTrigger)
             Debug.LogError("[WireBoxInteraction] Cần Collider với Is Trigger = true!", this);
+
+        if (outline == null) outline = GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
     }
 
     private void OnDestroy()
@@ -146,6 +152,7 @@ public class WireBoxInteraction : MonoBehaviour
     {
         if (!IsPlayer(other)) return;
         _playerInRange = true;
+        if (outline != null && !_solved) outline.enabled = true;
         Debug.Log("[WireBoxInteraction] Player trong vùng hộp điện. Bấm F để mở.");
     }
 
@@ -153,6 +160,7 @@ public class WireBoxInteraction : MonoBehaviour
     {
         if (!IsPlayer(other)) return;
         _playerInRange = false;
+        if (outline != null) outline.enabled = false;
         if (_isInteracting) ExitWireBox();
     }
 
@@ -166,6 +174,8 @@ public class WireBoxInteraction : MonoBehaviour
     {
         _isInteracting = true;
         UIOpen         = true;
+
+        if (outline != null) outline.enabled = false;
 
         if (sfxSource != null && sfxOpenBox != null)
             sfxSource.PlayOneShot(sfxOpenBox);
@@ -231,6 +241,8 @@ public class WireBoxInteraction : MonoBehaviour
     {
         _solved       = true;
         WireBoxSolved = true;
+
+        if (outline != null) outline.enabled = false;
 
         if (sfxSource != null && sfxGeneratorPowerUp != null)
             sfxSource.PlayOneShot(sfxGeneratorPowerUp);

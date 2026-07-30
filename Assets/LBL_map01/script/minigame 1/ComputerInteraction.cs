@@ -38,10 +38,14 @@ public class ComputerInteraction : MonoBehaviour
              "Mặc định: 'PF_EQP_Control_SmallPanelMonitor'")]
     [SerializeField] private string[] autoFindByNameContains = { "PF_EQP_Control_SmallPanelMonitor" };
 
+    [Header("Outline khi nhìn vào")]
+    [SerializeField] private Outline outline;
+
     public static bool UIOpen { get; private set; } = false;
 
     private bool      _isInteracting = false;
     private bool      _solved        = false;
+    private bool      _isLookingAt   = false;
     private Camera    _playerCam;
     private Collider[] _runtimeDisabled; // lưu để bật lại
 
@@ -62,6 +66,11 @@ public class ComputerInteraction : MonoBehaviour
 
         if (gameManager != null)
             gameManager.OnPasswordSolved += HandleSolved;
+
+        if (outline == null)
+            outline = GetComponent<Outline>();
+        if (outline != null)
+            outline.enabled = false;
     }
 
     private void OnDestroy()
@@ -74,6 +83,8 @@ public class ComputerInteraction : MonoBehaviour
     {
         if (_solved) return;
 
+        if (!_isInteracting) UpdateLookOutline();
+
         if (Input.GetKeyDown(interactKey))
         {
             if (_isInteracting) ExitComputer();
@@ -84,22 +95,37 @@ public class ComputerInteraction : MonoBehaviour
             ExitComputer();
     }
 
-    private void TryInteract()
+    private void UpdateLookOutline()
     {
-        if (playerCameraTransform == null) return;
+        bool looking = IsLookingAtComputer();
+        if (looking == _isLookingAt) return;
+
+        _isLookingAt = looking;
+        if (outline != null) outline.enabled = _isLookingAt;
+    }
+
+    private bool IsLookingAtComputer()
+    {
+        if (playerCameraTransform == null) return false;
         Ray ray = new Ray(playerCameraTransform.position, playerCameraTransform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance, interactableLayer))
-        {
-            // Only trigger if the hit collider belongs to THIS computer object
-            if (hit.transform == transform || hit.transform.IsChildOf(transform))
-                EnterComputer();
-        }
+            return hit.transform == transform || hit.transform.IsChildOf(transform);
+        return false;
+    }
+
+    private void TryInteract()
+    {
+        if (IsLookingAtComputer())
+            EnterComputer();
     }
 
     private void EnterComputer()
     {
         _isInteracting = true;
         UIOpen         = true;
+
+        if (outline != null) outline.enabled = false;
+        _isLookingAt = false;
 
         // Dò lại camera player ĐANG ACTIVE ngay lúc này, phòng khi có script
         // khác (vd WireBoxInteraction) cũng đang toggle chung camera này.

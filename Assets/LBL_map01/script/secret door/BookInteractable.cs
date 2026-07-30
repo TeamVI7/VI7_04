@@ -24,6 +24,9 @@ public class BookInteractable : MonoBehaviour
     public AudioClip pressSound;
     public ParticleSystem pressVFX;
 
+    [Header("Outline khi nhìn vào")]
+    public Outline outline;
+
     private Camera cam;
     private bool isLookingAtBook = false;
     private bool isUsed = false;
@@ -38,6 +41,9 @@ public class BookInteractable : MonoBehaviour
 
         if (bookRenderer != null)
             bookRenderer.material.EnableKeyword("_EMISSION");
+
+        if (outline == null) outline = GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
     }
 
     void Update()
@@ -67,6 +73,7 @@ public class BookInteractable : MonoBehaviour
         {
             isLookingAtBook = nowLooking;
             SetGlow(isLookingAtBook);
+            if (outline != null) outline.enabled = isLookingAtBook;
 
             if (hintText != null)
                 hintText.enabled = isLookingAtBook;
@@ -87,6 +94,7 @@ public class BookInteractable : MonoBehaviour
         isUsed = true;
 
         SetGlow(false);
+        if (outline != null) outline.enabled = false;
         if (hintText != null)
             hintText.enabled = false;
 

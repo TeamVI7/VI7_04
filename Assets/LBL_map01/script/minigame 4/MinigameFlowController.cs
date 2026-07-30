@@ -52,6 +52,14 @@ public class MinigameFlowController : MonoBehaviour
     private bool _isRunning = false;
     private bool _isPaused = false;
 
+    private void Start()
+    {
+        SetCam(playerCamera, true);
+        SetCam(minigameCamera, false);
+        SetCam(serverRiseCamera, false);
+        SetCam(ceilingMechCamera, false);
+    }
+
     public void StartTerminal()
     {
         if (!_isRunning)
@@ -70,13 +78,22 @@ public class MinigameFlowController : MonoBehaviour
         }
     }
 
+    public void ForceExitZone()
+    {
+        if (_isRunning && !_isPaused)
+            PauseTerminal();
+    }
+
     private void BeginFreshRun()
     {
         _isRunning = true;
         _isPaused = false;
 
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(true);
-        if (minigameCamera) minigameCamera.gameObject.SetActive(true);
+
+        SetCam(playerCamera, false);
+        SetCam(minigameCamera, true);
+
         if (raycastFixer) raycastFixer.FixAll();
         if (inputBlocker) inputBlocker.BlockInput();
 
@@ -89,7 +106,8 @@ public class MinigameFlowController : MonoBehaviour
         _isPaused = true;
 
         if (inputBlocker) inputBlocker.UnblockInput();
-        if (minigameCamera) minigameCamera.gameObject.SetActive(false);
+        SetCam(minigameCamera, false);
+        SetCam(playerCamera, true); // let the player see/move while paused
 
         PauseAllMinigames();
     }
@@ -98,7 +116,8 @@ public class MinigameFlowController : MonoBehaviour
     {
         _isPaused = false;
 
-        if (minigameCamera) minigameCamera.gameObject.SetActive(true);
+        SetCam(playerCamera, false);
+        SetCam(minigameCamera, true);
         if (raycastFixer) raycastFixer.FixAll();
         if (inputBlocker) inputBlocker.BlockInput();
 
@@ -139,26 +158,32 @@ public class MinigameFlowController : MonoBehaviour
     private void OnVoltageComplete()
     {
         ShowOnly(null);
+
+        if (canvasCameraSync != null) canvasCameraSync.enabled = false;
+
+        SetCam(minigameCamera, false);
+        SetCam(playerCamera, false);
+        SetCam(serverRiseCamera, true);
+
         StartServerShutdownPuzzle();
     }
 
-    private void EnterCutsceneCamera(Camera cam)
+    private void SetCam(Camera cam, bool state)
     {
-        if (playerCamera) playerCamera.gameObject.SetActive(false);
-        if (cam) cam.gameObject.SetActive(true);
-    }
-
-    private void ExitCutsceneCamera(Camera cam)
-    {
-        if (cam) cam.gameObject.SetActive(false);
-        if (playerCamera) playerCamera.gameObject.SetActive(true);
+        if (cam == null)
+        {
+            Debug.LogWarning("[MinigameFlowController] SetCam called with null camera");
+            return;
+        }
+        cam.enabled = state;
+        Debug.Log($"[MinigameFlowController] {cam.name}.enabled = {state}");
+        var listener = cam.GetComponent<AudioListener>();
+        if (listener != null) listener.enabled = state;
     }
 
     private void StartServerShutdownPuzzle()
     {
         ShowOnly(aiShutdownPanel);
-
-        EnterCutsceneCamera(serverRiseCamera);
 
         serverMinigameManager.SetNoticeUI(aiShutdownPanel, aiShutdownText);
         serverMinigameManager.OnCeilingExplosionTriggered = OnCeilingExplode;
@@ -168,8 +193,9 @@ public class MinigameFlowController : MonoBehaviour
 
     private void OnCeilingExplode()
     {
-        ExitCutsceneCamera(serverRiseCamera);
-        EnterCutsceneCamera(ceilingMechCamera);
+        SetCam(serverRiseCamera, false);
+        SetCam(ceilingMechCamera, true);
+
         SpawnBoss();
         StartCoroutine(ReturnToPlayerCameraAfterDelay());
     }
@@ -177,7 +203,8 @@ public class MinigameFlowController : MonoBehaviour
     private IEnumerator ReturnToPlayerCameraAfterDelay()
     {
         yield return new WaitForSeconds(ceilingCameraHoldDuration);
-        ExitCutsceneCamera(ceilingMechCamera);
+        SetCam(ceilingMechCamera, false);
+        SetCam(playerCamera, true);
     }
 
     private void SpawnBoss()
@@ -214,9 +241,13 @@ public class MinigameFlowController : MonoBehaviour
     {
         ShowOnly(null);
         if (inputBlocker) inputBlocker.UnblockInput();
-        if (minigameCamera) minigameCamera.gameObject.SetActive(false);
-        ExitCutsceneCamera(ceilingMechCamera);
+        SetCam(minigameCamera, false);
+        SetCam(playerCamera, true);
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(false);
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
         _isRunning = false;
         _isPaused = false;
     }

@@ -1072,10 +1072,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3d6b24cc38863d94280554fbcf3a09f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyRagdoll
+  ragdollAnimator: {fileID: 0}
   VelocitySeedScale: 1.4
   UpwardKick: 2
   AutoDespawn: 1
   LifetimeAfterDeath: 10
+  impactDuration: 0
+  impactForceMode: 1
+  autoRecover: 0
+  recoverDelay: 4
+  recoverTransitionDuration: 0.8
+  debugLog: 0
 --- !u!114 &6675350135153837617
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -279,8 +279,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -805, y: 508}
-  m_SizeDelta: {x: 306.4106, y: 60.3815}
+  m_AnchoredPosition: {x: -1.5826, y: 24.596}
+  m_SizeDelta: {x: 1913.2, y: 1027.2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &499627258
 MonoBehaviour:
@@ -632,7 +632,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LoadingScreenController
   persistAcrossScenes: 1
-  minimumDisplayTime: 10
+  minimumDisplayTime: 5
   completeHoldTime: 5
   debugLog: 1
   progressLogInterval: 0.25
@@ -684,7 +684,8 @@ MonoBehaviour:
   terminalText: {fileID: 499627258}
   percentText: {fileID: 1516996711}
   progressBarFill: {fileID: 1069291595}
-  spinner: {fileID: 0}
+  spinnerText: {fileID: 0}
+  spinnerFrameInterval: 0.1
   injectFillBar: {fileID: 0}
   confirmKey: 101
   allowMouseConfirm: 0
@@ -703,6 +704,9 @@ MonoBehaviour:
   readySound: {fileID: 0}
   fadeInDuration: 0.25
   fadeOutDuration: 0.35
+  shaderStepLabelMatch: WARMING RENDER CACHE
+  chatterInterval: 0.12
+  maxChatterLines: 10
   minFillSpeedPerSecond: 0.6
   showDebugLogs: 1
 --- !u!1 &1009321650

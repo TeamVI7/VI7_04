@@ -4,16 +4,12 @@ using UnityEngine;
 
 /// <summary>
 /// Shared gating for enemy hitscan-style attacks: Aggro-check, range-check, a
-/// fire-rate cooldown, and an optional visible telegraph before the shot actually
-/// lands. Concrete weapons only implement Fire() — the actual raycast/damage/trail
-/// logic.
+/// fire-rate cooldown, a facing/aim gate, and an optional visible telegraph
+/// before the shot actually lands. Concrete weapons only implement Fire() —
+/// the actual raycast/damage/trail logic.
 ///
-/// Extracted from SMGAttackBehaviour / ShotgunAttackBehaviour, which were ~80%
-/// identical boilerplate around the same "am I allowed to shoot right now" check.
-///
-/// NOT used by SniperAttackBehaviour (charge/lock/fire state machine — already has
-/// its own, more elaborate telegraph) or LaserBehaviour (continuous beam, not a
-/// discrete cooldown-gated shot).
+/// NOT used by SniperAttackBehaviour (own charge/lock/rotate state machine)
+/// or LaserBehaviour (continuous beam, not a discrete cooldown-gated shot).
 /// </summary>
 [RequireComponent(typeof(EnemyBrain))]
 public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
@@ -29,6 +25,20 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
 
     /// <summary>Obstacles + player combined — use this for the firing raycast, not ObstacleLayers alone.</summary>
     protected LayerMask FireHitMask => ObstacleLayers | PlayerLayer;
+
+    [Header("Aiming")]
+    [Tooltip("Degrees/sec the enemy body turns to face the player before it's allowed to fire.")]
+    public float AimTurnSpeed = 220f;
+    [Tooltip("Max facing-angle error (degrees) allowed to actually fire. Enemy must turn into this cone first — prevents snap-shots regardless of orientation.")]
+    public float MaxFireAngle = 12f;
+    [Tooltip("If false, restores the old instant-fire-on-cooldown behaviour (no aim gate).")]
+    public bool RequireAimToFire = true;
+
+    /// <summary>True once the enemy's forward vector is within MaxFireAngle of the player.</summary>
+    public bool IsAimed { get; private set; }
+
+    /// <summary>Fired whenever IsAimed flips. Arg: new value.</summary>
+    public event Action<bool> OnAimingChanged;
 
     [Header("Telegraph")]
     [Tooltip("Seconds of visible wind-up before the shot actually fires, once the fire-rate timer trips. 0 = instant/legacy hitscan.")]
@@ -57,18 +67,28 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
 
     protected virtual void Update()
     {
-        if (Brain.State != EnemyState.Aggro) { CancelTelegraph(); return; }
-        if (PlayerHealth.Transform == null)  { CancelTelegraph(); return; }
-        if (FirePoint == null)               { CancelTelegraph(); return; }
+        if (Brain.State != EnemyState.Aggro) { CancelTelegraph(); ResetAim(); return; }
+        if (PlayerHealth.Transform == null)  { CancelTelegraph(); ResetAim(); return; }
+        if (FirePoint == null)               { CancelTelegraph(); ResetAim(); return; }
 
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
-        if (dist > AttackRange) { CancelTelegraph(); return; }
+        if (dist > AttackRange) { CancelTelegraph(); ResetAim(); return; }
+
+        TickAim();
 
         if (IsTelegraphing) return; // wind-up coroutine already owns the shot this cycle
 
         _nextFireTimer += Time.deltaTime;
         if (_nextFireTimer >= FireRate)
         {
+            if (RequireAimToFire && !IsAimed)
+            {
+                // Hold at the threshold instead of overshooting — fires the instant
+                // the turn finishes catching up, same pattern as the fire-slot wait below.
+                _nextFireTimer = FireRate;
+                return;
+            }
+
             if (!EnemySquadCoordinator.TryAcquireFireSlot())
             {
                 // No slot free — hold at the threshold and retry next frame instead of
@@ -88,6 +108,30 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         }
     }
 
+    /// <summary>Rotates the enemy body toward the player and updates IsAimed. Runs every
+    /// frame while Aggro + in range, so the enemy is always tracking, not just at fire time.</summary>
+    private void TickAim()
+    {
+        Vector3 toTarget = PlayerHealth.Transform.position - transform.position;
+        toTarget.y = 0f;
+        if (toTarget.sqrMagnitude < 0.0001f) return;
+
+        Quaternion targetRot = Quaternion.LookRotation(toTarget);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, AimTurnSpeed * Time.deltaTime);
+
+        float angle = Vector3.Angle(transform.forward, toTarget);
+        SetAimed(angle <= MaxFireAngle);
+    }
+
+    private void ResetAim() => SetAimed(false);
+
+    private void SetAimed(bool aimed)
+    {
+        if (IsAimed == aimed) return;
+        IsAimed = aimed;
+        OnAimingChanged?.Invoke(IsAimed);
+    }
+
     private IEnumerator Co_TelegraphThenFire()
     {
         IsTelegraphing = true;
@@ -97,16 +141,18 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         float t = 0f;
         while (t < TelegraphTime)
         {
-            // Bail if the target became invalid or left range mid wind-up — the shot
-            // never lands, so a player who breaks line of sight during the tell is
-            // actually rewarded for it instead of eating a shot fired at empty air anyway.
+            // Bail if the target became invalid, left range, or the enemy lost its
+            // facing lock mid wind-up — a player who breaks LOS or dodges wide during
+            // the tell is rewarded for it instead of eating a shot fired at empty air.
             if (Brain.State != EnemyState.Aggro || PlayerHealth.Transform == null ||
-                Vector3.Distance(transform.position, PlayerHealth.Transform.position) > AttackRange)
+                Vector3.Distance(transform.position, PlayerHealth.Transform.position) > AttackRange ||
+                (RequireAimToFire && !IsAimed))
             {
                 CancelTelegraph();
                 yield break;
             }
 
+            TickAim();
             t += Time.deltaTime;
             yield return null;
         }
@@ -150,11 +196,30 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         _holdingFireSlot = false;
     }
 
-    private void OnDisable() => ReleaseFireSlot();
+    private void OnDisable()
+    {
+        ReleaseFireSlot();
+        ResetAim();
+    }
 
     /// <summary>Implement the actual shot here — raycast(s), damage, trail VFX.</summary>
     protected abstract void Fire();
 
     protected Vector3 GetTargetPoint(float heightOffset = 0.5f) =>
         PlayerHealth.Transform.position + Vector3.up * heightOffset;
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = IsAimed ? Color.red : new Color(1f, 0.6f, 0f, 0.8f);
+        Gizmos.DrawWireSphere(transform.position, AttackRange);
+
+        Vector3 origin = transform.position + Vector3.up * 1.5f;
+        Quaternion left  = Quaternion.AngleAxis(-MaxFireAngle, Vector3.up);
+        Quaternion right = Quaternion.AngleAxis( MaxFireAngle, Vector3.up);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawRay(origin, left  * transform.forward * 3f);
+        Gizmos.DrawRay(origin, right * transform.forward * 3f);
+    }
+#endif
 }

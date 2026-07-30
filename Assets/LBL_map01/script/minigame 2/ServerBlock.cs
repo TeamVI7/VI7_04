@@ -30,6 +30,9 @@ public class ServerBlock : MonoBehaviour
     [Tooltip("Hiện khi player đứng gần server này (bất kể đúng/sai lượt).")]
     public GameObject interactHint;
 
+    [Header("Outline khi player đứng gần")]
+    public Outline outline;
+
     [Header("Âm thanh")]
     [Tooltip("AudioSource để phát âm thanh (nếu để trống sẽ tự thêm 1 cái lúc runtime).")]
     public AudioSource audioSource;
@@ -76,6 +79,9 @@ public class ServerBlock : MonoBehaviour
 
         SetLightsColor(emptyColor);
         if (interactHint) interactHint.SetActive(false);
+
+        if (outline == null) outline = GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
     }
 
     private void Update()
@@ -92,6 +98,7 @@ public class ServerBlock : MonoBehaviour
     {
         if (!other.CompareTag("Player")) return;
         _playerNearby = true;
+        if (outline != null && !IsShutdown) outline.enabled = true;
     }
 
     private void OnTriggerStay(Collider other)
@@ -105,6 +112,7 @@ public class ServerBlock : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         _playerNearby = false;
         if (interactHint) interactHint.SetActive(false);
+        if (outline != null) outline.enabled = false;
     }
 
     /// <summary>Gọi bởi ServerMinigameManager khi player bấm ĐÚNG thứ tự tại server này.</summary>
@@ -116,6 +124,7 @@ public class ServerBlock : MonoBehaviour
         if (value)
         {
             if (interactHint) interactHint.SetActive(false);
+            if (outline != null) outline.enabled = false;
             if (audioSource != null && shutdownSound != null)
                 audioSource.PlayOneShot(shutdownSound, sfxVolume);
 

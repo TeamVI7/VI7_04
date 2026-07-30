@@ -17,6 +17,7 @@ public class PlayerElevatorInteractor : MonoBehaviour
     public GameObject interactHintUI;
 
     private ElevatorFloorButtonLookable currentLookedButton;
+    private Outline currentOutline;
 
     void Start()
     {
@@ -51,8 +52,15 @@ public class PlayerElevatorInteractor : MonoBehaviour
         if (hitButton != currentLookedButton)
         {
             if (currentLookedButton != null) currentLookedButton.SetHighlighted(false);
+            if (currentOutline != null) currentOutline.enabled = false;
+
             currentLookedButton = hitButton;
+            currentOutline = currentLookedButton != null
+                ? currentLookedButton.GetComponent<Outline>()
+                : null;
+
             if (currentLookedButton != null) currentLookedButton.SetHighlighted(true);
+            if (currentOutline != null) currentOutline.enabled = true;
         }
 
         if (interactHintUI)

@@ -3281,6 +3281,7 @@ GameObject:
   - component: {fileID: 1139818676853552024}
   - component: {fileID: 8017927490724790913}
   - component: {fileID: 7723908046342422908}
+  - component: {fileID: 7615858862218801392}
   m_Layer: 0
   m_Name: Server block
   m_TagString: Untagged
@@ -3397,6 +3398,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ServerBlock
   interactRange: 5
+  serverNumber: 1
   statusLights:
   - {fileID: 4116624286371159813}
   - {fileID: 8376443625125347262}
@@ -3408,12 +3410,15 @@ MonoBehaviour:
   - {fileID: 6096934219123819239}
   emptyColor: {r: 1, g: 0, b: 0, a: 1}
   filledColor: {r: 0, g: 1, b: 0.4, a: 1}
+  wrongColor: {r: 1, g: 0.6, b: 0, a: 1}
   emissionIntensity: 2.5
   interactHint: {fileID: 3179603990493830453}
-  noSSDHint: {fileID: 8668567158346330141}
+  outline: {fileID: 7615858862218801392}
   audioSource: {fileID: 7723908046342422908}
-  insertSSDSound: {fileID: 8300000, guid: 61128e5b97a92ee478b740362ce2b615, type: 3}
+  shutdownSound: {fileID: 0}
   sfxVolume: 1
+  wrongSound: {fileID: 0}
+  wrongSfxVolume: 1
   riseVFX: {fileID: 0}
 --- !u!135 &8017927490724790913
 SphereCollider:
@@ -3533,3 +3538,21 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7615858862218801392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9014427883337751453}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fea29bb7c508c244a1f805a5fd3fc4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Outline
+  outlineMode: 0
+  outlineColor: {r: 1, g: 0, b: 0, a: 1}
+  outlineWidth: 2
+  precomputeOutline: 0
+  bakeKeys: []
+  bakeValues: []

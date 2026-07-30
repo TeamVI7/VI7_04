@@ -13,7 +13,8 @@ public class RappelCutscene : MonoBehaviour
     public GameObject playerObject;
     public Camera playerCamera;      // drag main camera here
     public CanvasGroup fadePanel;    // black image with CanvasGroup (alpha 1 = opaque)
-
+    [Header("Dialogue")]
+    public DialogueData dialogueOnLand;
     [Header("Rappel Settings")]
     public float descentSpeed = 2.5f;       // meters per second
     public float descentDistance = 15f;     // meters to descend
@@ -148,5 +149,8 @@ public class RappelCutscene : MonoBehaviour
 
         playerCamera.gameObject.SetActive(true);
         cutsceneCamera.gameObject.SetActive(false);
+
+        if (dialogueOnLand != null)
+            DialogueManager.Instance.Play(dialogueOnLand);
     }
 }
