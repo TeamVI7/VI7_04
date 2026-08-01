@@ -10,7 +10,8 @@ using UnityEngine;
 ///      alongside LoadProfile() — or extend WeaponADSProfile to hold a RecoilProfile ref.
 ///
 /// CONSUMED BY:
-///   ProceduralRecoil.ApplyProfile()
+///   ProceduralRecoil.ApplyProfile() — weapon-mesh kick
+///   CameraRecoil — actual camera/aim kick (see cameraKick* fields below)
 /// </summary>
 [CreateAssetMenu(menuName = "FPS/Recoil Profile", fileName = "Recoil_NewWeapon")]
 public class RecoilProfile : ScriptableObject
@@ -58,6 +59,26 @@ public class RecoilProfile : ScriptableObject
     [Header("Spring — Rotation")]
     public float rotationStiffness = 300f;
     public float rotationDamping   = 25f;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Camera Kick (actual aim/mouse recoil — CameraRecoil.cs)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Header("Camera Kick — Pitch (view kicks up)")]
+    [Tooltip("Degrees the camera pitch kicks up per shot. This is separate from " +
+             "the weapon-mesh kick above — this one actually moves your aim, " +
+             "so the player has to move the mouse down to compensate.")]
+    public float cameraKickPitch = 1.2f;
+
+    [Header("Camera Kick — Yaw (random left/right walk)")]
+    [Tooltip("Max degrees of random horizontal kick per shot, applied as ±range.")]
+    public float cameraKickYaw = 0.4f;
+
+    [Header("Camera Kick — Recovery")]
+    [Tooltip("Degrees/sec the camera kick settles back down at. Higher = snappier recovery.")]
+    public float cameraKickRecoverySpeed = 6f;
 
     #endregion
 }

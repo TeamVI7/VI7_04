@@ -12,6 +12,10 @@ public class PatrolBehaviour : MonoBehaviour
     public float ChaseSpeed = 10f;
     public float PreferredRange = 10f;
 
+    [Header("Retreat")]
+    [Tooltip("If the player gets closer than this, the enemy backs away instead of holding position or continuing to close in. 0 disables retreating entirely.")]
+    public float MinRange = 3f;
+
     [Header("Patrol")]
     public float PatrolRadius = 12f;
     public float WaypointWaitTime = 2.5f;
@@ -29,12 +33,18 @@ public class PatrolBehaviour : MonoBehaviour
     private float _strafeTimer;
     private int _formationSlot = -1;
 
+    // Aggressive is "never stops closing" by design (melee rushers rely on it), so
+    // retreat only applies there if this enemy actually has something to shoot with —
+    // a melee-only Aggressive enemy should still barrel straight in.
+    private bool _hasRangedAttack;
+
     private void Awake()
     {
         _nav = GetComponent<NavMeshAgent>();
         _nav.updateRotation = false; // this component (and EnemyLookAt) own rotation now
         _brain = GetComponent<EnemyBrain>();
         _brain.OnStateChanged += OnStateChanged;
+        _hasRangedAttack = GetComponent<EnemyRangedAttackBehaviour>() != null;
     }
 
     private void OnDestroy()
@@ -85,9 +95,21 @@ public class PatrolBehaviour : MonoBehaviour
         }
     }
 
+    private bool TryRetreat(float dist)
+    {
+        if (MinRange <= 0f || dist >= MinRange) return false;
+
+        _nav.speed = ChaseSpeed;
+        _nav.SetDestination(GetRetreatPoint());
+        FacePlayer();
+        return true;
+    }
+
     private void TickChaseStandoff()
     {
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
+
+        if (TryRetreat(dist)) return;
 
         if (dist > PreferredRange)
         {
@@ -106,6 +128,9 @@ public class PatrolBehaviour : MonoBehaviour
     private void TickChaseAggressive()
     {
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
+
+        if (_hasRangedAttack && TryRetreat(dist)) return;
+
         _nav.speed = ChaseSpeed;
 
         Vector3 destination = dist > PreferredRange
@@ -121,6 +146,8 @@ public class PatrolBehaviour : MonoBehaviour
     private void TickChaseStrafe()
     {
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
+
+        if (TryRetreat(dist)) { _strafeTimer = 0f; return; }
 
         if (dist > PreferredRange * 1.3f)
         {
@@ -169,6 +196,25 @@ public class PatrolBehaviour : MonoBehaviour
             return hit.position;
 
         return PlayerHealth.Transform.position;
+    }
+
+    // Mirrors GetApproachPoint but projects away from the player instead of toward
+    // them — used when the player has closed inside MinRange.
+    private Vector3 GetRetreatPoint()
+    {
+        if (PlayerHealth.Transform == null) return transform.position;
+
+        Vector3 away = transform.position - PlayerHealth.Transform.position;
+        away.y = 0f;
+        if (away.sqrMagnitude < 0.01f) away = -transform.forward;
+        away.Normalize();
+
+        Vector3 point = transform.position + away * (MinRange + 2f);
+
+        if (NavMesh.SamplePosition(point, out NavMeshHit hit, MinRange + 2f, NavMesh.AllAreas))
+            return hit.position;
+
+        return transform.position;
     }
 
     public void FacePlayer()
@@ -231,4 +277,17 @@ public class PatrolBehaviour : MonoBehaviour
         }
         _waitTimer = 0f;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, PreferredRange);
+        if (MinRange > 0f)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(transform.position, MinRange);
+        }
+    }
+#endif
 }

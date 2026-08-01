@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Semi-auto single-shot hitscan. Aggro/range/cooldown gating lives in
+/// Semi-auto single-shot hitscan. Aggro/range/cooldown/aim gating lives in
 /// EnemyRangedAttackBehaviour — this only owns damage-per-shot and the tracer VFX.
 /// Distinguishes itself from SMG by a slower FireRate and higher DamagePerShot —
 /// same weapon shape, different pacing.
@@ -16,8 +16,6 @@ public class PistolAttackBehaviour : EnemyRangedAttackBehaviour
     public TrailRenderer BulletTrailPrefab;
     public float TracerSpeed = 300f;
 
-    // Pass-through alias so EnemySoundController can subscribe directly,
-    // same pattern SMGAttackBehaviour already uses.
     public event System.Action OnPistolFired
     {
         add    => OnFired += value;
@@ -27,7 +25,8 @@ public class PistolAttackBehaviour : EnemyRangedAttackBehaviour
     protected override void Fire()
     {
         Vector3 targetPos     = GetTargetPoint();
-        Vector3 fireDirection = (targetPos - FirePoint.position).normalized;
+        Vector3 aimDirection  = (targetPos - FirePoint.position).normalized;
+        Vector3 fireDirection = ApplySpread(aimDirection);
 
         if (Physics.Raycast(FirePoint.position, fireDirection, out RaycastHit hit, AttackRange, FireHitMask))
         {

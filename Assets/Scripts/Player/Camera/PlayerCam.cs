@@ -16,6 +16,13 @@ public class PlayerCam : MonoBehaviour
     public bool disableMoveTilt;
     private float wallTiltZ = 0f;
 
+    [Header("Recoil (Camera Kick — see CameraRecoil.cs)")]
+    [Tooltip("Degrees/sec the recoil kick settles back at. Overwritten per-shot by " +
+             "CameraRecoil if the firing weapon has a RecoilProfile.")]
+    public float recoilRecoverySpeed = 6f;
+    private float _recoilPitchOffset; // always >= 0, how much pitch kick is still "owed" back
+    private float _recoilYawOffset;   // signed, how much yaw kick is still "owed" back
+
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
@@ -30,6 +37,9 @@ public class PlayerCam : MonoBehaviour
 
         yRotation += mouseX;
         xRotation -= mouseY;
+
+        TickRecoilRecovery();
+
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
 
         camHolder.rotation   = Quaternion.Euler(xRotation, yRotation, 0);
@@ -46,6 +56,48 @@ public class PlayerCam : MonoBehaviour
             transform.DOLocalRotate(new Vector3(0, 0, wallTiltZ), 0.15f);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Recoil (Camera Kick)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Kicks the actual camera aim — not just a visual weapon-mesh offset.
+    /// Called by CameraRecoil on every shot. Positive pitchKick tips the view up;
+    /// yawKick is signed (+right/-left) so callers can pass randomised values.
+    /// </summary>
+    public void AddRecoilKick(float pitchKick, float yawKick)
+    {
+        xRotation -= pitchKick;
+        _recoilPitchOffset += pitchKick;
+
+        yRotation += yawKick;
+        _recoilYawOffset += yawKick;
+    }
+
+    /// <summary>Instantly clears any in-flight recoil kick — call on weapon switch/death if needed.</summary>
+    public void ResetRecoil()
+    {
+        xRotation += _recoilPitchOffset;
+        yRotation -= _recoilYawOffset;
+        _recoilPitchOffset = 0f;
+        _recoilYawOffset   = 0f;
+    }
+
+    private void TickRecoilRecovery()
+    {
+        float step = recoilRecoverySpeed * Time.deltaTime;
+
+        float prevPitch = _recoilPitchOffset;
+        _recoilPitchOffset = Mathf.MoveTowards(_recoilPitchOffset, 0f, step);
+        xRotation += (prevPitch - _recoilPitchOffset);
+
+        float prevYaw = _recoilYawOffset;
+        _recoilYawOffset = Mathf.MoveTowards(_recoilYawOffset, 0f, step);
+        yRotation -= (prevYaw - _recoilYawOffset);
+    }
+
+    #endregion
 
     public void DoFov(float endValue)
     {

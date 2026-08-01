@@ -51,6 +51,7 @@ public class MinigameFlowController : MonoBehaviour
 
     private bool _isRunning = false;
     private bool _isPaused = false;
+    private bool _inCutscene = false;
 
     private void Start()
     {
@@ -62,6 +63,8 @@ public class MinigameFlowController : MonoBehaviour
 
     public void StartTerminal()
     {
+        if (_inCutscene) return;
+
         if (!_isRunning)
         {
             BeginFreshRun();
@@ -80,6 +83,7 @@ public class MinigameFlowController : MonoBehaviour
 
     public void ForceExitZone()
     {
+        if (_inCutscene) return;
         if (_isRunning && !_isPaused)
             PauseTerminal();
     }
@@ -108,6 +112,9 @@ public class MinigameFlowController : MonoBehaviour
         if (inputBlocker) inputBlocker.UnblockInput();
         SetCam(minigameCamera, false);
         SetCam(playerCamera, true); // let the player see/move while paused
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         PauseAllMinigames();
     }
@@ -157,7 +164,10 @@ public class MinigameFlowController : MonoBehaviour
 
     private void OnVoltageComplete()
     {
+        Debug.Log("[MinigameFlowController] OnVoltageComplete");
         ShowOnly(null);
+
+        _inCutscene = true;
 
         if (canvasCameraSync != null) canvasCameraSync.enabled = false;
 
@@ -183,16 +193,31 @@ public class MinigameFlowController : MonoBehaviour
 
     private void StartServerShutdownPuzzle()
     {
+        Debug.Log("[MinigameFlowController] StartServerShutdownPuzzle - waiting on ServerMinigameManager callbacks");
         ShowOnly(aiShutdownPanel);
 
         serverMinigameManager.SetNoticeUI(aiShutdownPanel, aiShutdownText);
+        serverMinigameManager.OnPuzzleInteractionReady = OnPuzzleInteractionReady;
         serverMinigameManager.OnCeilingExplosionTriggered = OnCeilingExplode;
         serverMinigameManager.OnAllServersShutdown = OnServersShutdownComplete;
         serverMinigameManager.OnPlayerEnterTrigger();
     }
 
+    private void OnPuzzleInteractionReady()
+    {
+        Debug.Log("[MinigameFlowController] OnPuzzleInteractionReady - handing control back to player");
+        SetCam(serverRiseCamera, false);
+        SetCam(playerCamera, true);
+
+        if (inputBlocker) inputBlocker.UnblockInput();
+    }
+
     private void OnCeilingExplode()
     {
+        Debug.Log("[MinigameFlowController] OnCeilingExplode");
+        if (inputBlocker) inputBlocker.BlockInput();
+
+        SetCam(playerCamera, false);
         SetCam(serverRiseCamera, false);
         SetCam(ceilingMechCamera, true);
 
@@ -203,8 +228,11 @@ public class MinigameFlowController : MonoBehaviour
     private IEnumerator ReturnToPlayerCameraAfterDelay()
     {
         yield return new WaitForSeconds(ceilingCameraHoldDuration);
+        Debug.Log("[MinigameFlowController] ReturnToPlayerCameraAfterDelay complete - playerCamera back on");
         SetCam(ceilingMechCamera, false);
         SetCam(playerCamera, true);
+
+        if (inputBlocker) inputBlocker.UnblockInput();
     }
 
     private void SpawnBoss()
@@ -215,6 +243,7 @@ public class MinigameFlowController : MonoBehaviour
 
     private void OnServersShutdownComplete()
     {
+        Debug.Log("[MinigameFlowController] OnServersShutdownComplete");
         ShowOnly(aiShutdownPanel);
         if (aiShutdownText) aiShutdownText.text = aiShutdownMessage;
 
@@ -239,6 +268,7 @@ public class MinigameFlowController : MonoBehaviour
 
     private void EndTerminal()
     {
+        Debug.Log("[MinigameFlowController] EndTerminal - _inCutscene cleared, F unlocked");
         ShowOnly(null);
         if (inputBlocker) inputBlocker.UnblockInput();
         SetCam(minigameCamera, false);
@@ -250,6 +280,7 @@ public class MinigameFlowController : MonoBehaviour
 
         _isRunning = false;
         _isPaused = false;
+        _inCutscene = false;
     }
 
     private void ShowOnly(GameObject panel)

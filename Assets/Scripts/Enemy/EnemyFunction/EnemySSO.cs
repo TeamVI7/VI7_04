@@ -49,6 +49,8 @@ public class EnemyStatsSO : ScriptableObject
     public float PatrolSpeed         = 2f;
     public float ChaseSpeed          = 10f;
     public float PreferredRange      = 10f;
+    [Tooltip("If the player closes inside this distance, the enemy backs away instead of standing/strafing in place. 0 disables retreating.")]
+    public float MinRange            = 3f;
     public float PatrolRadius        = 12f;
     public float WaypointWaitTime    = 2.5f;
 
@@ -125,6 +127,11 @@ public class EnemyStatsSO : ScriptableObject
     public float SniperAttackRange   = 40f;
     public float SniperFireCooldown  = 3.5f;
     public float SniperDamage        = 25f;
+
+    [Header("Ranged Aiming (SMG/Shotgun/Pistol)")]
+    public float RangedAimTurnSpeed  = 220f;
+    public float RangedMaxFireAngle  = 12f;
+    public float RangedSpread        = 2.5f;
 
     [Header("Hit Reaction")]
     public float HitReactionMaxKickDistance = 0.06f;

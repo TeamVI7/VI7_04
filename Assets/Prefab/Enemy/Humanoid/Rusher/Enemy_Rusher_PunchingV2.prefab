@@ -3144,6 +3144,7 @@ MonoBehaviour:
   PatrolSpeed: 2
   ChaseSpeed: 5
   PreferredRange: 5
+  MinRange: 3
   PatrolRadius: 12
   WaypointWaitTime: 2.5
   MovementStyle: 1
@@ -3383,6 +3384,10 @@ MonoBehaviour:
   AimTurnSpeed: 220
   MaxFireAngle: 12
   RequireAimToFire: 1
+  Spread: 2.5
+  SpreadBuildPerShot: 0
+  MaxSpreadBuildup: 4
+  SpreadRecoveryCooldown: 0.4
   TelegraphTime: 0
   TelegraphVFX: {fileID: 4394760934921415428, guid: c0c8973e217f73c44950ce3c03932c54, type: 3}
   DamagePerShot: 1

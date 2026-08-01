@@ -87,6 +87,9 @@ public class ServerMinigameManager : MonoBehaviour
     /// <summary>Được gọi ĐÚNG lúc trần nổ (trước khi server chui xuống đất) — dùng để chuyển camera đúng thời điểm.</summary>
     public System.Action OnCeilingExplosionTriggered;
 
+    /// <summary>Được gọi khi player CẦN quyền điều khiển lại (đi bộ tới từng server để bấm F) — sau khi animation trồi lên xong.</summary>
+    public System.Action OnPuzzleInteractionReady;
+
     private bool _triggered = false;
     private bool _solved = false;
     private float[] _originalY;
@@ -219,6 +222,7 @@ public class ServerMinigameManager : MonoBehaviour
     {
         _puzzleActive = true;
         if (noticePanel) noticePanel.SetActive(true);
+        OnPuzzleInteractionReady?.Invoke();
         GenerateNewOrder();
     }
 

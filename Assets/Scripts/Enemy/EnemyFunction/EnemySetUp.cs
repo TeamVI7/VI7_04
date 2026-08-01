@@ -53,6 +53,7 @@ public class EnemySetup : MonoBehaviour
             patrol.PatrolSpeed       = Stats.PatrolSpeed;
             patrol.ChaseSpeed        = Stats.ChaseSpeed;
             patrol.PreferredRange    = Stats.PreferredRange;
+            patrol.MinRange          = Stats.MinRange;
             patrol.PatrolRadius      = Stats.PatrolRadius;
             patrol.WaypointWaitTime  = Stats.WaypointWaitTime;
             patrol.MovementStyle     = Stats.MovementStyle;
@@ -115,7 +116,6 @@ public class EnemySetup : MonoBehaviour
             ragdoll.LifetimeAfterDeath = Stats.RagdollLifetime;
         }
 
-        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SHOTGUN ──────────────────
         if (TryGetComponent(out ShotgunAttackBehaviour shotgun))
         {
             shotgun.AttackRange     = Stats.ShotgunAttackRange;
@@ -124,15 +124,16 @@ public class EnemySetup : MonoBehaviour
             shotgun.SpreadAngle     = Stats.ShotgunSpreadAngle;
             shotgun.FireRate        = Stats.ShotgunFireRate;
             shotgun.TelegraphTime   = Stats.ShotgunTelegraphTime;
+            ApplyRangedAiming(shotgun);
         }
 
-        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SMG ──────────────────────
         if (TryGetComponent(out SMGAttackBehaviour smg))
         {
             smg.AttackRange    = Stats.SMGAttackRange;
             smg.DamagePerShot  = Stats.SMGDamagePerShot;
             smg.FireRate       = Stats.SMGFireRate;
             smg.TelegraphTime  = Stats.SMGTelegraphTime;
+            ApplyRangedAiming(smg);
         }
 
         if (TryGetComponent(out PistolAttackBehaviour pistol))
@@ -141,9 +142,9 @@ public class EnemySetup : MonoBehaviour
             pistol.DamagePerShot  = Stats.PistolDamagePerShot;
             pistol.FireRate       = Stats.PistolFireRate;
             pistol.TelegraphTime  = Stats.PistolTelegraphTime;
+            ApplyRangedAiming(pistol);
         }
 
-        // ── ĐẨY THÔNG SỐ KHỚP TOÀN BỘ VỚI SNIPER ───────────────────
         if (TryGetComponent(out SniperAttackBehaviour sniper))
         {
             sniper.AttackRange   = Stats.SniperAttackRange;
@@ -181,6 +182,15 @@ public class EnemySetup : MonoBehaviour
             impactVFX.ImpactLifetime     = Stats.ImpactVFXLifetime;
             impactVFX.MinDamageFraction  = Stats.ImpactVFXMinDamageFraction;
         }
+    }
+
+    // Shared aiming/spread push for every EnemyRangedAttackBehaviour subtype — one
+    // place to tune "how well do my ranged enemies aim" across the whole roster.
+    private void ApplyRangedAiming(EnemyRangedAttackBehaviour ranged)
+    {
+        ranged.AimTurnSpeed = Stats.RangedAimTurnSpeed;
+        ranged.MaxFireAngle = Stats.RangedMaxFireAngle;
+        ranged.Spread       = Stats.RangedSpread;
     }
 
 #if UNITY_EDITOR

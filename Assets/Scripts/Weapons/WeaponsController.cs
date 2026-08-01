@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine;
 using Random = UnityEngine.Random;
 using UnityEngine.Animations.Rigging;
+using Knife.Effects;
 
 [RequireComponent(typeof(AudioSource))]
 public class WeaponsController : MonoBehaviour
@@ -29,6 +30,12 @@ public class WeaponsController : MonoBehaviour
     [Header("Prefabs")]
     public GameObject bulletTrailPrefab;
     public GameObject muzzleFlashPrefab;
+
+    [Header("Shot Emitters (Knife Effects)")]
+    [Tooltip("Particle emitters fired on every shot (muzzle flash, sparks, etc).")]
+    public ParticleGroupEmitter[] shotEmitters;
+    [Tooltip("Lingering smoke/haze played once fire stops. Stopped the instant a new shot fires.")]
+    public ParticleGroupPlayer afterFireSmoke;
 
     [Header("Reload Mode")]
     public bool animationDrivenReload = true;
@@ -293,6 +300,7 @@ public class WeaponsController : MonoBehaviour
         _reloadCoroutine  = null;
         _inspectCoroutine = null;
         PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Reloading, false);
+        afterFireSmoke?.Stop();
     }
 
     #endregion
@@ -379,6 +387,9 @@ public class WeaponsController : MonoBehaviour
             {
                 _canShoot = false;
                 StartCoroutine(Co_Fire());
+
+                if (!weaponData.isFullAuto)
+                    PlayAfterFireSmoke();
             }
             else if (Input.GetMouseButtonDown(0)
                   && CurrentState != WeaponState.Reloading
@@ -386,6 +397,10 @@ public class WeaponsController : MonoBehaviour
             {
                 TriggerDryFire();
             }
+        }
+        else if (weaponData.isFullAuto && Input.GetMouseButtonUp(0))
+        {
+            PlayAfterFireSmoke();
         }
     }
 
@@ -524,6 +539,7 @@ public class WeaponsController : MonoBehaviour
 
         SetAnimatorTrigger(AnimIsShooting);
         SpawnMuzzleFlash();
+        PlayShotEmitters();
 
         Vector3 aimDir   = CalculateAimWithSpread();
         Vector3 hitPoint = PerformHitscan(aimDir);
@@ -823,6 +839,40 @@ public class WeaponsController : MonoBehaviour
         Destroy(Instantiate(muzzleFlashPrefab, muzzleFlashPoint.position, muzzleFlashPoint.rotation), 0.1f);
     }
 
+    /// <summary>
+    /// Emits every entry in shotEmitters (muzzle flash, sparks, smoke burst, etc).
+    /// Stops afterFireSmoke first so a fresh shot always looks the same regardless
+    /// of whether the lingering smoke from the previous shot was still fading.
+    /// Add more ParticleGroupEmitter entries in the Inspector — no code changes needed.
+    /// </summary>
+    private void PlayShotEmitters()
+    {
+        afterFireSmoke?.Stop();
+
+        if (shotEmitters == null) return;
+        for (int i = 0; i < shotEmitters.Length; i++)
+        {
+            var emitter = shotEmitters[i];
+            if (emitter == null) continue;
+
+            // A prefab-asset reference (dragged from the Project window instead of the
+            // scene hierarchy) has an invalid scene — Emit() on it fires Unity's native
+            // "Instantiate Particle System Prefabs..." error, which try/catch can't stop
+            // since it isn't a C# exception. Catch it here instead, before it ever happens.
+            if (!emitter.gameObject.scene.IsValid())
+            {
+                LogWarning($"shotEmitters[{i}] ('{emitter.name}') is a prefab asset reference, " +
+                           "not a scene instance — re-assign it from the Hierarchy, not the Project window.");
+                continue;
+            }
+
+            emitter.Emit(1);
+        }
+    }
+
+    /// <summary>Plays the lingering after-fire smoke. Call once fire actually stops.</summary>
+    private void PlayAfterFireSmoke() => afterFireSmoke?.Play();
+
     private void SpawnBulletTrail(Vector3 aimDir, Vector3 hitPoint)
     {
         if (bulletTrailPrefab == null || spawnBulletPosition == null) return;
@@ -970,6 +1020,7 @@ public class WeaponsController : MonoBehaviour
         _reloadCoroutine  = null;
         _inspectCoroutine = null;
         PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Reloading, false);
+        afterFireSmoke?.Stop();
 
         Log("ForceIdle.");
     }

@@ -57,6 +57,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
     [Header("References")]
     public ProceduralWeaponAnimator proceduralAnimator;
     public ProceduralRecoil         recoilModule;
+    public CameraRecoil             cameraRecoil;
     public WallHandIK               wallHandIK;
 
     [Header("ADS Profiles")]
@@ -140,6 +141,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         }
 
         recoilModule?.RebindController(first);
+        cameraRecoil?.RebindController(first);
         proceduralAnimator?.RebindWeaponData(first != null ? first.weaponData : null);   // ← ADD: needed for scope to activate
         proceduralAnimator?.LoadProfile(GetProfile(0));
 
@@ -277,6 +279,7 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         incoming.gameObject.SetActive(true);
         
         recoilModule?.RebindController(incoming);
+        cameraRecoil?.RebindController(incoming);
         proceduralAnimator?.RebindWeaponData(incoming.weaponData);   // ← ADD: needed for scope to activate on swap
         wallHandIK?.SetIK(incoming.leftArmIK);
         proceduralAnimator?.SnapToHip();

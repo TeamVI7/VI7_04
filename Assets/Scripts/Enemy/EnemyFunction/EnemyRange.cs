@@ -4,9 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Shared gating for enemy hitscan-style attacks: Aggro-check, range-check, a
-/// fire-rate cooldown, a facing/aim gate, and an optional visible telegraph
-/// before the shot actually lands. Concrete weapons only implement Fire() —
-/// the actual raycast/damage/trail logic.
+/// fire-rate cooldown, a facing/aim gate, shot spread, and an optional visible
+/// telegraph before the shot actually lands. Concrete weapons only implement
+/// Fire() — the actual raycast/damage/trail logic.
 ///
 /// NOT used by SniperAttackBehaviour (own charge/lock/rotate state machine)
 /// or LaserBehaviour (continuous beam, not a discrete cooldown-gated shot).
@@ -40,6 +40,17 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
     /// <summary>Fired whenever IsAimed flips. Arg: new value.</summary>
     public event Action<bool> OnAimingChanged;
 
+    [Header("Accuracy")]
+    [Tooltip("Cone half-angle (degrees) of random inaccuracy applied to each shot. This — not the aim gate — is what stops shots reading as a perfectly-tracking laser. 0 = laser-perfect, not recommended.")]
+    public float Spread = 2.5f;
+    [Tooltip("Extra spread added per consecutive shot while sustained-firing (SMG-style), reset after SpreadRecoveryCooldown seconds without firing.")]
+    public float SpreadBuildPerShot = 0f;
+    public float MaxSpreadBuildup = 4f;
+    public float SpreadRecoveryCooldown = 0.4f;
+
+    private float _spreadBuildup;
+    private float _lastFireTime = float.NegativeInfinity;
+
     [Header("Telegraph")]
     [Tooltip("Seconds of visible wind-up before the shot actually fires, once the fire-rate timer trips. 0 = instant/legacy hitscan.")]
     public float TelegraphTime = 0f;
@@ -67,6 +78,9 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
 
     protected virtual void Update()
     {
+        if (SpreadBuildPerShot > 0f && Time.time - _lastFireTime > SpreadRecoveryCooldown)
+            _spreadBuildup = 0f;
+
         if (Brain.State != EnemyState.Aggro) { CancelTelegraph(); ResetAim(); return; }
         if (PlayerHealth.Transform == null)  { CancelTelegraph(); ResetAim(); return; }
         if (FirePoint == null)               { CancelTelegraph(); ResetAim(); return; }
@@ -83,17 +97,12 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         {
             if (RequireAimToFire && !IsAimed)
             {
-                // Hold at the threshold instead of overshooting — fires the instant
-                // the turn finishes catching up, same pattern as the fire-slot wait below.
                 _nextFireTimer = FireRate;
                 return;
             }
 
             if (!EnemySquadCoordinator.TryAcquireFireSlot())
             {
-                // No slot free — hold at the threshold and retry next frame instead of
-                // letting the timer overshoot, so it fires the instant one opens up
-                // rather than waiting a full extra FireRate cycle.
                 _nextFireTimer = FireRate;
                 return;
             }
@@ -132,6 +141,32 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         OnAimingChanged?.Invoke(IsAimed);
     }
 
+    /// <summary>
+    /// Perturbs a fire direction by Spread (+ any sustained-fire buildup) degrees.
+    /// Call this in every concrete Fire() override before raycasting — without it,
+    /// the shot is a mathematically perfect line to the target regardless of facing,
+    /// which is what reads as a "laser" even after the aim gate is in place.
+    /// </summary>
+    protected Vector3 ApplySpread(Vector3 direction)
+    {
+        _lastFireTime = Time.time;
+
+        float totalSpread = Spread + _spreadBuildup;
+        _spreadBuildup = Mathf.Min(_spreadBuildup + SpreadBuildPerShot, MaxSpreadBuildup);
+
+        if (totalSpread <= 0f) return direction;
+
+        Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
+        if (right.sqrMagnitude < 0.0001f) right = Vector3.Cross(Vector3.forward, direction).normalized;
+        Vector3 up = Vector3.Cross(direction, right).normalized;
+
+        float yaw   = UnityEngine.Random.Range(-totalSpread, totalSpread);
+        float pitch = UnityEngine.Random.Range(-totalSpread, totalSpread);
+
+        Vector3 spread = right * Mathf.Tan(yaw * Mathf.Deg2Rad) + up * Mathf.Tan(pitch * Mathf.Deg2Rad);
+        return (direction + spread).normalized;
+    }
+
     private IEnumerator Co_TelegraphThenFire()
     {
         IsTelegraphing = true;
@@ -141,9 +176,6 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         float t = 0f;
         while (t < TelegraphTime)
         {
-            // Bail if the target became invalid, left range, or the enemy lost its
-            // facing lock mid wind-up — a player who breaks LOS or dodges wide during
-            // the tell is rewarded for it instead of eating a shot fired at empty air.
             if (Brain.State != EnemyState.Aggro || PlayerHealth.Transform == null ||
                 Vector3.Distance(transform.position, PlayerHealth.Transform.position) > AttackRange ||
                 (RequireAimToFire && !IsAimed))
@@ -202,7 +234,8 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         ResetAim();
     }
 
-    /// <summary>Implement the actual shot here — raycast(s), damage, trail VFX.</summary>
+    /// <summary>Implement the actual shot here — raycast(s), damage, trail VFX. Call
+    /// ApplySpread() on your fire direction before raycasting.</summary>
     protected abstract void Fire();
 
     protected Vector3 GetTargetPoint(float heightOffset = 0.5f) =>
