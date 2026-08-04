@@ -2697,7 +2697,7 @@ CapsuleCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -3341,58 +3341,168 @@ MonoBehaviour:
     m_sphere: {fileID: 4711208715938537054, guid: b43618aedd7473a4eb1aaa5e80012a1d, type: 3}
     m_box: {fileID: -5495902117074765545, guid: 556fd6baa0902304189e57acd1d60fa6, type: 3}
     _EditorBoneScenePreviews: []
-    _Editor_SelectedChain: 3
+    _Editor_SelectedChain: 0
     _Editor_ChainCategory: 0
-    _EditorCategory: 3
+    _EditorCategory: 2
     _EditorMainCategory: 0
     _EditorMotionCategory: 2
     StoredReferenceTPose:
       BonePoses:
-      - SourceBone: {fileID: 1473514601389475014}
-        localPosition: {x: -1.7462298e-12, y: 0.00081238034, z: 4.301546e-10}
-        rootSpacePosition: {x: 0.0009202957, y: 1.3571377, z: -0.14395154}
-        localRotation: {x: 0.06831612, y: -0.024478814, z: -0.0011512036, w: 0.99736273}
-        rootSpaceRotation: {x: 0.1860399, y: -0.04243979, z: -0.002683038, w: 0.98162174}
-      - SourceBone: {fileID: 1937906327461486992}
-        localPosition: {x: 2.2118911e-11, y: 0.0006410501, z: 2.3683241e-11}
-        rootSpacePosition: {x: 0.0012907982, y: 1.2781816, z: -0.16306663}
-        localRotation: {x: 0.102951415, y: -0.036692694, z: 0.0073031727, w: 0.99398255}
-        rootSpaceRotation: {x: 0.11850548, y: -0.018329807, z: 0.0001087999, w: 0.99278426}
-      - SourceBone: {fileID: 86349585602207192}
-        localPosition: {x: -1.3969838e-11, y: 0.0018704768, z: 2.3152097e-10}
-        rootSpacePosition: {x: 0.00065231323, y: 1.2141111, z: -0.16506934}
-        localRotation: {x: 0.060557943, y: -0.032317284, z: 0.0010550821, w: 0.99764085}
-        rootSpaceRotation: {x: 0.015713692, y: 0.019062683, z: -0.0046811244, w: 0.99968386}
       - SourceBone: {fileID: 3485271440393606629}
         localPosition: {x: 1.373276e-19, y: 0.010278183, z: -0.0014829651}
         rootSpacePosition: {x: 0, y: 1.0278181, z: -0.1482966}
         localRotation: {x: -0.04473097, y: 0.05162484, z: -0.0040626065, w: 0.99765605}
         rootSpaceRotation: {x: -0.04473096, y: 0.051624835, z: -0.004062606, w: 0.997656}
-      - SourceBone: {fileID: 7937824257778258287}
-        localPosition: {x: -0, y: 0, z: 0}
-        rootSpacePosition: {x: 0, y: 0, z: 0}
-        localRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071067}
-        rootSpaceRotation: {x: 0, y: 0, z: 0, w: 1}
-      - SourceBone: {fileID: 8893843047494764358}
-        localPosition: {x: 0, y: 0, z: 0}
-        rootSpacePosition: {x: 0, y: 0, z: 0}
-        localRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071067}
-        rootSpaceRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071067}
-      - SourceBone: {fileID: 8462232033113292765}
-        localPosition: {x: 0, y: 0, z: 0}
-        rootSpacePosition: {x: 0, y: 0, z: 0}
-        localRotation: {x: 0, y: 0, z: 0, w: 1}
-        rootSpaceRotation: {x: 0, y: 0, z: 0, w: 1}
-      - SourceBone: {fileID: 2897941472309460108}
-        localPosition: {x: 4.0443287, y: -0.00000022547209, z: 1.5086411}
-        rootSpacePosition: {x: 0, y: 0, z: 0}
-        localRotation: {x: 0, y: 0, z: 0, w: 1}
-        rootSpaceRotation: {x: 0, y: 0, z: 0, w: 1}
+      - SourceBone: {fileID: 86349585602207192}
+        localPosition: {x: -1.3969838e-11, y: 0.0018704768, z: 2.3152097e-10}
+        rootSpacePosition: {x: 0.00065231323, y: 1.2141111, z: -0.16506934}
+        localRotation: {x: 0.060557943, y: -0.032317284, z: 0.0010550821, w: 0.99764085}
+        rootSpaceRotation: {x: 0.015713692, y: 0.019062683, z: -0.0046811244, w: 0.99968386}
+      - SourceBone: {fileID: 1937906327461486992}
+        localPosition: {x: 2.2118911e-11, y: 0.0006410501, z: 2.3683241e-11}
+        rootSpacePosition: {x: 0.0012907982, y: 1.2781816, z: -0.16306663}
+        localRotation: {x: 0.102951415, y: -0.036692694, z: 0.0073031727, w: 0.99398255}
+        rootSpaceRotation: {x: 0.11850548, y: -0.018329807, z: 0.0001087999, w: 0.99278426}
+      - SourceBone: {fileID: 1473514601389475014}
+        localPosition: {x: -1.7462298e-12, y: 0.00081238034, z: 4.301546e-10}
+        rootSpacePosition: {x: 0.0009202957, y: 1.3571377, z: -0.14395154}
+        localRotation: {x: 0.06831612, y: -0.024478814, z: -0.0011512036, w: 0.99736273}
+        rootSpaceRotation: {x: 0.1860399, y: -0.04243979, z: -0.002683038, w: 0.98162174}
+      - SourceBone: {fileID: 6537487652234565796}
+        localPosition: {x: -1.5716067e-11, y: 0.0004603304, z: -0.000000001290391}
+        rootSpacePosition: {x: -0.005101204, y: 1.6222486, z: 0.02629733}
+        localRotation: {x: 0.048676122, y: 0.006966366, z: -0.007431219, w: 0.99876267}
+        rootSpaceRotation: {x: 0.42826685, y: 0.0021923063, z: -0.011730214, w: 0.90357363}
       - SourceBone: {fileID: 5891755227541485875}
         localPosition: {x: 6.519258e-11, y: 0.0026689623, z: 0.00043231228}
         rootSpacePosition: {x: -0.005533695, y: 1.589775, z: -0.006326556}
         localRotation: {x: 0.20453106, y: 0.032159798, z: -0.020289611, w: 0.9781212}
         rootSpaceRotation: {x: 0.38368905, y: -0.006716594, z: -0.007877797, w: 0.9234045}
+      - SourceBone: {fileID: 1412787607193101496}
+        localPosition: {x: 3.2014214e-11, y: 0.000464307, z: 0.0000000024883957}
+        rootSpacePosition: {x: -0.004029751, y: 1.6516343, z: 0.062229633}
+        localRotation: {x: -0.4104108, y: -0.000000029282537, z: 0.00000011357156, w: 0.91190076}
+        rootSpaceRotation: {x: 0.019700527, y: 0.0068132947, z: -0.009796954, w: 0.9997349}
+      - SourceBone: {fileID: 1478132255057746646}
+        localPosition: {x: -0.0014646457, y: 0.0013539299, z: -0.000055809764}
+        rootSpacePosition: {x: -0.14596868, y: 1.488278, z: -0.11170137}
+        localRotation: {x: -0.33862597, y: 0.33862606, z: 0.62075156, w: 0.62075144}
+        rootSpaceRotation: {x: -0.24235407, y: 0.19148211, z: 0.65630436, w: 0.6883776}
+      - SourceBone: {fileID: 6339782321640262509}
+        localPosition: {x: 5.5879353e-11, y: 0.0016962093, z: 1.862645e-10}
+        rootSpacePosition: {x: -0.31497622, y: 1.4918501, z: -0.12566471}
+        localRotation: {x: -0.59895283, y: -0.000000026313167, z: 0.000000109323224, w: 0.8007843}
+        rootSpaceRotation: {x: -0.60637903, y: -0.23975953, z: 0.64024705, w: 0.4060833}
+      - SourceBone: {fileID: 694123953015936116}
+        localPosition: {x: -5.7742e-10, y: 0.001881772, z: -5.2154064e-10}
+        rootSpacePosition: {x: -0.35810947, y: 1.3873696, z: -0.27611065}
+        localRotation: {x: -0.000000071055254, y: -0.087851934, z: -0.000000004908424, w: 0.99613357}
+        rootSpaceRotation: {x: -0.5477875, y: -0.27450776, z: 0.6910432, w: 0.3834498}
+      - SourceBone: {fileID: 8763233107604344871}
+        localPosition: {x: 2.6077032e-10, y: 0.0018817666, z: 0}
+        rootSpacePosition: {x: -0.40124273, y: 1.2828896, z: -0.42655623}
+        localRotation: {x: 0.0000000032416045, y: 0.00000010906603, z: 0.5070572, w: 0.8619124}
+        rootSpaceRotation: {x: -0.6113361, y: 0.04115805, z: 0.79004955, w: -0.019898206}
+      - SourceBone: {fileID: 4888524033380029632}
+        localPosition: {x: 6.705522e-10, y: 0.0019029344, z: 2.9802322e-10}
+        rootSpacePosition: {x: -0.40483594, y: 1.0933917, z: -0.40955126}
+        localRotation: {x: -0.0000001619607, y: 0.97647274, z: -0.0000000019671325, w: -0.21564081}
+        rootSpaceRotation: {x: -0.6396328, y: -0.028305471, z: -0.76732004, w: -0.035898834}
+      - SourceBone: {fileID: 2284243003263410250}
+        localPosition: {x: -7.4505804e-11, y: 0.001902937, z: -3.8184225e-10}
+        rootSpacePosition: {x: -0.4084289, y: 0.90389353, z: -0.39254606}
+        localRotation: {x: 0.05991787, y: -0.7263154, z: 0.056297317, w: 0.68242687}
+        rootSpaceRotation: {x: -0.99756354, y: -0.0032090563, z: -0.059389565, w: 0.03646639}
+      - SourceBone: {fileID: 854052483533362385}
+        localPosition: {x: 0.0014646455, y: 0.0013539288, z: -0.00005581091}
+        rootSpacePosition: {x: 0.14590073, y: 1.4821095, z: -0.08758724}
+        localRotation: {x: -0.4811432, y: -0.48114324, z: -0.5181709, w: 0.51817113}
+        rootSpaceRotation: {x: -0.3552, y: -0.39660037, z: -0.6199695, w: 0.5763499}
+      - SourceBone: {fileID: 373501590338375839}
+        localPosition: {x: 6.705522e-10, y: 0.0016962095, z: -8.8475643e-10}
+        rootSpacePosition: {x: 0.31490803, y: 1.4785374, z: -0.07362378}
+        localRotation: {x: -0.6482245, y: 0.000000047127266, z: -0.00000003241193, w: 0.7614493}
+        rootSpaceRotation: {x: -0.64407086, y: 0.099888384, z: -0.72916114, w: 0.20861194}
+      - SourceBone: {fileID: 3514346481568687214}
+        localPosition: {x: 2.2351741e-10, y: 0.0018817724, z: 5.5879353e-11}
+        rootSpacePosition: {x: 0.3479433, y: 1.310494, z: -0.15160275}
+        localRotation: {x: -0.000000064270395, y: -0.016853556, z: 0.00000005518871, w: 0.999858}
+        rootSpaceRotation: {x: -0.6562682, y: 0.09635845, z: -0.71820295, w: 0.21026576}
+      - SourceBone: {fileID: 6014758596160438726}
+        localPosition: {x: -2.6077032e-10, y: 0.0018817673, z: 9.313225e-11}
+        rootSpacePosition: {x: 0.38097858, y: 1.1424508, z: -0.2295816}
+        localRotation: {x: 0.000000008383861, y: -0.00000009222266, z: -0.628766, w: 0.77759457}
+        rootSpaceRotation: {x: -0.5708977, y: -0.3377113, z: -0.69067854, w: -0.28807995}
+      - SourceBone: {fileID: 8305711816952573883}
+        localPosition: {x: 1.11758706e-10, y: 0.0019029352, z: -3.5390257e-10}
+        rootSpacePosition: {x: 0.3786292, y: 1.0271481, z: -0.07821679}
+        localRotation: {x: 0.00000002310887, y: 0.99998146, z: 0.0000000055880385, w: -0.006089147}
+        rootSpaceRotation: {x: 0.69414204, y: -0.28601828, z: -0.5666813, w: 0.33945924}
+      - SourceBone: {fileID: 3214786140062568937}
+        localPosition: {x: -5.2154064e-10, y: 0.001902936, z: 7.0780515e-10}
+        rootSpacePosition: {x: 0.3762803, y: 0.9118451, z: 0.07314813}
+        localRotation: {x: 0.11361758, y: 0.5966303, z: -0.1486153, w: 0.78040814}
+        rootSpaceRotation: {x: 0.9608886, y: 0.018095903, z: -0.046048798, w: 0.27247977}
+      - SourceBone: {fileID: 3578651990847772725}
+        localPosition: {x: -6.3329936e-10, y: 0.0014594556, z: -9.778887e-11}
+        rootSpacePosition: {x: -0.19506025, y: 0.96099573, z: -0.121949196}
+        localRotation: {x: -0.0018421041, y: -0.00009453703, z: -0.57985437, w: 0.81471807}
+        rootSpaceRotation: {x: 0.98169386, y: 0.05606512, z: 0.0013728663, w: 0.182022}
+      - SourceBone: {fileID: 2539528815159915554}
+        localPosition: {x: -2.3981556e-10, y: 0.002035232, z: -4.5634804e-10}
+        rootSpacePosition: {x: -0.17275858, y: 0.7722382, z: -0.049182773}
+        localRotation: {x: 0.0000000046568553, y: 0.0101587195, z: -0.000000008928064, w: 0.99994844}
+        rootSpaceRotation: {x: 0.98162925, y: 0.05791133, z: 0.011345543, w: 0.1814431}
+      - SourceBone: {fileID: 1246488661022020730}
+        localPosition: {x: 2.5691405e-10, y: 0.0020352316, z: -2.0954757e-10}
+        rootSpacePosition: {x: -0.1504569, y: 0.58348095, z: 0.02358365}
+        localRotation: {x: 0.5704982, y: -0.00028064122, z: -0.0012887378, w: 0.82129776}
+        rootSpaceRotation: {x: 0.90965146, y: 0.055249218, z: -0.024229571, w: -0.41096815}
+      - SourceBone: {fileID: 1647400986296323602}
+        localPosition: {x: 1.9324943e-10, y: 0.0015735722, z: -7.4505804e-11}
+        rootSpacePosition: {x: -0.13777399, y: 0.4802381, z: -0.09448969}
+        localRotation: {x: 0.00000008226901, y: 0.0514286, z: -0.000000006061622, w: 0.9986767}
+        rootSpaceRotation: {x: 0.9096938, y: 0.03404059, z: 0.022584615, w: -0.4132657}
+      - SourceBone: {fileID: 6393692079577809545}
+        localPosition: {x: -4.377216e-10, y: 0.0015735707, z: 3.9697623e-10}
+        rootSpacePosition: {x: -0.12509108, y: 0.37699544, z: -0.21256292}
+        localRotation: {x: -0.66023505, y: -0.00042544655, z: 0.0012484472, w: 0.75105786}
+        rootSpaceRotation: {x: 0.9561373, y: 0.0096954955, z: 0.038534146, w: 0.29021153}
+      - SourceBone: {fileID: 1465819044535589749}
+        localPosition: {x: -0.0006359497, y: -0.000079198115, z: -1.0710209e-10}
+        rootSpacePosition: {x: -0.063281536, y: 1.0207394, z: -0.14105868}
+        localRotation: {x: 0.8338344, y: -0.53122437, z: 0.12656294, w: 0.08063913}
+        rootSpaceRotation: {x: 0.8326484, y: -0.5235425, z: 0.1066543, w: 0.14568686}
+      - SourceBone: {fileID: 9077065317394924321}
+        localPosition: {x: 8.9406965e-10, y: 0.0014594556, z: -7.4505804e-11}
+        rootSpacePosition: {x: 0.19457531, y: 0.95601124, z: -0.16215861}
+        localRotation: {x: -0.0018359061, y: 0.0001777332, z: 0.61611116, w: 0.7876571}
+        rootSpaceRotation: {x: 0.94987684, y: -0.08881538, z: -0.12453896, w: 0.2726465}
+      - SourceBone: {fileID: 5618937462934791567}
+        localPosition: {x: 1.9557773e-10, y: 0.0020352323, z: -4.4703483e-10}
+        rootSpacePosition: {x: 0.17405653, y: 0.78595704, z: -0.0522393}
+        localRotation: {x: 0.000000037156518, y: 0.085621595, z: 0.000000007478042, w: 0.99632776}
+        rootSpaceRotation: {x: 0.9570518, y: -0.065144755, z: -0.042751655, w: 0.2792498}
+      - SourceBone: {fileID: 5328397300177875249}
+        localPosition: {x: -3.5623088e-10, y: 0.002035233, z: -1.4901161e-10}
+        rootSpacePosition: {x: 0.15353775, y: 0.615903, z: 0.05768025}
+        localRotation: {x: 0.79216707, y: 0.00065726106, z: 0.0011435094, w: 0.610303}
+        rootSpaceRotation: {x: 0.8052578, y: -0.0745354, z: 0.02646247, w: -0.58762646}
+      - SourceBone: {fileID: 7908530112231326604}
+        localPosition: {x: -2.7474015e-10, y: 0.0015735719, z: 2.9802322e-10}
+        rootSpacePosition: {x: 0.13954258, y: 0.5689666, z: -0.09186041}
+        localRotation: {x: 0.00000003083334, y: -0.08034575, z: -0.000000006233823, w: 0.9967671}
+        rootSpaceRotation: {x: 0.8047806, y: -0.027081123, z: -0.038322113, w: -0.59171516}
+      - SourceBone: {fileID: 8606141671193513474}
+        localPosition: {x: 4.6333298e-10, y: 0.0015735702, z: 2.863817e-10}
+        rootSpacePosition: {x: 0.12554741, y: 0.52203023, z: -0.24140084}
+        localRotation: {x: -0.58518636, y: 0.00030381192, z: -0.0012834896, w: 0.8108978}
+        rootSpaceRotation: {x: 0.9989048, y: 0.0013187286, z: -0.045918852, w: -0.008914918}
+      - SourceBone: {fileID: 8204967265208499760}
+        localPosition: {x: 0.0006359499, y: -0.000079196085, z: 2.3283064e-10}
+        rootSpacePosition: {x: 0.06322622, y: 1.0191212, z: -0.15411401}
+        localRotation: {x: 0.81923187, y: 0.5219207, z: -0.20039262, w: 0.12767488}
+        rootSpaceRotation: {x: 0.8033757, y: 0.5149965, z: -0.26608032, w: 0.1362625}
       LastBaseTransform: {fileID: 2897941472309460108}
     UseExtraFeatures: 1
     ExtraFeatures: []

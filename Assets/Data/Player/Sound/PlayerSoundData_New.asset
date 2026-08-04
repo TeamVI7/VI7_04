@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a1c26720e76e57499de90db0ccae621, type: 3}
+  m_Name: PlayerSoundData_New
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoundData
+  defaultFootstepClips: []
+  footstepVolume: 0.5
+  footstepPitchRange: {x: 0.95, y: 1.05}
+  surfaceOverrides: []
+  jumpClips: []
+  jumpVolume: 0.7
+  defaultLandClips: []
+  landVolume: 0.7
+  hardLandFallSpeedThreshold: 10
+  hardLandClips: []
+  sprintBreathingLoop: {fileID: 0}
+  sprintBreathingVolume: 0.4
+  vaultClips: []
+  vaultVolume: 0.6
+  dashClips: []
+  dashVolume: 0.7
+  slideStartClip: {fileID: 0}
+  slideLoopClip: {fileID: 0}
+  slideEndClip: {fileID: 0}
+  slideVolume: 0.6
+  wallRunLoopClip: {fileID: 0}
+  wallSlideLoopClip: {fileID: 0}
+  wallJumpClips: []
+  wallRunVolume: 0.5
+  climbLoopClip: {fileID: 0}
+  climbJumpClips: []
+  climbVolume: 0.5
+  hurtClips: []
+  hurtVolume: 0.8
+  minHurtDamageFraction: 0.03
+  deathClips: []
+  deathVolume: 1
+  meleeSwingClips: []
+  meleeHitClips: []
+  meleeMissClips: []
+  meleeExecuteClips: []
+  meleeVolume: 0.7
