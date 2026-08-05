@@ -20,9 +20,9 @@ public class TerminalWordSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
     [HideInInspector] public bool   isUsed = false;
 
     /// <summary>Cờ DUY NHẤT quyết định dòng này có bấm/chọn được hay không, do FalloutTerminalManager gán
-    /// tường minh mỗi lượt layout. KHÔNG dựa vào Button.interactable để quyết định logic chọn — interactable
-    /// chỉ dùng cho hiệu ứng hình (mờ/xám nút), còn việc có tính là 1 lượt chọn hợp lệ hay không luôn đi qua
-    /// cờ này, để đảm bảo các dòng rác (garbage-only) không bao giờ chọn được dù có lỡ cấu hình gì khác.</summary>
+    /// tường minh mỗi lượtayout. KHÔNG dựa vào Butn.interactable để quy định logic cn interacble
+    /// chỉ dùng cho hiệu ứng hình (mờ/xám nút), còn việc có tính  1 lượt   lệ hay không luôn đ
+    /// cờ này, để đảm bảo các dòng rác (garbage-only) ônao  chọn đư dù có lỡ cấu hình gì khác.</summary>
     [HideInInspector] public bool isSelectable = false;
 
     /// <summary>Gán bởi FalloutTerminalManager mỗi lượt layout để phát âm thanh hover, không cộng dồn listener.</summary>

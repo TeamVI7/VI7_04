@@ -15,6 +15,7 @@ public class TurretController : MonoBehaviour
     public Transform turretHead;
     public float rotationSpeed = 5f;
     public float returnSpeed = 2f;
+// ádguashidjokp//dfghjklsas
 
     // Không cần public defaultDirection nữa
     private Quaternion defaultRotation; // ✅ Lưu rotation lúc Start
