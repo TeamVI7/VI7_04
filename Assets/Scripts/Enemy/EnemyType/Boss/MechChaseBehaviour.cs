@@ -11,18 +11,33 @@ public class MechChaseBehaviour : MonoBehaviour
     public float preferredRange  = 6f;   // stop approaching once this close
     public float repositionRate  = 0.3f; // seconds between destination updates
 
+    [Header("Phase 2")]
+    public float phase2SpeedMultiplier = 1.3f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugLogs = false;
 
     private NavMeshAgent _nav;
     private MechBossBrain _brain;
     private float _repositionTimer;
+    private float _baseSpeed;
 
     private void Awake()
     {
         _nav   = GetComponent<NavMeshAgent>();
         _brain = GetComponent<MechBossBrain>();
-        _nav.speed = chaseSpeed;
+        _baseSpeed = chaseSpeed;
+        _nav.speed = _baseSpeed;
+
+        _brain.OnPhaseChanged += HandlePhaseChanged;
+    }
+
+    private void OnDestroy() => _brain.OnPhaseChanged -= HandlePhaseChanged;
+
+    private void HandlePhaseChanged(int prev, int next)
+    {
+        _nav.speed = _baseSpeed * (next >= 2 ? phase2SpeedMultiplier : 1f);
+        Log($"Speed -> {_nav.speed:F1} (phase {next})");
     }
 
     private void Update()
@@ -63,4 +78,4 @@ public class MechChaseBehaviour : MonoBehaviour
     {
         if (showDebugLogs) Debug.Log($"[MechChaseBehaviour] {msg}", this);
     }
-}   
+}

@@ -11,6 +11,10 @@ public abstract class MechAttackBehaviour : MonoBehaviour
     public float cooldown = 5f;
     [Range(0f, 10f)] public float weight = 1f;
 
+    [Header("Phase Gating")]
+    [Tooltip("Boss must be at this Phase or higher for this attack to be selectable. Leave at 1 for attacks available from the start.")]
+    public int minPhase = 1;
+
     protected MechBossBrain brain;
     private float _cooldownTimer;
 
@@ -24,8 +28,9 @@ public abstract class MechAttackBehaviour : MonoBehaviour
         if (_cooldownTimer > 0f) _cooldownTimer -= Time.deltaTime;
     }
 
-    public bool IsAvailable(float distanceToPlayer) =>
+    public virtual bool IsAvailable(float distanceToPlayer) =>
         !IsExecuting && _cooldownTimer <= 0f
+        && brain.Phase >= minPhase
         && distanceToPlayer >= minRange && distanceToPlayer <= maxRange;
 
     public void BeginCooldown() => _cooldownTimer = cooldown;

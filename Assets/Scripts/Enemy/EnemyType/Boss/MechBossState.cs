@@ -24,6 +24,12 @@ public class MechBossBrain : MonoBehaviour
     public int squashVibrato = 6;
     public float squashElasticity = 0.6f;
 
+    [Header("Phases")]
+    [Tooltip("HP fraction that triggers each phase-up, in order. One entry = 2 phases, two entries = 3 phases, etc.")]
+    [Range(0.01f, 1f)] public float[] phaseHealthThresholds = { 0.5f };
+    public Vector3 phaseTransitionPunch = new Vector3(0.3f, -0.3f, 0.3f);
+    public float phaseTransitionDuration = 0.4f;
+
     [Header("Refs")]
     public NavMeshAgent agent;
     public Collider mainCollider;
@@ -36,7 +42,9 @@ public class MechBossBrain : MonoBehaviour
     #region Events
 
     public MechBossState State { get; private set; } = MechBossState.Dropping;
+    public int Phase { get; private set; } = 1;
     public event Action<MechBossState, MechBossState> OnStateChanged;
+    public event Action<int, int> OnPhaseChanged;
     public event Action OnIntroImpact;
     public event Action OnIntroComplete;
 
@@ -45,7 +53,9 @@ public class MechBossBrain : MonoBehaviour
     private EnemyHealth _health;
     private bool _introDone;
     private bool _animSignal_ImpactLand;
+    private int _phaseIndex;
     private static readonly int AnimDropTrigger = Animator.StringToHash("DropIn");
+    private static readonly int AnimPhaseUp = Animator.StringToHash("PhaseUp");
 
     #region Unity Lifecycle
 
@@ -55,6 +65,7 @@ public class MechBossBrain : MonoBehaviour
         _health.OnDied += _ => SetState(MechBossState.Dead);
         _health.OnStaggerEntered += () => SetState(MechBossState.Staggered);
         _health.OnStaggerExpired += () => SetState(MechBossState.Idle);
+        _health.OnDamaged += (amount, curHP, maxHP, dir, point) => CheckPhaseTransition(curHP, maxHP);
 
         if (visualRoot == null && animator != null) visualRoot = animator.transform;
 
@@ -106,6 +117,45 @@ public class MechBossBrain : MonoBehaviour
         OnIntroComplete?.Invoke();
         SetState(MechBossState.Idle);
         Log("Intro complete.");
+    }
+
+    #endregion
+
+    #region Phase
+
+    private void CheckPhaseTransition(float currentHP, float maxHP)
+    {
+        if (!_introDone || State == MechBossState.Dead) return;
+        if (_phaseIndex >= phaseHealthThresholds.Length) return;
+        if (currentHP / maxHP > phaseHealthThresholds[_phaseIndex]) return;
+
+        _phaseIndex++;
+        int prev = Phase;
+        Phase = _phaseIndex + 1;
+        Log($"Phase {prev} -> {Phase}");
+        OnPhaseChanged?.Invoke(prev, Phase);
+        StartCoroutine(Co_PhaseTransition());
+    }
+
+    private IEnumerator Co_PhaseTransition()
+    {
+        // Only borrow the Attacking gate if the boss is actually Idle right now.
+        // If it's mid-attack or Staggered, forcing it to Attacking-then-Idle here
+        // would end that attack's/stagger's gate early (letting the selector fire
+        // a second attack on top of the first, or cutting the stagger window short).
+        bool borrowedGate = State == MechBossState.Idle;
+        if (borrowedGate) NotifyAttackStart();
+
+        if (animator != null) animator.SetTrigger(AnimPhaseUp);
+
+        if (visualRoot != null)
+        {
+            yield return visualRoot
+                .DOPunchScale(phaseTransitionPunch, phaseTransitionDuration, squashVibrato, squashElasticity)
+                .WaitForCompletion();
+        }
+
+        if (borrowedGate) NotifyAttackEnd();
     }
 
     #endregion
