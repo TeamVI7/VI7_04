@@ -125,12 +125,16 @@ public class MovingPlatformCarrier : MonoBehaviour
 
     private void CarryRiders(Vector3 deltaPos, Quaternion deltaRot)
     {
-        // Always carry, regardless of grounded state. Collision can PUSH a resting
-        // rigidbody when the platform moves up into it, but it can't PULL one down —
-        // there's no suction. Skipping grounded riders here (relying on collision to
-        // "already handle it") works for ascent but leaves the player floating the
-        // instant the platform descends faster than gravity would. Manual carry is
-        // simpler and correct in both directions, so it's the only path now.
+        // Collision already PUSHES a resting rigidbody up when the platform rises into
+        // it, so manually adding the full deltaPos on ascent double-applies that motion
+        // and launches the rider — the bounce. Collision can't PULL a rider down though,
+        // so on descent (or flat/rotate-only motion) the manual carry is still needed.
+        // Net: carry horizontal/rotation always, but only carry the vertical component
+        // when the platform isn't moving up — let physics handle the upward push.
+        Vector3 carryPos = deltaPos.y > 0f
+            ? new Vector3(deltaPos.x, 0f, deltaPos.z)
+            : deltaPos;
+
         foreach (var rb in _riders)
         {
             if (rb == null) continue;
@@ -139,12 +143,12 @@ public class MovingPlatformCarrier : MonoBehaviour
             {
                 Vector3 toRider   = rb.position - _prevPos;
                 Vector3 rotOffset = (deltaRot * toRider) - toRider;
-                rb.position += deltaPos + rotOffset;
+                rb.position += carryPos + rotOffset;
                 rb.rotation  = deltaRot * rb.rotation;
             }
             else
             {
-                rb.position += deltaPos;
+                rb.position += carryPos;
             }
         }
     }

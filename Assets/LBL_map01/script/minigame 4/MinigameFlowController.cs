@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using TMPro;
+using DG.Tweening;
 
 public class MinigameFlowController : MonoBehaviour
 {
@@ -44,7 +45,12 @@ public class MinigameFlowController : MonoBehaviour
     [Header("Boss Spawn")]
     public GameObject bossPrefab;
     public Transform bossSpawnPoint;
+    [Tooltip("How long to hold on ceilingMechCamera watching the ceiling explosion before it repositions (if set) and the boss spawns. Also used as a fallback hold if the spawned boss has no MechIntroCutscene.")]
     public float ceilingCameraHoldDuration = 2.5f;
+    [Tooltip("Optional. Once the explosion beat finishes, ceilingMechCamera moves here before the boss spawns and its drop-in cutscene takes over — e.g. swinging from 'watching the ceiling' to 'watching the drop zone'. Leave empty to spawn the boss directly at the explosion framing.")]
+    public Transform mechRevealCamPose;
+    public float camRepositionDuration = 0.8f;
+    public Ease camRepositionEase = Ease.InOutSine;
 
     [Header("Lights To Turn On")]
     public Light[] lightsToTurnOn;
@@ -221,10 +227,33 @@ public class MinigameFlowController : MonoBehaviour
         SetCam(serverRiseCamera, false);
         SetCam(ceilingMechCamera, true);
 
-        SpawnBoss();
-        StartCoroutine(ReturnToPlayerCameraAfterDelay());
+        StartCoroutine(Co_WatchExplosionThenSpawnBoss());
     }
 
+    // Lets the ceiling explosion play out on ceilingMechCamera for a beat first —
+    // the boss doesn't spawn until this finishes, so the reveal reads as
+    // "ceiling blows -> camera swings to the drop zone -> mech drops in" rather
+    // than everything happening at the same static angle.
+    private IEnumerator Co_WatchExplosionThenSpawnBoss()
+    {
+        yield return new WaitForSeconds(ceilingCameraHoldDuration);
+
+        if (mechRevealCamPose != null && ceilingMechCamera != null)
+        {
+            Transform camT = ceilingMechCamera.transform;
+            Sequence reposition = DOTween.Sequence()
+                .Join(camT.DOMove(mechRevealCamPose.position, camRepositionDuration).SetEase(camRepositionEase))
+                .Join(camT.DORotateQuaternion(mechRevealCamPose.rotation, camRepositionDuration).SetEase(camRepositionEase));
+
+            yield return reposition.WaitForCompletion();
+        }
+
+        SpawnBoss();
+    }
+
+    // Fallback only — used if the spawned boss prefab has no MechIntroCutscene
+    // (e.g. an older/placeholder prefab), so the encounter never silently stalls
+    // in the blocked-input state.
     private IEnumerator ReturnToPlayerCameraAfterDelay()
     {
         yield return new WaitForSeconds(ceilingCameraHoldDuration);
@@ -238,7 +267,40 @@ public class MinigameFlowController : MonoBehaviour
     private void SpawnBoss()
     {
         if (bossPrefab == null || bossSpawnPoint == null) return;
-        Instantiate(bossPrefab, bossSpawnPoint.position, bossSpawnPoint.rotation);
+
+        GameObject bossGO = Instantiate(bossPrefab, bossSpawnPoint.position, bossSpawnPoint.rotation);
+
+        // Hand the reveal off to the boss's own drop-in cutscene, reusing this
+        // controller's cameras rather than running the two in parallel — that's
+        // what was killing the cutscene: this controller's fixed timer used to
+        // cut back to playerCamera and unblock input regardless of whether the
+        // boss's own drop-in was still mid-sequence.
+        var mechIntro = bossGO.GetComponent<MechIntroCutscene>();
+        if (mechIntro != null)
+        {
+            mechIntro.cutsceneCamera = ceilingMechCamera;
+            mechIntro.playerCamera = playerCamera;
+            mechIntro.manageInputLock = false; // this controller already owns input blocking
+            mechIntro.OnCutsceneComplete += HandleMechIntroComplete;
+        }
+        else
+        {
+            StartCoroutine(ReturnToPlayerCameraAfterDelay());
+        }
+    }
+
+    private void HandleMechIntroComplete()
+    {
+        Debug.Log("[MinigameFlowController] HandleMechIntroComplete - mech cutscene finished, unblocking input");
+        if (inputBlocker) inputBlocker.UnblockInput();
+
+        // PlayerCam only sets the cursor lock state once, in its own Start() —
+        // it never reasserts it later. Every other handoff point in this
+        // controller (ResumeTerminal, EndTerminal, OnPuzzleInteractionReady's
+        // callers) re-locks explicitly for that reason; this one needs to too,
+        // or the cursor stays wherever the minigame UI last left it.
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void OnServersShutdownComplete()

@@ -5,7 +5,7 @@ using UnityEngine.AI;
 
 [RequireComponent(typeof(EnemyBrain))]
 [RequireComponent(typeof(EnemyHealth))]
-public class MeleeAttackBehaviour : MonoBehaviour
+public class MeleeAttackBehaviour : MonoBehaviour, IEnemyAimController
 {
     // ─────────────────────────────────────────────────────────────────────────
     #region Inspector
@@ -66,6 +66,17 @@ public class MeleeAttackBehaviour : MonoBehaviour
     public bool IsWindingUp   { get; private set; }
     public bool IsOnCooldown  => _cooldownTimer > 0f;
     public bool CanAttack     => !IsWindingUp && !IsOnCooldown && _brain.State == EnemyState.Aggro;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region IEnemyAimController
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Highest priority — a committed swing should never lose facing mid-windup
+    // to Patrol or a ranged attack script.
+    public int AimPriority => 30;
+    public bool WantsAim => IsWindingUp;
 
     #endregion
 
@@ -167,7 +178,6 @@ public class MeleeAttackBehaviour : MonoBehaviour
             float elapsed  = 0f;
             while (_pendingAnimHit && elapsed < timeout)
             {
-                FaceTargetSmooth();
                 elapsed += Time.deltaTime;
                 yield return null;
             }
@@ -210,6 +220,7 @@ public class MeleeAttackBehaviour : MonoBehaviour
         knockDir = knockDir.sqrMagnitude > 0.001f ? knockDir.normalized : transform.forward;
 
         PlayerHealth.Instance?.TakeDamage(Damage);
+        PlayerHealth.Instance?.ApplyKnockback(knockDir * KnockbackForce);
         Log($"Attack landed — {Damage} dmg, {KnockbackForce} knockback.");
         OnAttackLanded?.Invoke();
     }
@@ -219,13 +230,13 @@ public class MeleeAttackBehaviour : MonoBehaviour
         float t = 0f;
         while (t < duration)
         {
-            FaceTargetSmooth();
             t += Time.deltaTime;
             yield return null;
         }
     }
 
-    private void FaceTargetSmooth()
+    // Called by EnemyAimCoordinator whenever WantsAim (IsWindingUp) is true.
+    public void TickAim(float deltaTime)
     {
         if (PlayerHealth.Transform == null) return;
         Vector3 dir = PlayerHealth.Transform.position - transform.position;
@@ -233,7 +244,7 @@ public class MeleeAttackBehaviour : MonoBehaviour
         if (dir.sqrMagnitude < 0.0001f) return;
 
         transform.rotation = Quaternion.RotateTowards(
-            transform.rotation, Quaternion.LookRotation(dir), TurnSpeed * 10f * Time.deltaTime);
+            transform.rotation, Quaternion.LookRotation(dir), TurnSpeed * 10f * deltaTime);
     }
 
     private IEnumerator Co_Lunge()

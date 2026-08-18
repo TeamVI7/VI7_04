@@ -12,7 +12,7 @@ using UnityEngine;
 /// or LaserBehaviour (continuous beam, not a discrete cooldown-gated shot).
 /// </summary>
 [RequireComponent(typeof(EnemyBrain))]
-public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
+public abstract class EnemyRangedAttackBehaviour : MonoBehaviour, IEnemyAimController
 {
     [Header("Base Setup")]
     public Transform FirePoint;
@@ -71,6 +71,15 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
     private Coroutine _telegraphRoutine;
     private bool      _holdingFireSlot;
 
+    // ── IEnemyAimController ─────────────────────────────────────────────────
+    public int AimPriority => 20;
+
+    public bool WantsAim =>
+        Brain.State == EnemyState.Aggro &&
+        PlayerHealth.Transform != null &&
+        FirePoint != null &&
+        Vector3.Distance(transform.position, PlayerHealth.Transform.position) <= AttackRange;
+
     protected virtual void Awake()
     {
         Brain = GetComponent<EnemyBrain>();
@@ -88,7 +97,9 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
         if (dist > AttackRange) { CancelTelegraph(); ResetAim(); return; }
 
-        TickAim();
+        // Rotation itself + IsAimed are driven by EnemyAimCoordinator (LateUpdate),
+        // which calls TickAim() below when this behaviour wins aim ownership for
+        // the frame — IsAimed here reflects the previous frame's result (1-frame lag).
 
         if (IsTelegraphing) return; // wind-up coroutine already owns the shot this cycle
 
@@ -117,16 +128,17 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
         }
     }
 
-    /// <summary>Rotates the enemy body toward the player and updates IsAimed. Runs every
-    /// frame while Aggro + in range, so the enemy is always tracking, not just at fire time.</summary>
-    private void TickAim()
+    // Rotates the enemy body toward the player and updates IsAimed. Called by
+    // EnemyAimCoordinator whenever WantsAim is true, so the enemy is always
+    // tracking while Aggro + in range, not just at fire time.
+    public void TickAim(float deltaTime)
     {
         Vector3 toTarget = PlayerHealth.Transform.position - transform.position;
         toTarget.y = 0f;
         if (toTarget.sqrMagnitude < 0.0001f) return;
 
         Quaternion targetRot = Quaternion.LookRotation(toTarget);
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, AimTurnSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, AimTurnSpeed * deltaTime);
 
         float angle = Vector3.Angle(transform.forward, toTarget);
         SetAimed(angle <= MaxFireAngle);
@@ -184,7 +196,9 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour
                 yield break;
             }
 
-            TickAim();
+            // Rotation/IsAimed are handled by EnemyAimCoordinator's own LateUpdate
+            // call to TickAim() — don't also drive it here, or it gets applied twice
+            // in the same frame (double AimTurnSpeed) while telegraphing.
             t += Time.deltaTime;
             yield return null;
         }

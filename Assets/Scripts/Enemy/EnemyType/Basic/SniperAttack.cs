@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(EnemyBrain))]
-public class SniperAttackBehaviour : MonoBehaviour
+public class SniperAttackBehaviour : MonoBehaviour, IEnemyAimController
 {
     [Header("Sniper Rifle")]
     public Transform FirePoint;                
@@ -54,6 +54,10 @@ public class SniperAttackBehaviour : MonoBehaviour
 
     [HideInInspector] public float CooldownMultiplier = 1f;
 
+    // ── IEnemyAimController ─────────────────────────────────────────────────
+    public int AimPriority => 20;
+    public bool WantsAim => _isShooting;
+
     private void Awake()
     {
         _brain = GetComponent<EnemyBrain>();
@@ -91,10 +95,8 @@ public class SniperAttackBehaviour : MonoBehaviour
             return;
         }
 
-        if (_isShooting)
-        {
-            RotateTowardsPlayer();
-        }
+        // Rotation itself is driven by EnemyAimCoordinator (LateUpdate) via TickAim
+        // below, whenever WantsAim (_isShooting) is true.
 
         if (_isCooldown)
         {
@@ -113,19 +115,22 @@ public class SniperAttackBehaviour : MonoBehaviour
         }
     }
 
-    private void RotateTowardsPlayer()
+    // Called by EnemyAimCoordinator whenever WantsAim (_isShooting) is true.
+    public void TickAim(float deltaTime)
     {
+        if (_targetPlayer == null) return;
+
         Vector3 targetPos = _isLocking && _lockedTargetPos != Vector3.zero
-            ? _lockedTargetPos 
+            ? _lockedTargetPos
             : _targetPlayer.position;
 
         Vector3 lookDirection = (targetPos - transform.position);
-        lookDirection.y = 0f; 
+        lookDirection.y = 0f;
 
         if (lookDirection != Vector3.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(lookDirection);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, RotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, RotationSpeed * deltaTime);
         }
     }
 

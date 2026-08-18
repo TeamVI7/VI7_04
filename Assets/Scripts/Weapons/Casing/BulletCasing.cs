@@ -47,10 +47,10 @@ public class BulletCasing : MonoBehaviour
         // Reset transform
         transform.SetPositionAndRotation(position, rotation);
 
-        // Reset physics
-        _rb.linearVelocity        = Vector3.zero;
-        _rb.angularVelocity = Vector3.zero;
+        // Reset physics. Unity does not allow setting angularVelocity while the body is kinematic.
         _rb.isKinematic     = false;
+        _rb.linearVelocity  = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
         _rb.AddForce(ejectionVelocity, ForceMode.Impulse);
         _rb.AddTorque(torque, ForceMode.Impulse);
 
@@ -119,7 +119,8 @@ public class BulletCasing : MonoBehaviour
         if (_returning) return;
         _returning = true;
 
-        // Zero FIRST, then kinematic
+        // Unity does not allow setting velocity/angularVelocity while the body is kinematic.
+        _rb.isKinematic    = false;
         _rb.linearVelocity  = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
         _rb.isKinematic     = true;

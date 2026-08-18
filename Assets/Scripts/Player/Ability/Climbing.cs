@@ -89,6 +89,7 @@ public class Climbing : MonoBehaviour
     private bool       wallFront;
     private Transform  lastWall;
     private Vector3    lastWallNormal;
+    private WallRunning _wallRunning;
 
     #endregion
 
@@ -96,8 +97,25 @@ public class Climbing : MonoBehaviour
     #region Unity Lifecycle
     // ─────────────────────────────────────────────────────────────────────────
 
+    private void Awake()
+    {
+        // These are Inspector-assigned, but a missing reference here NREs every single
+        // Update — fall back to the components on this GameObject.
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (pm == null) pm = GetComponent<PlayerMovement>();
+        _wallRunning = GetComponent<WallRunning>();   // optional — null if not present
+    }
+
     private void Update()
     {
+        // Reads Input directly, so it needs its own guard — see PlayerActionLock.InputBlocked.
+        if (PlayerActionLock.InputBlocked)
+        {
+            if (climbing)    StopClimbing();
+            if (wallSliding) StopWallSlide();
+            return;
+        }
+
         WallCheck();
         StateMachine();
     }
@@ -108,6 +126,28 @@ public class Climbing : MonoBehaviour
             ClimbingMovement();
         else if (wallSliding)
             WallSlideMovement();
+    }
+
+    /// <summary>
+    /// Safety net: the player GameObject is deactivated on death (DeathCamera.Play), which
+    /// would strand pm.climbing true AND rb.useGravity false — the player would respawn
+    /// frozen (MovePlayer early-returns on climbing) and weightless.
+    /// </summary>
+    private void OnDisable() => ForceStop();
+
+    /// <summary>
+    /// Fully release this system's hold on the player — state flags and gravity. Called on
+    /// disable, and by WallRunning when a wall run takes over from a climb so the handover
+    /// runs the proper stop path instead of clearing flags behind our back.
+    /// </summary>
+    public void ForceStop()
+    {
+        if (pm == null) return;
+        if (climbing)    StopClimbing();
+        if (wallSliding) StopWallSlide();
+
+        exitingWall = false;
+        if (rb != null) rb.useGravity = true;
     }
 
     #endregion
@@ -167,7 +207,13 @@ public class Climbing : MonoBehaviour
         // Allow a climb jump even if not currently climbing/sliding this frame
         // (e.g. you just touched a wall this frame) — but only once, and only
         // if neither branch above already consumed the input.
-        if (wallFront && !climbing && !wallSliding && !exitingWall
+        //
+        // FIX: !pm.grounded is required. This branch is only reachable with wallFront
+        // true when the player IS grounded (the wall-slide branch catches the airborne
+        // case), and PlayerMovement.ReadInput consumes the same jumpKey frame for a
+        // normal Jump() — so standing against a climbable wall and tapping Space fired
+        // jumpForce AND climbJumpUpForce + climbJumpBackForce together.
+        if (wallFront && !climbing && !wallSliding && !exitingWall && !pm.grounded
             && Input.GetKeyDown(jumpKey) && climbJumpsLeft > 0)
         {
             ClimbJump();
@@ -212,10 +258,15 @@ public class Climbing : MonoBehaviour
 
     private void StartClimbing()
     {
-        climbing       = true;
-        pm.climbing    = true;
-        pm.wallrunning = false;
-        rb.useGravity  = false;   // FIX: gravity was fighting climbSpeed every FixedUpdate
+        // FIX: this used to just write pm.wallrunning = false. WallRunning stores its state
+        // IN that flag, so clearing it behind its back skipped StopWallRun() — leaving
+        // cam.disableMoveTilt on, the wall-run FOV/tilt stuck, and OnWallRunEnd never fired
+        // (wall-run audio loop stuck on). Hand the stop to the owner instead.
+        if (_wallRunning != null) _wallRunning.ForceStop();
+
+        climbing      = true;
+        pm.climbing   = true;
+        rb.useGravity = false;   // FIX: gravity was fighting climbSpeed every FixedUpdate
         lastWall       = frontWallHit.transform;
         lastWallNormal = frontWallHit.normal;
 
@@ -246,8 +297,8 @@ public class Climbing : MonoBehaviour
 
     private void StartWallSlide()
     {
-        wallSliding    = true;
-        pm.wallSliding = true;
+        wallSliding = true;
+        pm.SetWallSliding(PlayerMovement.WallSlideSource.Climb, true);
 
         OnWallSlideStart?.Invoke();
         Log("Wall slide start.");
@@ -262,8 +313,10 @@ public class Climbing : MonoBehaviour
 
     private void StopWallSlide()
     {
-        wallSliding    = false;
-        pm.wallSliding = false;
+        wallSliding = false;
+        // Releases only THIS system's claim — if WallRunning is also wall sliding on a side
+        // wall, pm.wallSliding stays true until it releases too.
+        pm.SetWallSliding(PlayerMovement.WallSlideSource.Climb, false);
 
         OnWallSlideEnd?.Invoke();
         Log("Wall slide end.");

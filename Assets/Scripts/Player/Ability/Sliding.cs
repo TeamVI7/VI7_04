@@ -2,7 +2,18 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Ground slide ability restricted by sprinting status and a minimum momentum threshold.
+/// Ground slide ability gated on momentum rather than on the sprint state alone.
+///
+/// GATE MODEL:
+///   A slide starts when the player is grounded, giving movement input, and EITHER
+///   sprinting OR carrying at least minMomentumToSlide of flat speed. The momentum
+///   path is what lets a dash (or a wallrun exit / downhill run) feed into a slide —
+///   PlayerMovement.state is 'dashing'/'air'/'walking' in those cases, never
+///   'sprinting', so a sprint-only gate silently rejects them.
+///
+///   Presses are buffered for slideBufferTime seconds, so hitting the slide key
+///   mid-dash starts the slide the moment the dash releases the movement state
+///   instead of being dropped.
 /// </summary>
 public class Sliding : MonoBehaviour
 {
@@ -26,6 +37,18 @@ public class Sliding : MonoBehaviour
     [Header("Restrictions")]
     [Tooltip("Minimum horizontal velocity magnitude required to initiate a slide.")]
     public float minMomentumToSlide = 6f;
+
+    [Tooltip("Allow sliding out of any fast state (dash, wallrun exit, downhill), not just sprinting. " +
+             "Off = legacy sprint-only behaviour.")]
+    public bool allowSlideFromMomentum = true;
+
+    [Tooltip("How long a slide press is remembered while the gate is closed — covers the dash window " +
+             "and the few frames after landing. 0 = no buffering.")]
+    public float slideBufferTime = 0.2f;
+
+    [Header("Stamina")]
+    [Tooltip("Stamina spent per slide, charged on start. 0 = free.")]
+    public float slideStaminaCost = 0f;
 
     [Header("Input")]
     public KeyCode slideKey = KeyCode.LeftControl;
@@ -77,6 +100,7 @@ public class Sliding : MonoBehaviour
 
     private float   horizontalInput;
     private float   verticalInput;
+    private float   slideBufferTimer;
 
     #endregion
 
@@ -96,29 +120,61 @@ public class Sliding : MonoBehaviour
 
     private void Update()
     {
+        // Sliding reads raw input directly, so it needs the same UI/death guard
+        // PlayerMovement has — otherwise Ctrl still slides the player during a
+        // minigame or on the death screen.
+        if (PlayerActionLock.InputBlocked)
+        {
+            horizontalInput  = 0f;
+            verticalInput    = 0f;
+            slideBufferTimer = 0f;
+            if (pm.sliding) StopSlide();
+            return;
+        }
+
         horizontalInput = Input.GetAxisRaw("Horizontal");
         verticalInput   = Input.GetAxisRaw("Vertical");
 
-        // Check if conditions are met on the frame the slide key is pressed
-        if (Input.GetKeyDown(slideKey))
+        // Arm the buffer on press; it retries the gate for slideBufferTime seconds
+        // so a press made mid-dash isn't thrown away.
+        if (Input.GetKeyDown(slideKey) && !pm.sliding)
+            slideBufferTimer = Mathf.Max(slideBufferTime, Time.deltaTime);
+
+        if (slideBufferTimer > 0f)
         {
-            if (CanInitiateSlide())
+            if (CanInitiateSlide() && pm.TryConsumeStamina(slideStaminaCost))
             {
+                slideBufferTimer = 0f;
                 StartSlide();
             }
             else
             {
-                Log("Slide blocked: Requirements not met (Must be sprinting with enough momentum).");
+                slideBufferTimer -= Time.deltaTime;
+                if (slideBufferTimer <= 0f)
+                    Log("Slide blocked: needs grounded + movement input + (sprinting or enough momentum).");
             }
         }
 
-        if (Input.GetKeyUp(slideKey) && pm.sliding)
-            StopSlide();
+        if (Input.GetKeyUp(slideKey))
+        {
+            slideBufferTimer = 0f;
+            if (pm.sliding) StopSlide();
+        }
     }
 
     private void FixedUpdate()
     {
         if (pm.sliding) SlidingMovement();
+    }
+
+    /// <summary>
+    /// Safety net: a component disabled mid-slide would otherwise leave pm.sliding
+    /// stuck true (movement state permanently 'sliding') and the reload lock raised.
+    /// </summary>
+    private void OnDisable()
+    {
+        slideBufferTimer = 0f;
+        if (pm != null && pm.sliding) StopSlide();
     }
 
     #endregion
@@ -128,23 +184,34 @@ public class Sliding : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Evaluates whether the player is currently sprinting and moving fast enough to slide.
+    /// Evaluates whether the player is moving fast enough — by sprint state or by raw
+    /// momentum — to start a slide right now.
     /// </summary>
     private bool CanInitiateSlide()
     {
         if (pm == null || rb == null) return false;
 
-        // 1. Must have input movement
-        if (horizontalInput == 0 && verticalInput == 0) return false;
+        // 1. Not already sliding
+        if (pm.sliding) return false;
 
-        // 2. Must be actively sprinting
-        if (pm.state != PlayerMovement.MovementState.sprinting) return false;
+        // 2. Dash owns the movement state and velocity while it runs. Don't fight it —
+        //    the buffer re-checks once the dash ends, which is when the slide should fire.
+        if (pm.dashing) return false;
 
-        // 3. Must exceed the horizontal momentum threshold
+        // 3. Ground slide only. (Sprinting used to imply this; the momentum path doesn't.)
+        if (!pm.grounded) return false;
+
+        // 4. Must have input movement — SlidingMovement steers off it.
+        if (horizontalInput == 0f && verticalInput == 0f) return false;
+
+        // 5. Sprinting always qualifies, regardless of the momentum number.
+        if (pm.state == PlayerMovement.MovementState.sprinting) return true;
+
+        if (!allowSlideFromMomentum) return false;
+
+        // 6. Otherwise carry-over speed decides: dash exit, wallrun exit, downhill run.
         Vector3 flatVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        if (flatVelocity.magnitude < minMomentumToSlide) return false;
-
-        return true;
+        return flatVelocity.magnitude >= minMomentumToSlide;
     }
 
     private void StartSlide()
@@ -152,6 +219,11 @@ public class Sliding : MonoBehaviour
         pm.sliding       = true;
         originalDrag     = rb.linearDamping;
         rb.linearDamping = slideDrag;
+
+        // PlayerActionLock.CanReload already consults LockReason.Sliding, but nothing
+        // was raising it — so a reload could be restarted the frame after StartSlide
+        // cancelled it. Raise it for the duration of the slide.
+        PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Sliding, true);
 
         col.height = originalColHeight * 1f;
         col.center = new Vector3(originalColCenter.x, originalColCenter.y * 0.75f, originalColCenter.z);
@@ -201,7 +273,9 @@ public class Sliding : MonoBehaviour
         rb.linearDamping = originalDrag;
         col.height       = originalColHeight;
         col.center       = originalColCenter;
-        cam.DoSlideOffset(false);
+        if (cam != null) cam.DoSlideOffset(false); // reachable from OnDisable during teardown
+
+        PlayerActionLock.Instance.SetLock(PlayerActionLock.LockReason.Sliding, false);
 
         OnSlideEnd?.Invoke();
         Log("Slide end.");

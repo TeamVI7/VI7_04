@@ -212,6 +212,11 @@ public class EnemyHitReaction : MonoBehaviour
         if (_flashRoutine != null) { StopCoroutine(_flashRoutine); _flashRoutine = null; }
         if (_staggerBlinkRoutine != null) { StopCoroutine(_staggerBlinkRoutine); _staggerBlinkRoutine = null; }
         _staggerFlashActive = false;
+
+        // Death can land mid-blink, on the "stagger mat visible" half of the cycle —
+        // without this the corpse (and its ragdoll) is stuck wearing the stagger
+        // flash material forever, since nothing else ever restores it after this.
+        RestoreOriginalMats();
     }
 
     private bool IsGated()

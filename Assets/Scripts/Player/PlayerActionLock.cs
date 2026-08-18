@@ -83,6 +83,20 @@ public class PlayerActionLock : MonoBehaviour
     /// <summary>Can a melee swing be *started* right now?</summary>
     public bool CanMelee => !IsBlockedBy(LockReason.Dead | LockReason.Switching | LockReason.Reloading);
 
+    /// <summary>
+    /// True when the player should not be reading raw movement/ability input at all —
+    /// a UI is capturing input, or the player is dead.
+    ///
+    /// PlayerMovement zeroes its OWN axes when this is true, but that does nothing for
+    /// ability scripts that call Input.* directly (Sliding, Dashing, Climbing, WallRunning).
+    /// Each of those must check this itself, or its key still fires during a minigame
+    /// or on the death screen.
+    /// </summary>
+    public static bool InputBlocked =>
+           ComputerInteraction.UIOpen
+        || UIInputBlocker.IsBlocking
+        || Instance.IsDead;
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────

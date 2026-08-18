@@ -17,10 +17,6 @@ public class EnemyColliderSetup : MonoBehaviour
     [Header("Main Collider — Drone / Spider")]
     public float SphereRadius = 0.5f;
 
-    [Header("Melee Trigger")]
-    [Tooltip("Only created if MeleeBehaviour is present.")]
-    public float MeleeTriggerRadius = 1.5f;
-
     [Header("Layer")]
     [Tooltip("The enemy's layer. Pick your 'Enemy' layer here — shown as a name, not a raw index, so it's obvious if this is still on Default.")]
     public LayerMask EnemyLayerMask = 0;
@@ -51,7 +47,6 @@ public class EnemyColliderSetup : MonoBehaviour
         gameObject.tag   = "Enemy";
 
         EnsureMainCollider();
-        EnsureMeleeTrigger();
     }
 
     private void EnsureMainCollider()
@@ -78,11 +73,6 @@ public class EnemyColliderSetup : MonoBehaviour
                 sph.isTrigger = false;
                 break;
         }
-    }
-
-    private void EnsureMeleeTrigger()
-    {
-
     }
 
     private T GetOrAdd<T>() where T : Component

@@ -22,13 +22,18 @@ public class MechStompAttack : MechAttackBehaviour
     // Named to match the existing animation clip's event hookup (the clip was built for the old Kick attack).
     public void AnimEvent_KickHit() => _animSignal_Hit = true;
 
-    public override void Execute(Action onComplete) => StartCoroutine(Co_Execute(onComplete));
+    public override void Execute(Action onComplete)
+    {
+        if (IsExecuting) return; // guard against a stray double-Execute (e.g. duplicate component on the boss)
+        StartCoroutine(Co_Execute(onComplete));
+    }
 
     private IEnumerator Co_Execute(Action onComplete)
     {
         IsExecuting = true;
         _animSignal_Hit = false;
         if (animator != null) animator.SetTrigger(AnimStomp);
+        RaiseTelegraphStart(windup);
 
         float elapsed = 0f;
         while (!_animSignal_Hit && elapsed < windup + hitWindow)
@@ -36,6 +41,8 @@ public class MechStompAttack : MechAttackBehaviour
             elapsed += Time.deltaTime;
             yield return null;
         }
+
+        RaiseTelegraphResolved();
 
         Vector3 origin = groundPoint != null ? groundPoint.position : transform.position;
 

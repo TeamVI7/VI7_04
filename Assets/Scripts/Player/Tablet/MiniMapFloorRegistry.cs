@@ -8,7 +8,7 @@ using UnityEngine;
 /// and leaving it falls back to whichever older zone (if any) the player is
 /// still inside.
 ///
-/// One of these exists per scene (singleton). TabletController reads
+/// One of these exists per scene (singleton). MissionPanelController reads
 /// ActiveZone every frame in UpdateMinimap() to decide camera height,
 /// culling mask, and zoom — this registry doesn't touch the camera itself,
 /// it only tracks state, keeping the "what floor is the player on" question

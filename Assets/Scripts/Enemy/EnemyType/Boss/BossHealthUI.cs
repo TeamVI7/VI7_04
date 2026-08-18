@@ -41,6 +41,10 @@ public class BossHealthUI : MonoBehaviour
     public MechBossBrain bossBrain;
     [Tooltip("Optional. Bar pulses cyan while this weakpoint is exposed.")]
     public MechWeakpoint weakpoint;
+    [Tooltip("Optional. Drives the token/mana bar under the health bar. Auto-found on the boss if left empty; with no pool on the boss the token bar isn't built at all.")]
+    public MechTokenPool tokenPool;
+    [Tooltip("Optional. Only used to read the ultimate cost threshold for the marker tick on the token bar. Auto-found alongside the pool.")]
+    public MechAttackSelector attackSelector;
 
     [Header("Name")]
     public string bossNameOverride;
@@ -60,6 +64,24 @@ public class BossHealthUI : MonoBehaviour
     public Color chipFillColor = new Color(0.9f, 0.9f, 0.75f);
     public Color weakpointPulseColor = new Color(0.2f, 0.9f, 1f);
     public Color nameColor = new Color(0.9f, 0.85f, 0.7f);
+
+    [Header("Token Bar")]
+    [Tooltip("Show the boss's attack-token pool as a mana bar under the health bar. Reading it is how the player learns that a quiet boss is charging something, rather than the ultimate feeling random.")]
+    public bool showTokenBar = true;
+    public float tokenBarHeight = 8f;
+    [Tooltip("Vertical gap between the health bar and the token bar.")]
+    public float tokenBarGap = 4f;
+    [Tooltip("Token bar is inset this much on each side so it reads as secondary to the health bar. 0 makes them the same width.")]
+    public float tokenBarInset = 0f;
+    public Color tokenFillColor = new Color(0.25f, 0.55f, 0.95f);
+    [Tooltip("Flashed for an instant when the boss spends tokens, so the drop is visible even when the attack that caused it is off-screen.")]
+    public Color tokenSpendFlashColor = new Color(0.8f, 0.9f, 1f);
+    [Tooltip("Colour the bar pulses once the boss can afford an ultimate — the tell that a big move is now on the table.")]
+    public Color tokenReadyColor = new Color(0.95f, 0.4f, 0.9f);
+    [Tooltip("Draw a tick at the ultimate cost, read from MechAttackSelector. Turns the bar into a countdown the player can actually read.")]
+    public bool showUltimateMarker = true;
+    public float tokenGainDuration = 0.25f;
+    public float tokenSpendDuration = 0.12f;
 
     [Header("Chip Damage")]
     public float chipDelay = 0.4f;
@@ -86,9 +108,15 @@ public class BossHealthUI : MonoBehaviour
     private Text _nameText;
     private RectTransform _fillArea;
 
+    private Image _tokenFill;
+    private RectTransform _tokenBorderRT;
+
     private Tween _chipTween;
     private Tween _pulseTween;
+    private Tween _tokenTween;
+    private Tween _tokenReadyTween;
     private Coroutine _hideRoutine;
+    private bool _tokenReadyShown;
 
     #endregion
 
@@ -98,8 +126,12 @@ public class BossHealthUI : MonoBehaviour
     {
         if (targetHealth == null) targetHealth = GetComponentInParent<EnemyHealth>();
         if (bossBrain == null && targetHealth != null) bossBrain = targetHealth.GetComponent<MechBossBrain>();
+        if (tokenPool == null && targetHealth != null) tokenPool = targetHealth.GetComponent<MechTokenPool>();
+        if (attackSelector == null && targetHealth != null) attackSelector = targetHealth.GetComponent<MechAttackSelector>();
 
         BuildUI();
+
+        if (tokenPool != null) tokenPool.OnTokensChanged += HandleTokensChanged;
 
         if (targetHealth == null)
         {
@@ -126,12 +158,19 @@ public class BossHealthUI : MonoBehaviour
 
     private void Start()
     {
+        // Seeded here rather than from the pool's first event: script execution
+        // order decides whether that event fired before this component existed,
+        // but every Awake has run by the time any Start does, so the pool's
+        // starting balance is readable now.
+        if (_tokenFill != null && tokenPool != null) SetTokenFillImmediate(tokenPool.Normalized);
+
         if (showImmediately) Show();
     }
 
     private void OnDestroy()
     {
         if (targetHealth != null) targetHealth.OnDamaged -= HandleDamaged;
+        if (tokenPool != null) tokenPool.OnTokensChanged -= HandleTokensChanged;
 
         if (bossBrain != null)
         {
@@ -185,6 +224,18 @@ public class BossHealthUI : MonoBehaviour
         _immediateFill.fillAmount = 0f;
         _chipTween?.Kill();
         _chipFill.fillAmount = 0f;
+
+        // A bar left mid-pulse under a dead boss reads as "it's still charging".
+        if (_tokenFill != null)
+        {
+            _tokenReadyTween?.Kill();
+            _tokenReadyShown = false;
+            _tokenTween?.Kill();
+            _tokenFill.DOKill();
+            _tokenFill.color = tokenFillColor;
+            _tokenTween = DOTween.To(() => _tokenFill.fillAmount, v => _tokenFill.fillAmount = v, 0f, 0.4f);
+        }
+
         Log("Boss died -- hiding bar after delay.");
         if (_hideRoutine != null) StopCoroutine(_hideRoutine);
         _hideRoutine = StartCoroutine(Co_HideAfterDelay());
@@ -230,6 +281,71 @@ public class BossHealthUI : MonoBehaviour
     {
         _pulseTween?.Kill();
         _borderPulse.gameObject.SetActive(false);
+    }
+
+    #endregion
+
+    #region Token Events
+
+    private void HandleTokensChanged(int current, int max)
+    {
+        if (_tokenFill == null) return;
+
+        float target = max > 0 ? Mathf.Clamp01(current / (float)max) : 0f;
+        bool spent = target < _tokenFill.fillAmount;
+
+        _tokenTween?.Kill();
+        _tokenTween = DOTween.To(() => _tokenFill.fillAmount, v => _tokenFill.fillAmount = v, target,
+                                 spent ? tokenSpendDuration : tokenGainDuration)
+            .SetEase(spent ? Ease.OutQuad : Ease.Linear); // regen is linear because it *is* linear — a curve would lie about the pacing
+
+        // Ready-state first, flash second: dropping out of "ready" resets the bar
+        // colour, and that's exactly the moment the ultimate fires — the frame the
+        // flash matters most. Flashing first would have it wiped the same frame.
+        UpdateTokenReadyPulse(current);
+        if (spent) FlashTokenSpend();
+    }
+
+    private void FlashTokenSpend()
+    {
+        // DOKill hits every colour tween on this Image, the looping ready-pulse
+        // included, so the flash has to hand the pulse back when it finishes —
+        // otherwise one spend silently ends the pulse for the rest of the fight.
+        _tokenReadyTween?.Kill();
+        _tokenFill.DOKill();
+        _tokenFill.color = tokenSpendFlashColor;
+        _tokenFill.DOColor(tokenFillColor, 0.25f).OnComplete(RestartReadyPulseIfNeeded);
+    }
+
+    private void RestartReadyPulseIfNeeded()
+    {
+        if (!_tokenReadyShown || _tokenFill == null) return;
+        _tokenReadyTween?.Kill();
+        _tokenFill.color = tokenFillColor;
+        _tokenReadyTween = _tokenFill.DOColor(tokenReadyColor, 0.6f).SetLoops(-1, LoopType.Yoyo);
+    }
+
+    /// <summary>Pulses the bar once the boss can pay for an ultimate. This is the
+    /// only warning the player gets that the pool is no longer just filling up, so
+    /// it's driven by the same threshold the selector actually spends against.</summary>
+    private void UpdateTokenReadyPulse(int current)
+    {
+        bool ready = attackSelector != null && current >= attackSelector.ultimateCostThreshold;
+        if (ready == _tokenReadyShown) return;
+        _tokenReadyShown = ready;
+
+        _tokenReadyTween?.Kill();
+        _tokenFill.DOKill();
+
+        if (ready) RestartReadyPulseIfNeeded();
+        else _tokenFill.color = tokenFillColor;
+    }
+
+    private void SetTokenFillImmediate(float fraction)
+    {
+        _tokenTween?.Kill();
+        _tokenFill.fillAmount = fraction;
+        if (tokenPool != null) UpdateTokenReadyPulse(tokenPool.Current);
     }
 
     #endregion
@@ -333,6 +449,69 @@ public class BossHealthUI : MonoBehaviour
         _immediateFill = CreateFillImage("ImmediateFill", _fillArea, normalFillColor);
 
         BuildPhaseDividers(_fillArea);
+        BuildTokenBar(root, borderRT);
+    }
+
+    /// <summary>Thin mana-style bar hung under the health bar, sharing its frame
+    /// language so the two read as one readout of the same boss.</summary>
+    private void BuildTokenBar(RectTransform root, RectTransform healthBorderRT)
+    {
+        if (!showTokenBar || tokenPool == null) return;
+
+        float width = Mathf.Max(1f, barSize.x - tokenBarInset * 2f);
+        float y = healthBorderRT.anchoredPosition.y - barSize.y - tokenBarGap;
+        // Border thickness is halved here: the full health-bar border around a
+        // ~8px bar leaves almost no room for the fill itself.
+        float thickness = Mathf.Min(borderThickness * 0.5f, tokenBarHeight * 0.25f);
+
+        GameObject borderGO = CreateUIObject("TokenBorder", root);
+        Image border = borderGO.AddComponent<Image>();
+        border.color = borderColor;
+        _tokenBorderRT = borderGO.GetComponent<RectTransform>();
+        _tokenBorderRT.anchorMin = new Vector2(0.5f, 1f);
+        _tokenBorderRT.anchorMax = new Vector2(0.5f, 1f);
+        _tokenBorderRT.pivot = new Vector2(0.5f, 1f);
+        _tokenBorderRT.anchoredPosition = new Vector2(0f, y);
+        _tokenBorderRT.sizeDelta = new Vector2(width, tokenBarHeight);
+
+        GameObject areaGO = CreateUIObject("TokenFillArea", _tokenBorderRT);
+        RectTransform area = areaGO.GetComponent<RectTransform>();
+        area.anchorMin = Vector2.zero;
+        area.anchorMax = Vector2.one;
+        area.offsetMin = new Vector2(thickness, thickness);
+        area.offsetMax = new Vector2(-thickness, -thickness);
+
+        Image bg = areaGO.AddComponent<Image>();
+        bg.color = backgroundColor;
+
+        _tokenFill = CreateFillImage("TokenFill", area, tokenFillColor);
+        _tokenFill.fillAmount = 0f;
+
+        BuildUltimateMarker(area);
+
+        // Grow the root so the token bar is inside it — otherwise anything that
+        // later lays this out by height (or a layout group added above it) would
+        // clip the bar off the bottom.
+        root.sizeDelta = new Vector2(barSize.x, barSize.y + 30f + tokenBarGap + tokenBarHeight);
+    }
+
+    private void BuildUltimateMarker(RectTransform tokenArea)
+    {
+        if (!showUltimateMarker || attackSelector == null) return;
+
+        float at = attackSelector.ultimateCostThreshold / (float)tokenPool.Max;
+        if (at <= 0f || at >= 1f) return; // off the end of the bar — nothing useful to draw
+
+        GameObject go = CreateUIObject("UltimateMarker", tokenArea);
+        Image img = go.AddComponent<Image>();
+        img.color = new Color(tokenReadyColor.r, tokenReadyColor.g, tokenReadyColor.b, 0.85f);
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(at, 0f);
+        rt.anchorMax = new Vector2(at, 1f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(2f, 0f);
+        rt.anchoredPosition = Vector2.zero;
     }
 
     private Image CreateFillImage(string name, Transform parent, Color color)

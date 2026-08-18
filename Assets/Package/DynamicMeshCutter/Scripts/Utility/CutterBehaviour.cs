@@ -124,6 +124,10 @@ namespace DynamicMeshCutter
         void Terminate()
         {
             _asyncWorker = null;
+            //without this, InitializeWorker() early-returns after the first disable and the
+            //AsyncWorker property keeps handing back null -> NullReferenceException in Cut()
+            //the next time this cutter is enabled and used.
+            _isInitialized = false;
         }
 
         private void OnApplicationQuit()

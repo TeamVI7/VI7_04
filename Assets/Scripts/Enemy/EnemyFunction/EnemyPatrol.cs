@@ -3,9 +3,10 @@ using UnityEngine.AI;
 
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(EnemyBrain))]
-public class PatrolBehaviour : MonoBehaviour
+public class PatrolBehaviour : MonoBehaviour, IEnemyAimController
 {
     public enum CombatMovementStyle { Standoff, Strafe, Aggressive }
+    private enum FaceMode { None, Player, Movement }
 
     [Header("Movement")]
     public float PatrolSpeed = 2f;
@@ -25,6 +26,17 @@ public class PatrolBehaviour : MonoBehaviour
     public float StrafeRadius = 3f;
     public float StrafeInterval = 1.2f;
 
+    // Lets another behaviour (e.g. a sustained-fire attack rooting the enemy mid-burst)
+    // temporarily scale movement speed without fighting this component for ownership of
+    // _nav.speed, which it otherwise overwrites every frame. 1 = no change.
+    [HideInInspector] public float ExternalSpeedMultiplier = 1f;
+
+    // Lets another behaviour (e.g. EnemyDodgeBehaviour sidestepping) take the
+    // NavMeshAgent's destination over completely for a short window. Without this,
+    // this component's own per-frame SetDestination stomps whatever the other
+    // behaviour just set, the very next tick.
+    [HideInInspector] public bool MovementOverrideActive = false;
+
     private NavMeshAgent _nav;
     private EnemyBrain _brain;
     private Vector3 _spawnPos;
@@ -32,11 +44,27 @@ public class PatrolBehaviour : MonoBehaviour
     private float _waitTimer;
     private float _strafeTimer;
     private int _formationSlot = -1;
+    private bool _isFlanker;
 
     // Aggressive is "never stops closing" by design (melee rushers rely on it), so
     // retreat only applies there if this enemy actually has something to shoot with —
     // a melee-only Aggressive enemy should still barrel straight in.
     private bool _hasRangedAttack;
+
+    // ── IEnemyAimController ─────────────────────────────────────────────────
+    // Lowest priority — patrol/chase facing only wins when nothing else (attack
+    // behaviours) currently wants control. Set by TickPatrol/TickChase each Update,
+    // consumed by TickAim (called externally by EnemyAimCoordinator).
+    private FaceMode _pendingFace = FaceMode.None;
+
+    public int AimPriority => 0;
+    public bool WantsAim => _pendingFace != FaceMode.None;
+
+    public void TickAim(float deltaTime)
+    {
+        if (_pendingFace == FaceMode.Player) FacePlayer();
+        else if (_pendingFace == FaceMode.Movement) FaceMovementDirection();
+    }
 
     private void Awake()
     {
@@ -51,12 +79,15 @@ public class PatrolBehaviour : MonoBehaviour
     {
         _brain.OnStateChanged -= OnStateChanged;
         if (_formationSlot >= 0) EnemyFormationCoordinator.Unregister(_formationSlot);
+        if (_isFlanker) EnemyFormationCoordinator.ReleaseFlank();
     }
 
     private void Start() => _spawnPos = transform.position;
 
     private void Update()
     {
+        _pendingFace = FaceMode.None;
+        if (MovementOverrideActive) return;
         if (!_nav.enabled || !_nav.isOnNavMesh) return;
 
         switch (_brain.State)
@@ -68,7 +99,7 @@ public class PatrolBehaviour : MonoBehaviour
 
     private void TickPatrol()
     {
-        _nav.speed = PatrolSpeed;
+        _nav.speed = PatrolSpeed * ExternalSpeedMultiplier;
         if (!_hasWaypoint)
         {
             _waitTimer += Time.deltaTime;
@@ -80,7 +111,7 @@ public class PatrolBehaviour : MonoBehaviour
             _waitTimer = 0f;
         }
 
-        if (_hasWaypoint) FaceMovementDirection();
+        if (_hasWaypoint) _pendingFace = FaceMode.Movement;
     }
 
     private void TickChase()
@@ -99,9 +130,9 @@ public class PatrolBehaviour : MonoBehaviour
     {
         if (MinRange <= 0f || dist >= MinRange) return false;
 
-        _nav.speed = ChaseSpeed;
+        _nav.speed = ChaseSpeed * ExternalSpeedMultiplier;
         _nav.SetDestination(GetRetreatPoint());
-        FacePlayer();
+        _pendingFace = FaceMode.Player;
         return true;
     }
 
@@ -113,15 +144,15 @@ public class PatrolBehaviour : MonoBehaviour
 
         if (dist > PreferredRange)
         {
-            _nav.speed = ChaseSpeed;
+            _nav.speed = ChaseSpeed * ExternalSpeedMultiplier;
             _nav.SetDestination(GetApproachPoint(PreferredRange));
-            FaceMovementDirection();
+            _pendingFace = FaceMode.Movement;
         }
         else
         {
-            _nav.speed = PatrolSpeed;
+            _nav.speed = PatrolSpeed * ExternalSpeedMultiplier;
             _nav.ResetPath();
-            FacePlayer();
+            _pendingFace = FaceMode.Player;
         }
     }
 
@@ -131,7 +162,7 @@ public class PatrolBehaviour : MonoBehaviour
 
         if (_hasRangedAttack && TryRetreat(dist)) return;
 
-        _nav.speed = ChaseSpeed;
+        _nav.speed = ChaseSpeed * ExternalSpeedMultiplier;
 
         Vector3 destination = dist > PreferredRange
             ? GetApproachPoint(PreferredRange)
@@ -139,8 +170,7 @@ public class PatrolBehaviour : MonoBehaviour
 
         _nav.SetDestination(destination);
 
-        if (dist <= PreferredRange) FacePlayer();
-        else FaceMovementDirection();
+        _pendingFace = dist <= PreferredRange ? FaceMode.Player : FaceMode.Movement;
     }
 
     private void TickChaseStrafe()
@@ -151,14 +181,14 @@ public class PatrolBehaviour : MonoBehaviour
 
         if (dist > PreferredRange * 1.3f)
         {
-            _nav.speed = ChaseSpeed;
+            _nav.speed = ChaseSpeed * ExternalSpeedMultiplier;
             _nav.SetDestination(GetApproachPoint(PreferredRange));
             _strafeTimer = 0f;
-            FaceMovementDirection();
+            _pendingFace = FaceMode.Movement;
             return;
         }
 
-        _nav.speed = PatrolSpeed;
+        _nav.speed = PatrolSpeed * ExternalSpeedMultiplier;
         _strafeTimer -= Time.deltaTime;
 
         if (_strafeTimer <= 0f)
@@ -177,7 +207,7 @@ public class PatrolBehaviour : MonoBehaviour
                 _nav.SetDestination(hit.position);
         }
 
-        FacePlayer();
+        _pendingFace = FaceMode.Player;
     }
 
     // Aims at the enemy's assigned formation slot, projected onto the ring around
@@ -187,6 +217,21 @@ public class PatrolBehaviour : MonoBehaviour
     private Vector3 GetApproachPoint(float ringRadius)
     {
         if (PlayerHealth.Transform == null) return transform.position;
+
+        // Flankers ignore their ring slot and path to behind the player's current
+        // facing instead — this is what makes a flank read as intentional rather
+        // than just another point on the same symmetric ring everyone else uses.
+        if (_isFlanker)
+        {
+            Vector3 behind = -PlayerHealth.Transform.forward;
+            Vector3 flankPoint = PlayerHealth.Transform.position + behind * ringRadius;
+
+            if (NavMesh.SamplePosition(flankPoint, out NavMeshHit flankHit, ringRadius * 0.5f + 1f, NavMesh.AllAreas))
+                return flankHit.position;
+
+            return PlayerHealth.Transform.position;
+        }
+
         if (_formationSlot < 0) return PlayerHealth.Transform.position;
 
         Vector3 dir = EnemyFormationCoordinator.GetSlotDirection(_formationSlot);
@@ -241,11 +286,24 @@ public class PatrolBehaviour : MonoBehaviour
         if (state == EnemyState.Aggro)
         {
             if (_formationSlot < 0) _formationSlot = EnemyFormationCoordinator.Register();
+
+            // Aggressive rushers already beeline the player by design — flanking
+            // would just be a slower way of doing the same thing they already do.
+            if (!_isFlanker && MovementStyle != CombatMovementStyle.Aggressive)
+                _isFlanker = EnemyFormationCoordinator.TryClaimFlank();
         }
-        else if (_formationSlot >= 0)
+        else
         {
-            EnemyFormationCoordinator.Unregister(_formationSlot);
-            _formationSlot = -1;
+            if (_formationSlot >= 0)
+            {
+                EnemyFormationCoordinator.Unregister(_formationSlot);
+                _formationSlot = -1;
+            }
+            if (_isFlanker)
+            {
+                EnemyFormationCoordinator.ReleaseFlank();
+                _isFlanker = false;
+            }
         }
 
         if (!_nav) return;

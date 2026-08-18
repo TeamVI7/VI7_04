@@ -430,6 +430,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1103559111998755997}
   - component: {fileID: 5646020031479092432}
+  - component: {fileID: 5536190617954173225}
   m_Layer: 7
   m_Name: Secondary.006
   m_TagString: Untagged
@@ -588,6 +589,30 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.00015352387, y: 0.008840264, z: -0.0016012175}
     m_Extent: {x: 0.004472197, y: 0.008756493, z: 0.003925992}
   m_DirtyAABB: 0
+--- !u!114 &5536190617954173225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1815396280611487347}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74d075e443ddc624db302098f7826153, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DynamicMeshCutter.MeshTarget
+  GameobjectRoot: {fileID: 1815396280611487347}
+  OverrideFaceMaterial: {fileID: 2100000, guid: aa631c03375c24c4cbe310de744f058f, type: 2}
+  SeparateMeshes: 0
+  ApplyTranslation: 1
+  DefaultBehaviour: 0000000000000000
+  DynamicRagdoll: {fileID: 0}
+  Animator: {fileID: 4735727483195814682}
+  GroupBehaviours: []
+  CreateRigidbody: 0101
+  CreateMeshCollider: 0101
+  Physics: 0200000002000000
+  Inherit: 0000
 --- !u!1 &2059340836778722273
 GameObject:
   m_ObjectHideFlags: 0
@@ -1205,7 +1230,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3537918998804462559}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!23 &4382278046557341158
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1354,6 +1379,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8041081356539554288}
   - component: {fileID: 4700018505384455289}
+  - component: {fileID: 4876707133494758994}
   m_Layer: 7
   m_Name: Primary Top.008
   m_TagString: Untagged
@@ -1512,6 +1538,30 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.000167371, y: 0.012679531, z: -0.0015921132}
     m_Extent: {x: 0.0047144834, y: 0.005967711, z: 0.0039470205}
   m_DirtyAABB: 0
+--- !u!114 &4876707133494758994
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3716333864942601478}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74d075e443ddc624db302098f7826153, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DynamicMeshCutter.MeshTarget
+  GameobjectRoot: {fileID: 3716333864942601478}
+  OverrideFaceMaterial: {fileID: 2100000, guid: aa631c03375c24c4cbe310de744f058f, type: 2}
+  SeparateMeshes: 0
+  ApplyTranslation: 1
+  DefaultBehaviour: 0000000000000000
+  DynamicRagdoll: {fileID: 0}
+  Animator: {fileID: 4735727483195814682}
+  GroupBehaviours: []
+  CreateRigidbody: 0101
+  CreateMeshCollider: 0101
+  Physics: 0200000002000000
+  Inherit: 0000
 --- !u!1 &3758598388861486293
 GameObject:
   m_ObjectHideFlags: 0
@@ -2299,6 +2349,10 @@ GameObject:
   - component: {fileID: 2935582470310383761}
   - component: {fileID: 2646825749463191659}
   - component: {fileID: 2388698170775122617}
+  - component: {fileID: 2975783536285245262}
+  - component: {fileID: 7508483432512922037}
+  - component: {fileID: 6133133594973403980}
+  - component: {fileID: 1037099369165168465}
   m_Layer: 7
   m_Name: Enemy_Rusher/Punching
   m_TagString: Enemy
@@ -2419,6 +2473,8 @@ MonoBehaviour:
   MovementStyle: 2
   StrafeRadius: 3
   StrafeInterval: 1.2
+  ExternalSpeedMultiplier: 1
+  MovementOverrideActive: 0
 --- !u!114 &2743348169391669253
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2499,7 +2555,6 @@ MonoBehaviour:
   CapsuleRadius: 0.35
   CapsuleCenterY: 0.9
   SphereRadius: 0.5
-  MeleeTriggerRadius: 1.5
   EnemyLayerMask:
     serializedVersion: 2
     m_Bits: 128
@@ -2543,11 +2598,12 @@ MonoBehaviour:
   LaserClip: {fileID: 0}
   BombClip: {fileID: 0}
   SMGClips: []
-  ShotgunClips: []
   PistolClips:
   - {fileID: 8300000, guid: fdcef0940722cfa4ea032ba85215bc64, type: 3}
   - {fileID: 8300000, guid: 94430d762a832404aa9f999893576126, type: 3}
   - {fileID: 8300000, guid: da810fdacb72e544c84c507bd17a6493, type: 3}
+  ShieldBlockClip: {fileID: 0}
+  ShieldDestroyedClip: {fileID: 0}
   ShootPitchRange: {x: 0.95, y: 1.05}
   SniperMuzzleClip: {fileID: 0}
   SniperImpactClip: {fileID: 0}
@@ -2556,6 +2612,7 @@ MonoBehaviour:
   DetectClip: {fileID: 8300000, guid: cd02f6947dfaa114eb6c85f0c2977e1a, type: 3}
   MeleeSwingClip: {fileID: 0}
   MeleeHitClip: {fileID: 0}
+  AvengeClip: {fileID: 0}
   SpatialBlend: 1
   MinDistance: 5
   MaxDistance: 30
@@ -3271,7 +3328,7 @@ MonoBehaviour:
   AnimationFloorLevel: 0.001
   _Editor_Foldout_Setup_LegsList: 1
   _Editor_EnsureCount: 0
-  _Editor_OnValidateTrigger: 0
+  _Editor_OnValidateTrigger: 1
   _EditorAllowAutoUpdateFeetParams: 1
   _EditorCategory: 1
   _EditorSetupCategory: 1
@@ -4830,6 +4887,79 @@ MonoBehaviour:
       AlternativeTensorsOnFall: 0
       HardMatchMultiply: 1
     parentObject: {fileID: 6767510391008397818}
+--- !u!114 &2975783536285245262
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6767510391008397818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3503dd3417160344aee481ab84d211d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAimCoordinator
+--- !u!114 &7508483432512922037
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6767510391008397818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7cdae1bd85d03b499b89c6b19ed7fe6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAvengeReaction
+  AvengeRadius: 15
+  EnrageSpeedMultiplier: 1.3
+  EnrageDuration: 4
+  debugLog: 0
+--- !u!114 &6133133594973403980
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6767510391008397818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7850b520e2f0174f9130710d01052cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyDodgeBehaviour
+  DodgeChance: 0.65
+  DodgeCooldown: 2.5
+  MinTriggerRange: 4
+  MaxTriggerRange: 30
+  DodgeDistance: 3
+  DodgeSpeed: 9
+  debugLog: 0
+--- !u!114 &1037099369165168465
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6767510391008397818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c6918057d2228d42b1a0dfd00d749e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemySliceable
+  BodyMeshTargets:
+  - {fileID: 5555625252852478593}
+  - {fileID: 4876707133494758994}
+  - {fileID: 5536190617954173225}
+  ExecuteSliceWindow: 0.5
+  PieceSeparationSpeed: 2
+  PieceTorque: 2
+  SliceVFXPrefab: {fileID: 0}
+  SliceVFXLifetime: 3
+  StripRigOnSlice: 1
+  HideRemainingRenderers: 1
+  DespawnRootAfterSlice: 1
+  RootDespawnMargin: 2
+  debugLog: 0
 --- !u!1 &6858468099177123601
 GameObject:
   m_ObjectHideFlags: 0
@@ -4904,6 +5034,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8962332986886388949}
   - component: {fileID: 8235529671708104881}
+  - component: {fileID: 5555625252852478593}
   m_Layer: 7
   m_Name: Primary Bottom.010
   m_TagString: Untagged
@@ -5062,6 +5193,30 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.000054817996, y: 0.009252716, z: -0.00084469654}
     m_Extent: {x: 0.0028508352, y: 0.008726362, z: 0.0028906371}
   m_DirtyAABB: 0
+--- !u!114 &5555625252852478593
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7187036853023389300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74d075e443ddc624db302098f7826153, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DynamicMeshCutter.MeshTarget
+  GameobjectRoot: {fileID: 7187036853023389300}
+  OverrideFaceMaterial: {fileID: 2100000, guid: aa631c03375c24c4cbe310de744f058f, type: 2}
+  SeparateMeshes: 0
+  ApplyTranslation: 1
+  DefaultBehaviour: 0000000000000000
+  DynamicRagdoll: {fileID: 0}
+  Animator: {fileID: 4735727483195814682}
+  GroupBehaviours: []
+  CreateRigidbody: 0101
+  CreateMeshCollider: 0101
+  Physics: 0200000002000000
+  Inherit: 0000
 --- !u!1 &7261951094329619592
 GameObject:
   m_ObjectHideFlags: 0

@@ -19,6 +19,7 @@ public class PlayerHealth : MonoBehaviour
     float _lastHitTime;
     bool _dead;
     Sequence _overlaySeq;
+    Rigidbody _rb;
 
     public float HP    => _hp;
     public float Pct   => _hp / maxHP;
@@ -35,6 +36,7 @@ public class PlayerHealth : MonoBehaviour
     {
         Transform = transform;
         Instance  = this;
+        _rb = GetComponent<Rigidbody>();
 
         _hp = maxHP;
         SetAlpha(damageOverlay, 0f);
@@ -66,6 +68,14 @@ public class PlayerHealth : MonoBehaviour
         FlashOverlay(dmg);
 
         if (_hp <= 0f) Die();
+    }
+
+    // PlayerMovement drives movement with rb.AddForce, so a plain impulse here
+    // composes with it the same way — no separate "external velocity" channel needed.
+    public void ApplyKnockback(Vector3 force)
+    {
+        if (_dead || _rb == null) return;
+        _rb.AddForce(force, ForceMode.Impulse);
     }
 
     public void Heal(float amount)

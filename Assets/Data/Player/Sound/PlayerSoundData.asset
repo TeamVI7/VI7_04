@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a1c26720e76e57499de90db0ccae621, type: 3}
+  m_Name: PlayerSoundData
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSoundData
+  defaultFootstepClips:
+  - {fileID: 8300000, guid: 5e8fde5cb6151a7488cb287c602d5992, type: 3}
+  - {fileID: 8300000, guid: eee15bbfa54f19e4b9fb4d6582b015f2, type: 3}
+  - {fileID: 8300000, guid: 0a2681b714213164fb83eaf93cb80952, type: 3}
+  - {fileID: 8300000, guid: 77517d50434d9af4ca5e264d6a2c78b7, type: 3}
+  - {fileID: 8300000, guid: 1b693d159bb53094ca90cd96d9c1fd24, type: 3}
+  - {fileID: 8300000, guid: e41e425f7a6df1e4f81c4240dae52f80, type: 3}
+  - {fileID: 8300000, guid: 345921ac23e44f54aa765971ac76eed4, type: 3}
+  - {fileID: 8300000, guid: de3bb2ff2e7c73c40a9794c81c705137, type: 3}
+  - {fileID: 8300000, guid: 7cf32b7533fa14141ac0a498f845eac3, type: 3}
+  - {fileID: 8300000, guid: df1a624f62868614d9a58aa65a98b3cd, type: 3}
+  - {fileID: 8300000, guid: 46818fc7950705541a25a757070fafc9, type: 3}
+  - {fileID: 8300000, guid: 86020ce0df9080b4b865d6424fe64aae, type: 3}
+  - {fileID: 8300000, guid: 6758868631cb1554782ed083eb371ed9, type: 3}
+  - {fileID: 8300000, guid: bf2f1ea4684d33944bc9eac2b377a791, type: 3}
+  - {fileID: 8300000, guid: 34da5d03da6c1b04c87feeb9ea674a27, type: 3}
+  - {fileID: 8300000, guid: 19dab1a15156a97418f2385093afcf05, type: 3}
+  - {fileID: 8300000, guid: 49c01bee72a353e47896444732a4165c, type: 3}
+  footstepVolume: 0.5
+  footstepPitchRange: {x: 0.95, y: 1.05}
+  surfaceOverrides: []
+  jumpClips:
+  - {fileID: 8300000, guid: 43e37204b18ad104a9c621ddc0ab63a3, type: 3}
+  jumpVolume: 0.7
+  defaultLandClips:
+  - {fileID: 8300000, guid: 9b90030a4c2fe754488208942f48bc3f, type: 3}
+  - {fileID: 8300000, guid: 8ad3103ffc090c64aa3887ae558aa156, type: 3}
+  - {fileID: 8300000, guid: e0d679c416502f74cb44c398d816059f, type: 3}
+  - {fileID: 8300000, guid: a9a082cf7a01c6d4b9b993c67781bc8e, type: 3}
+  landVolume: 0.7
+  hardLandFallSpeedThreshold: 10
+  hardLandClips:
+  - {fileID: 8300000, guid: a0a2c0468f3164244bf0ce5d28df6eed, type: 3}
+  - {fileID: 8300000, guid: 2b8dbbe89e4544448a003e55bb8b758d, type: 3}
+  - {fileID: 8300000, guid: c51de95a44d90154ebe9c3e64c747083, type: 3}
+  - {fileID: 8300000, guid: 6de285a146fedde4dbbd349191834888, type: 3}
+  - {fileID: 8300000, guid: 31ee17a0c3a6de74eabe4e5a5e4f89a2, type: 3}
+  sprintBreathingLoop: {fileID: 8300000, guid: b63f7793b75cd86428a617e4b613dc2b, type: 3}
+  sprintBreathingVolume: 0.4
+  vaultClips: []
+  vaultVolume: 0.6
+  dashClips:
+  - {fileID: 8300000, guid: b63f7793b75cd86428a617e4b613dc2b, type: 3}
+  dashVolume: 0.7
+  slideStartClip: {fileID: 0}
+  slideLoopClip: {fileID: 0}
+  slideEndClip: {fileID: 0}
+  slideVolume: 0.6
+  wallRunLoopClip: {fileID: 8300000, guid: 2815d6bd7cdd31e4a92950dbbc8ab573, type: 3}
+  wallSlideLoopClip: {fileID: 0}
+  wallJumpClips: []
+  wallRunVolume: 0.5
+  climbLoopClip: {fileID: 0}
+  climbJumpClips: []
+  climbVolume: 0.5
+  hurtClips:
+  - {fileID: 8300000, guid: 7bf1866fcd32d604591b54297384e018, type: 3}
+  - {fileID: 8300000, guid: 6e4a99bd7b09e904bb931953e0dbc75e, type: 3}
+  - {fileID: 8300000, guid: 73aed391dfc7b8145af1e22c7c66e838, type: 3}
+  - {fileID: 8300000, guid: 499d373b53dcff846b44e56626647fdd, type: 3}
+  hurtVolume: 0.8
+  minHurtDamageFraction: 0.03
+  deathClips:
+  - {fileID: 8300000, guid: 7082764701321254190781738efb396c, type: 3}
+  - {fileID: 8300000, guid: ac35ae95e32718c48b540b802f5436b3, type: 3}
+  - {fileID: 8300000, guid: bc170d5147e105d4d96774a6e85cb1bb, type: 3}
+  - {fileID: 8300000, guid: 3db1c12c380de324ab2deae8a374f8ad, type: 3}
+  deathVolume: 1
+  meleeSwingClips: []
+  meleeHitClips: []
+  meleeMissClips: []
+  meleeExecuteClips: []
+  meleeVolume: 0.7

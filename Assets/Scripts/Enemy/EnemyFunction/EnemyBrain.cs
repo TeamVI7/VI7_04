@@ -11,6 +11,7 @@ public enum EnemyState { Idle, Aggro, Staggered, Dead }
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(EnemyHealth))]
+[RequireComponent(typeof(EnemyAimCoordinator))]
 public class EnemyBrain : MonoBehaviour
 {
     [Header("Detection")]

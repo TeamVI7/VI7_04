@@ -135,6 +135,8 @@ public class WeaponsController : MonoBehaviour
     public bool IsInputBlocked =>
         _isSwitching
         || CurrentState == WeaponState.Switching
+        || PauseMenuController.IsPaused
+        || MissionPanelController.AnyOpen
         || (PlayerActionLock.Instance != null && PlayerActionLock.Instance.IsBlockedBy(
                 PlayerActionLock.LockReason.Dead | PlayerActionLock.LockReason.Meleeing));
 
@@ -296,6 +298,22 @@ public class WeaponsController : MonoBehaviour
         {
             LogWarning("Disabled mid-action — force-resetting state so no lock stays stuck.");
         }
+
+        // Unity silently kills any in-flight coroutine (Co_Reload/Co_Inspect/Co_Fire) on
+        // disable, but that only unwinds the C# call stack — it does NOT run the rest of
+        // the method, so CurrentState was previously left stuck at whatever it was
+        // (e.g. Reloading/BoltCycling). TryStartReload()/TryStartInspect() gate on
+        // CurrentState, so a stuck Reloading state permanently blocked all future reloads
+        // after re-enabling (death respawn, closing the terminal, etc). Reset every field
+        // ForceIdle() would reset, so re-enabling always hands back a clean Idle weapon.
+        ResumeAnimator();
+        _isInspecting     = false;
+        _isSwitching      = false;
+        _holsterComplete  = false;
+        _drawComplete     = false;
+        _canShoot         = true;
+        ResetAnimSignals();
+        SetState(WeaponState.Idle);
 
         _reloadCoroutine  = null;
         _inspectCoroutine = null;
@@ -758,12 +776,17 @@ public class WeaponsController : MonoBehaviour
         {
             Log($"Hit: {hit.collider.name}  dist={hit.distance:F1}m");
 
-            if (hit.collider.TryGetComponent(out IDamageable damageable))
+            bool isDamageable = hit.collider.TryGetComponent(out IDamageable damageable);
+            if (isDamageable)
                 damageable.TakeDamage(weaponData.weaponDamage, aimDir, hit.point);
 
             if (hit.rigidbody != null)
                 hit.rigidbody.AddForceAtPosition(aimDir * weaponData.hitImpulseForce,
                                                   hit.point, ForceMode.Impulse);
+
+            SpawnImpactDecal(hit, isDamageable);
+            if (!isDamageable) SpawnWorldImpactVFX(hit, aimDir);
+
             _gizmoRayOrigin = origin;
             _gizmoRayEnd    = hit.point;
             return hit.point;
@@ -772,6 +795,35 @@ public class WeaponsController : MonoBehaviour
         _gizmoRayOrigin = origin;
         _gizmoRayEnd    = origin + aimDir * weaponData.maxRange;
         return Vector3.zero;
+    }
+
+    /// <summary>
+    /// Parented to the hit collider's transform (not left in world space) so the decal tracks
+    /// the surface it landed on — a ragdolling enemy limb, a moving platform, etc.
+    /// </summary>
+    private void SpawnImpactDecal(RaycastHit hit, bool isDamageable)
+    {
+        if (weaponData == null) return;
+
+        GameObject prefab = isDamageable
+            ? (weaponData.enemyImpactDecalPrefab != null ? weaponData.enemyImpactDecalPrefab : weaponData.worldImpactDecalPrefab)
+            : weaponData.worldImpactDecalPrefab;
+
+        if (prefab == null) return;
+
+        ImpactDecalPool.Instance.Get(prefab)?.Play(hit.point, hit.normal, hit.collider.transform);
+    }
+
+    /// <summary>Enemy hits already get their spark/blood burst from EnemyImpactVFX (driven off
+    /// EnemyHealth.OnDamaged) — this only covers world geometry, sprayed back toward the shooter
+    /// the same way EnemyImpactVFX orients its own burst.</summary>
+    private void SpawnWorldImpactVFX(RaycastHit hit, Vector3 aimDir)
+    {
+        if (weaponData == null || weaponData.worldImpactVFXPrefab == null) return;
+
+        Vector3 sprayDir = -aimDir.normalized;
+        var vfx = Instantiate(weaponData.worldImpactVFXPrefab, hit.point, Quaternion.LookRotation(sprayDir));
+        Destroy(vfx, weaponData.worldImpactVFXLifetime);
     }
 
     private Vector3 CalculateAimWithSpread()

@@ -17,6 +17,10 @@ public class MechDashAttack : MechAttackBehaviour
     public float knockback = 10f;
     public LayerMask playerLayer;
 
+    [Header("Telegraph")]
+    [Tooltip("Optional -- enabled for the duration of the windup, disabled the instant the dash starts or is cancelled. Hook a ground-line, glow, or charge-up VFX so the player has a fair chance to see it coming.")]
+    public GameObject TelegraphVFX;
+
     private static readonly int AnimDash = Animator.StringToHash("Dash");
 
     private NavMeshAgent _agent;
@@ -36,14 +40,29 @@ public class MechDashAttack : MechAttackBehaviour
         _hasHitPlayer = false;
 
         if (animator != null) animator.SetTrigger(AnimDash);
-        yield return new WaitForSeconds(windup);
+        if (TelegraphVFX != null) TelegraphVFX.SetActive(true);
+        RaiseTelegraphStart(windup);
 
-        if (PlayerHealth.Transform == null)
+        float telegraphed = 0f;
+        bool cancelled = false;
+        while (telegraphed < windup)
         {
+            if (PlayerHealth.Transform == null) { cancelled = true; break; }
+            telegraphed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (TelegraphVFX != null) TelegraphVFX.SetActive(false);
+
+        if (cancelled || PlayerHealth.Transform == null)
+        {
+            RaiseTelegraphCancelled();
             IsExecuting = false;
             onComplete?.Invoke();
             yield break;
         }
+
+        RaiseTelegraphResolved();
 
         bool wasStopped = _agent.isStopped;
         _agent.updatePosition = false;

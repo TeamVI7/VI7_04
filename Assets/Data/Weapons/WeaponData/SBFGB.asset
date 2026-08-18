@@ -63,3 +63,7 @@ MonoBehaviour:
   chamberVolume: 0.8
   casingEjectForce: 2
   casingDestroyTime: 5
+  worldImpactDecalPrefab: {fileID: 0}
+  enemyImpactDecalPrefab: {fileID: 0}
+  worldImpactVFXPrefab: {fileID: 7077355519987932895, guid: 579357df66620f747a0c8f99cabbd10e, type: 3}
+  worldImpactVFXLifetime: 2

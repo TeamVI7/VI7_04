@@ -92,6 +92,18 @@ public class PlayerMelee : MonoBehaviour
     public GameObject ExecuteParticlePrefab;
     public float ExecuteParticleLifetime = 3f;
 
+    [Header("Shield Break")]
+    [Tooltip("Slow time down when a bash breaks a riot shield, the same way an execute does. " +
+             "Reads as a beat of impact and gives the slice a moment to be seen.")]
+    public bool SlowMoOnShieldBreak = true;
+    [Tooltip("Time.timeScale to drop to on a shield break. Usually milder than an execute.")]
+    [Range(0.01f, 1f)] public float ShieldBreakSlowMoScale = 0.3f;
+    [Tooltip("How long the shield-break slow-mo holds, in REAL (unscaled) seconds.")]
+    public float ShieldBreakSlowMoHold = 0.2f;
+    [Tooltip("Real seconds to ease back up to normal speed after a shield break.")]
+    public float ShieldBreakSlowMoRecover = 0.2f;
+    public CameraShaker.ShakePreset ShieldBreakShake = CameraShaker.ShakePreset.Medium;
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
     [SerializeField] private bool drawGizmos = true;
@@ -334,6 +346,18 @@ public class PlayerMelee : MonoBehaviour
                     ? $"Melee-damageable hit landed on {hit.collider.name}."
                     : $"Melee-damageable hit blocked (not exposed) on {hit.collider.name}.");
                 damageApplied = landed;
+
+                // A bash that breaks a riot shield gets its own beat of slow-mo — the cut
+                // itself is queued a few lines below and resolves during the slow-down, so
+                // the halves come apart while time is still stretched.
+                if (landed && SlowMoOnShieldBreak
+                    && hit.collider.TryGetComponent(out RiotShieldBehaviour shield)
+                    && shield.IsDestroyed)
+                {
+                    TriggerSlowMo(ShieldBreakSlowMoScale, ShieldBreakSlowMoHold, ShieldBreakSlowMoRecover);
+                    cameraShaker?.Shake(ShieldBreakShake);
+                    Log("Shield break slow-mo.");
+                }
             }
             else if (hit.collider.TryGetComponent(out IDamageable damageable))
             {
@@ -391,24 +415,35 @@ public class PlayerMelee : MonoBehaviour
         Destroy(fx, ExecuteParticleLifetime);
     }
 
-    private void TriggerExecuteSlowMo()
+    private void TriggerExecuteSlowMo() =>
+        TriggerSlowMo(ExecuteSlowMoScale, ExecuteSlowMoHold, ExecuteSlowMoRecover);
+
+    /// <summary>
+    /// Drops Time.timeScale to <paramref name="scale"/>, holds for <paramref name="hold"/>
+    /// REAL seconds, then eases back to 1 over <paramref name="recover"/> real seconds.
+    /// A second call cancels the first, so overlapping hits can't stack the slow-down or
+    /// leave the game stuck below normal speed.
+    /// </summary>
+    public void TriggerSlowMo(float scale, float hold, float recover)
     {
         if (_slowMoRoutine != null) StopCoroutine(_slowMoRoutine);
-        _slowMoRoutine = StartCoroutine(Co_ExecuteSlowMo());
+        _slowMoRoutine = StartCoroutine(Co_SlowMo(scale, hold, recover));
     }
 
-    private System.Collections.IEnumerator Co_ExecuteSlowMo()
+    private System.Collections.IEnumerator Co_SlowMo(float scale, float hold, float recover)
     {
-        Time.timeScale      = ExecuteSlowMoScale;
+        scale = Mathf.Clamp(scale, 0.01f, 1f);
+
+        Time.timeScale      = scale;
         Time.fixedDeltaTime = _baseFixedDeltaTime * Time.timeScale;
 
-        yield return new WaitForSecondsRealtime(ExecuteSlowMoHold);
+        yield return new WaitForSecondsRealtime(hold);
 
         float t = 0f;
-        while (t < ExecuteSlowMoRecover)
+        while (t < recover)
         {
             t += Time.unscaledDeltaTime;
-            Time.timeScale      = Mathf.Lerp(ExecuteSlowMoScale, 1f, Mathf.Clamp01(t / ExecuteSlowMoRecover));
+            Time.timeScale      = Mathf.Lerp(scale, 1f, Mathf.Clamp01(t / recover));
             Time.fixedDeltaTime = _baseFixedDeltaTime * Time.timeScale;
             yield return null;
         }

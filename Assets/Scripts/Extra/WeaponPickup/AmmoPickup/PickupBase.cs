@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -12,15 +13,14 @@ using UnityEngine;
 [RequireComponent(typeof(Collider))]
 public abstract class PickupBase : MonoBehaviour
 {
+    #region Inspector
+
     [Header("Detection")]
     [SerializeField] protected string playerTag = "Player";
 
     [Header("Idle Animation")]
     [SerializeField] private bool  spin      = true;
     [SerializeField] private float spinSpeed = 90f;
-    [SerializeField] private bool  bob       = true;
-    [SerializeField] private float bobHeight = 0.15f;
-    [SerializeField] private float bobSpeed  = 2f;
 
     [Header("Pickup FX")]
     [SerializeField] private GameObject pickupVFX;
@@ -28,35 +28,60 @@ public abstract class PickupBase : MonoBehaviour
     [SerializeField] private float      sfxVolume = 1f;
 
     [Header("Respawn")]
-    [Tooltip("If > 0, the pickup reappears after this many seconds instead of being destroyed. " +
-             "Useful for ammo/health crates on a loop; leave at 0 for one-time weapon pickups.")]
+    [Tooltip("If > 0, the pickup reappears after this many seconds instead of being destroyed/despawned. Leave at 0 for one-time pickups.")]
     [SerializeField] private float respawnDelay = 0f;
 
-    private Vector3    _startPos;
+    [Header("Despawn")]
+    [Tooltip("If > 0 and respawnDelay is 0, the pickup is destroyed after this many seconds if never collected.")]
+    [SerializeField] private float despawnTime = 120f;
+
+    [Header("Debug")]
+    [SerializeField] private bool debugLog = false;
+
+    #endregion
+
+    #region State
+
     private Collider   _collider;
     private Renderer[] _renderers;
     private bool       _collected;
+    private Coroutine  _despawnRoutine;
+
+    #endregion
+
+    #region Unity Callbacks
 
     protected virtual void Awake()
     {
-        _startPos            = transform.position;
-        _collider             = GetComponent<Collider>();
+        _collider            = GetComponent<Collider>();
         _collider.isTrigger  = true;
-        _renderers            = GetComponentsInChildren<Renderer>();
+        _renderers           = GetComponentsInChildren<Renderer>();
+    }
+
+    protected virtual void Start()
+    {
+        if (respawnDelay <= 0f && despawnTime > 0f)
+            _despawnRoutine = StartCoroutine(DespawnCountdown());
     }
 
     protected virtual void Update()
     {
         if (_collected) return;
-
         if (spin) transform.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.World);
+    }
 
-        if (bob)
+    protected virtual void OnDisable()
+    {
+        if (_despawnRoutine != null)
         {
-            float y = _startPos.y + Mathf.Sin(Time.time * bobSpeed) * bobHeight;
-            transform.position = new Vector3(transform.position.x, y, transform.position.z);
+            StopCoroutine(_despawnRoutine);
+            _despawnRoutine = null;
         }
     }
+
+    #endregion
+
+    #region Pickup Flow
 
     private void OnTriggerEnter(Collider other)
     {
@@ -66,15 +91,17 @@ public abstract class PickupBase : MonoBehaviour
         if (TryPickup(other)) Collect();
     }
 
-    /// <summary>
-    /// Attempt to apply this pickup's effect to the player who touched it.
-    /// Return true if something was actually granted.
-    /// </summary>
     protected abstract bool TryPickup(Collider player);
 
     private void Collect()
     {
         _collected = true;
+
+        if (_despawnRoutine != null)
+        {
+            StopCoroutine(_despawnRoutine);
+            _despawnRoutine = null;
+        }
 
         if (pickupVFX != null)
             Destroy(Instantiate(pickupVFX, transform.position, Quaternion.identity), 3f);
@@ -85,19 +112,50 @@ public abstract class PickupBase : MonoBehaviour
         SetVisible(false);
         _collider.enabled = false;
 
+        Log($"Collected by player.");
+
         if (respawnDelay > 0f) Invoke(nameof(Respawn), respawnDelay);
-        else Destroy(gameObject, 0.05f); // tiny delay so VFX/SFX still play this frame
+        else Destroy(gameObject, 0.05f);
     }
 
     private void Respawn()
     {
-        _collected         = false;
-        _collider.enabled  = true;
+        _collected        = false;
+        _collider.enabled = true;
         SetVisible(true);
+        Log("Respawned.");
     }
+
+    #endregion
+
+    #region Despawn
+
+    private IEnumerator DespawnCountdown()
+    {
+        yield return new WaitForSeconds(despawnTime);
+        if (_collected) yield break;
+
+        Log($"Despawn timer expired after {despawnTime}s.");
+        OnDespawn();
+        Destroy(gameObject);
+    }
+
+    protected virtual void OnDespawn() { }
+
+    #endregion
+
+    #region Helpers
 
     private void SetVisible(bool visible)
     {
         foreach (var r in _renderers) r.enabled = visible;
     }
+
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    private void Log(string msg)
+    {
+        if (debugLog) Debug.Log($"[{name}] {msg}", this);
+    }
+
+    #endregion
 }

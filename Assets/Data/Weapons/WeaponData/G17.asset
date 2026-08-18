@@ -12,6 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d01504ca4b3ccac41b7b57b9330f6922, type: 3}
   m_Name: G17
   m_EditorClassIdentifier: Assembly-CSharp::WeaponData
+  useScopeOverlay: 0
+  scopeFov: 20
+  scopeSensitivityMultiplier: 0.3
+  scopeReticle: {fileID: 0}
+  scopeZoomSpeed: 8
   displayName: G17
   caliber: 9x19
   ammoType: FMJ
@@ -61,3 +66,7 @@ MonoBehaviour:
   chamberVolume: 0.8
   casingEjectForce: 2
   casingDestroyTime: 5
+  worldImpactDecalPrefab: {fileID: 0}
+  enemyImpactDecalPrefab: {fileID: 0}
+  worldImpactVFXPrefab: {fileID: 7077355519987932895, guid: 579357df66620f747a0c8f99cabbd10e, type: 3}
+  worldImpactVFXLifetime: 2

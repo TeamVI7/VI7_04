@@ -29,6 +29,7 @@ MonoBehaviour:
   PreferredRange: 10
   PatrolRadius: 12
   WaypointWaitTime: 2.5
+  MovementStyle: 0
   MaxArmor: 0
   ShieldActivateRange: 10
   LowArmorThreshold: 0.3

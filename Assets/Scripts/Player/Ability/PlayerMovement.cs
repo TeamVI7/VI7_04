@@ -42,13 +42,14 @@ public class PlayerMovement : MonoBehaviour
     public float slopeIncreaseMultiplier = 2.5f;
 
     [Header("Stamina")]
-    [Tooltip("Maximum stamina. Sprint and slide consume stamina; standing/walking restores it.")]
+    [Tooltip("Maximum stamina. Sprinting drains it continuously; abilities (dash, slide) spend it " +
+             "per use via TryConsumeStamina. Standing/walking restores it after staminaRegenDelay.")]
     public float maxStamina            = 100f;
     [Tooltip("Stamina drained per second while sprinting.")]
     public float staminaDrainRate      = 20f;
-    [Tooltip("Stamina restored per second while not sprinting.")]
+    [Tooltip("Stamina restored per second while not draining it.")]
     public float staminaRegenRate      = 15f;
-    [Tooltip("Delay after sprint before regen begins.")]
+    [Tooltip("Delay after the last stamina use (sprint or ability) before regen begins.")]
     public float staminaRegenDelay     = 1.5f;
     [Tooltip("Minimum stamina required to start a new sprint.")]
     public float minStaminaToSprint    = 10f;
@@ -141,12 +142,39 @@ public class PlayerMovement : MonoBehaviour
     [HideInInspector] public bool  sliding;
     [HideInInspector] public bool  wallrunning;
     [HideInInspector] public bool  climbing;
-    [HideInInspector] public bool  wallSliding;
     [HideInInspector] public bool  vaulting;
     [HideInInspector] public bool  dashing;
     [HideInInspector] public bool  freeze;
     [HideInInspector] public float maxYSpeed;
     [HideInInspector] public bool  grounded;
+
+    // ── Wall sliding: two independent owners ─────────────────────────────────
+    // WallRunning (side walls) and Climbing (front walls) can both be wall-sliding,
+    // and both used to write a single shared bool. Whichever stopped LAST cleared the
+    // flag out from under the other, dropping the player out of the wallSliding state
+    // while it was still physically sliding. The flag is now derived from a source
+    // mask, so it only clears once EVERY owner has released it.
+
+    [Flags]
+    public enum WallSlideSource
+    {
+        None    = 0,
+        WallRun = 1 << 0,
+        Climb   = 1 << 1,
+    }
+
+    private WallSlideSource _wallSlideSources;
+
+    /// <summary>True while at least one system reports the player is wall sliding.</summary>
+    public bool wallSliding => _wallSlideSources != WallSlideSource.None;
+
+    /// <summary>Raise or release one owner's claim on the wall-slide state.</summary>
+    public void SetWallSliding(WallSlideSource source, bool active)
+    {
+        _wallSlideSources = active
+            ? _wallSlideSources | source
+            : _wallSlideSources & ~source;
+    }
 
     #endregion
 
@@ -232,7 +260,7 @@ public class PlayerMovement : MonoBehaviour
 
     // Stamina
     private float _stamina;
-    private float _lastSprintTime;
+    private float _lastStaminaUse;   // sprint drain OR ability spend — both delay regen
     private bool  _canSprint;
 
     // Leaning
@@ -265,6 +293,31 @@ public class PlayerMovement : MonoBehaviour
 
         _stamina   = maxStamina;
         _canSprint = true;
+    }
+
+    /// <summary>
+    /// DeathCamera deactivates and reactivates the player GameObject across a respawn, so
+    /// OnEnable is the respawn hook. Without this the player comes back with whatever
+    /// stamina they died on — including 0 with sprint locked out.
+    /// </summary>
+    private void OnEnable()
+    {
+        _stamina        = maxStamina;
+        _canSprint      = true;
+        _lastStaminaUse = -999f;
+        OnStaminaChanged?.Invoke(_stamina, maxStamina);
+
+        // Ability flags are owned by the ability scripts, which clear them in their own
+        // OnDisable — but clear them here too so a flag can never survive a respawn and
+        // permanently early-return MovePlayer().
+        sliding = wallrunning = climbing = vaulting = dashing = freeze = false;
+        _wallSlideSources = WallSlideSource.None;
+        maxYSpeed = 0f;
+
+        // StartVault() and the climb/wallrun abilities all turn gravity off; dying mid-move
+        // would otherwise respawn a weightless player. (null on the very first enable —
+        // Start() hasn't fetched it yet, and nothing has turned gravity off at that point.)
+        if (rb != null) rb.useGravity = true;
     }
 
     private void Update()
@@ -623,13 +676,44 @@ public class PlayerMovement : MonoBehaviour
         return _stamina > 0f;
     }
 
+    /// <summary>
+    /// True if the player currently has at least <paramref name="amount"/> stamina.
+    /// Use this to grey out an ability without spending anything.
+    /// </summary>
+    public bool HasStamina(float amount) => _stamina >= amount;
+
+    /// <summary>
+    /// Spend stamina for a one-shot ability (dash, slide kick-off, …).
+    /// Returns false and spends nothing if the player can't afford it.
+    /// Also restarts the regen delay and applies the same depletion lock sprinting uses,
+    /// so an ability can't be spammed to keep the player permanently out of stamina.
+    /// </summary>
+    public bool TryConsumeStamina(float amount)
+    {
+        if (amount <= 0f) return true;
+        if (_stamina < amount) return false;
+
+        _stamina        = Mathf.Max(_stamina - amount, 0f);
+        _lastStaminaUse = Time.time;
+
+        if (_stamina <= 0f)
+        {
+            _canSprint = false;
+            Log("Stamina depleted — sprint locked.");
+        }
+
+        OnStaminaChanged?.Invoke(_stamina, maxStamina);
+        Log($"Stamina spent: {amount} → {_stamina:0.#}/{maxStamina}");
+        return true;
+    }
+
     private void TickStamina()
     {
         bool isSprinting = state == MovementState.sprinting;
 
         if (isSprinting)
         {
-            _lastSprintTime = Time.time;
+            _lastStaminaUse = Time.time;
             float prev = _stamina;
             _stamina = Mathf.Max(_stamina - staminaDrainRate * Time.deltaTime, 0f);
 
@@ -642,7 +726,7 @@ public class PlayerMovement : MonoBehaviour
             if (!Mathf.Approximately(_stamina, prev))
                 OnStaminaChanged?.Invoke(_stamina, maxStamina);
         }
-        else if (Time.time - _lastSprintTime >= staminaRegenDelay)
+        else if (Time.time - _lastStaminaUse >= staminaRegenDelay)
         {
             float prev = _stamina;
             _stamina = Mathf.Min(_stamina + staminaRegenRate * Time.deltaTime, maxStamina);

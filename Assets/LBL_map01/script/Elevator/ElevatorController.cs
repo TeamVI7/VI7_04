@@ -47,6 +47,7 @@ public class ElevatorController : MonoBehaviour
     private bool playerInsideElevator = false;
     private PlayerCardHolder currentCardHolder;
     private int lastReportedPassingFloor = -1;
+    private Rigidbody rb;
 
     void Start()
     {
@@ -55,6 +56,15 @@ public class ElevatorController : MonoBehaviour
             Debug.LogError("ElevatorController: chưa có tầng nào trong danh sách floors!", this);
             return;
         }
+
+        // The floor's MeshCollider has no Rigidbody of its own, so PhysX treats it as
+        // static and only ever does discrete depenetration pushes on the rider — jittery
+        // by nature, which is what caused the bounce. A kinematic Rigidbody moved via
+        // MovePosition lets PhysX compute a proper swept push instead.
+        rb = GetComponent<Rigidbody>();
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity  = false;
 
         SetFloorY(floors[currentFloorIndex].floorY);
 
@@ -133,28 +143,39 @@ public class ElevatorController : MonoBehaviour
                 break;
 
             case State.Moving:
-                {
-                    float destY = floors[targetFloorIndex].floorY;
-                    bool isGoingUp = destY > transform.position.y;
-
-                    float newY = Mathf.MoveTowards(transform.position.y, destY, moveSpeed * Time.deltaTime);
-                    transform.position = new Vector3(transform.position.x, newY, transform.position.z);
-
-                    ReportPassingFloor(isGoingUp);
-
-                    if (Mathf.Abs(transform.position.y - destY) < 0.01f)
-                    {
-                        SetFloorY(destY);
-                        currentFloorIndex = targetFloorIndex;
-                        hasTarget = false;
-                        StopMoving();
-                        PlayOneShot(arriveSound);
-                        OnArrivedFloor?.Invoke(currentFloorIndex);
-                        OpenDoors();
-                        state = State.OpeningDoor;
-                    }
-                }
+                // Actual position update happens in FixedUpdate — see below.
+                // The elevator is a physics-carried platform (MovingPlatformCarrier
+                // reads its transform delta once per fixed step), so moving it here
+                // with Time.deltaTime desyncs from that: most FixedUpdate ticks would
+                // see zero movement, then a render frame applies a larger catch-up
+                // jump, which is what caused riders to bounce/float instead of riding
+                // smoothly.
                 break;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (state != State.Moving) return;
+
+        float destY = floors[targetFloorIndex].floorY;
+        bool isGoingUp = destY > rb.position.y;
+
+        float newY = Mathf.MoveTowards(rb.position.y, destY, moveSpeed * Time.fixedDeltaTime);
+        rb.MovePosition(new Vector3(rb.position.x, newY, rb.position.z));
+
+        ReportPassingFloor(isGoingUp);
+
+        if (Mathf.Abs(newY - destY) < 0.01f)
+        {
+            SetFloorY(destY);
+            currentFloorIndex = targetFloorIndex;
+            hasTarget = false;
+            StopMoving();
+            PlayOneShot(arriveSound);
+            OnArrivedFloor?.Invoke(currentFloorIndex);
+            OpenDoors();
+            state = State.OpeningDoor;
         }
     }
 
@@ -206,8 +227,12 @@ public class ElevatorController : MonoBehaviour
     public int GetCurrentFloorIndex() => currentFloorIndex;
     public bool IsPlayerInside() => playerInsideElevator;
 
-    void SetFloorY(float y) =>
-        transform.position = new Vector3(transform.position.x, y, transform.position.z);
+    void SetFloorY(float y)
+    {
+        var pos = new Vector3(transform.position.x, y, transform.position.z);
+        if (rb != null) rb.position = pos;
+        else transform.position = pos;
+    }
 
     void OpenDoors()  { doorLeft.Open();  doorRight.Open();  }
     void CloseDoors() { doorLeft.Close(); doorRight.Close(); }
@@ -246,7 +271,7 @@ public class ElevatorController : MonoBehaviour
         float bestDist = Mathf.Infinity;
         for (int i = 0; i < floors.Count; i++)
         {
-            float dist = Mathf.Abs(transform.position.y - floors[i].floorY);
+            float dist = Mathf.Abs(rb.position.y - floors[i].floorY);
             if (dist < bestDist)
             {
                 bestDist = dist;

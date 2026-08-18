@@ -28,7 +28,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -3.7724814, y: 0.53900033, z: 2.1584253}
-  m_LocalScale: {x: 5, y: 5, z: 5}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4784393005852789330}
@@ -76,7 +76,7 @@ MonoBehaviour:
   bobHeight: 0.15
   bobSpeed: 2
   pickupVFX: {fileID: 0}
-  pickupSFX: {fileID: 0}
+  pickupSFX: {fileID: 8300000, guid: b6284bdbb763e9743968a72deeb8c03d, type: 3}
   sfxVolume: 1
   respawnDelay: 0
   healAmount: 25

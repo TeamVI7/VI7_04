@@ -39,7 +39,8 @@ public class Dashing : MonoBehaviour
 
     [Header("Camera")]
     public float dashFov     = 95f;
-    public float normalFov   = 85f;
+    // 'normal' FOV now lives on PlayerCam.baseFov — see PlayerCam.FovLayer. Dash claims
+    // the Dash layer and releases it, instead of asserting its own idea of normal.
 
     [Header("Settings")]
     public bool useCameraForward  = true;
@@ -52,6 +53,10 @@ public class Dashing : MonoBehaviour
     public float dashCooldown = 1f;
     [Tooltip("1 = classic single-dash-on-cooldown. >1 = charge bank (e.g. double/triple dash).")]
     [Min(1)] public int maxCharges = 1;
+
+    [Header("Stamina")]
+    [Tooltip("Stamina spent per dash. 0 = free (charges are the only limit).")]
+    public float dashStaminaCost = 25f;
 
     [Header("Input")]
     public KeyCode dashKey = KeyCode.E;
@@ -85,8 +90,12 @@ public class Dashing : MonoBehaviour
     /// <summary>Seconds remaining until the NEXT charge regenerates (0 if already full).</summary>
     public float CooldownRemaining => _charges >= maxCharges ? 0f : Mathf.Max(0f, dashCooldown - _regenTimer);
 
-    /// <summary>True if at least one charge is available to spend right now.</summary>
-    public bool  CanDash           => _charges > 0;
+    /// <summary>True if a dash can be performed right now — charge available AND stamina affordable.</summary>
+    public bool  CanDash           => _charges > 0 && HasStamina;
+
+    /// <summary>True if the player can currently afford the dash's stamina cost.</summary>
+    public bool  HasStamina        => dashStaminaCost <= 0f
+                                   || (pm != null && pm.HasStamina(dashStaminaCost));
 
     /// <summary>Charges currently available to spend.</summary>
     public int   ChargesAvailable  => _charges;
@@ -121,9 +130,20 @@ public class Dashing : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(dashKey)) TryDash();
+        if (Input.GetKeyDown(dashKey) && !PlayerActionLock.InputBlocked) TryDash();
 
         TickChargeRegen();
+    }
+
+    /// <summary>
+    /// Safety net: pending Invokes die with the component, so a disable mid-dash would
+    /// leave pm.dashing stuck true — MovePlayer early-returns on that flag forever.
+    /// </summary>
+    private void OnDisable()
+    {
+        CancelInvoke(nameof(ApplyDashForce));
+        CancelInvoke(nameof(EndDash));
+        if (pm != null && pm.dashing) EndDash();
     }
 
     #endregion
@@ -154,7 +174,16 @@ public class Dashing : MonoBehaviour
 
     private void TryDash()
     {
-        if (!CanDash) { Log("Dash blocked — on cooldown."); return; }
+        if (_charges <= 0) { Log("Dash blocked — no charges."); return; }
+
+        // Spend stamina only once the charge check has passed, so a dash on cooldown
+        // never drains the bar. TryConsumeStamina is atomic — it spends nothing on failure.
+        if (!pm.TryConsumeStamina(dashStaminaCost))
+        {
+            Log($"Dash blocked — needs {dashStaminaCost} stamina, has {pm.Stamina:0.#}.");
+            return;
+        }
+
         Dash();
     }
 
@@ -166,7 +195,7 @@ public class Dashing : MonoBehaviour
         pm.dashing    = true;
         pm.maxYSpeed  = maxDashYSpeed;
 
-        cam.DoFov(dashFov);
+        if (cam != null) cam.SetFov(PlayerCam.FovLayer.Dash, dashFov);
 
         Transform forwardT = useCameraForward ? playerCam : orientation;
         Vector3 direction  = GetDirection(forwardT);
@@ -177,6 +206,10 @@ public class Dashing : MonoBehaviour
         OnDashStart?.Invoke(direction);
         Log($"Dash start → {direction}");
 
+        // Chaining a second charge before the first dash expires would otherwise let the
+        // older EndDash timer cut the new dash short. Re-arm both timers from scratch.
+        CancelInvoke(nameof(ApplyDashForce));
+        CancelInvoke(nameof(EndDash));
         Invoke(nameof(ApplyDashForce), 0.025f);
         Invoke(nameof(EndDash), dashDuration);
     }
@@ -192,7 +225,7 @@ public class Dashing : MonoBehaviour
         pm.dashing   = false;
         pm.maxYSpeed = 0f;
 
-        cam.DoFov(normalFov);
+        if (cam != null) cam.ClearFov(PlayerCam.FovLayer.Dash); // reachable from OnDisable during teardown
 
         if (disableGravity) rb.useGravity = true;
 

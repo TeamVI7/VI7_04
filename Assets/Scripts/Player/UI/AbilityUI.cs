@@ -9,11 +9,17 @@ public class AbilityHUDController : MonoBehaviour
     {
         public TMP_Text statusText;
         public string readyLabel = "READY";
+        [Tooltip("Shown when the ability is unusable for a reason that isn't a cooldown " +
+                 "(e.g. not enough stamina) — otherwise the slot would read a misleading '0.0'.")]
+        public string blockedLabel = "---";
 
         public void SetState(bool ready, float cooldownRemaining)
         {
             if (statusText == null) return;
-            statusText.text = ready ? readyLabel : cooldownRemaining.ToString("0.0");
+
+            if (ready)                      statusText.text = readyLabel;
+            else if (cooldownRemaining > 0f) statusText.text = cooldownRemaining.ToString("0.0");
+            else                            statusText.text = blockedLabel;
         }
     }
 

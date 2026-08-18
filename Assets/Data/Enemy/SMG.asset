@@ -29,6 +29,9 @@ MonoBehaviour:
   PreferredRange: 10
   PatrolRadius: 12
   WaypointWaitTime: 2.5
+  MovementStyle: 1
+  StrafeRadius: 3
+  StrafeInterval: 1.2
   MaxArmor: 0
   ShieldActivateRange: 10
   LowArmorThreshold: 0.3

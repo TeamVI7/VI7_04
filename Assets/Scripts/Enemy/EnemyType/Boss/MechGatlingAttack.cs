@@ -15,6 +15,10 @@ public class MechGatlingAttack : MechAttackBehaviour
     public LayerMask hitMask;
     public GameObject muzzleFlashPrefab;
 
+    [Header("Tracer")]
+    public TrailRenderer bulletTrailPrefab;
+    public float tracerSpeed = 300f;
+
     [Header("Turret Aim")]
     [Tooltip("The rotating gun bone/gimbal. Rotates to track the player whenever they're in range; muzzle should be a child of this so it follows automatically.")]
     public Transform gunBone;
@@ -29,10 +33,28 @@ public class MechGatlingAttack : MechAttackBehaviour
     [Tooltip("The mech's body (this transform's forward) must be within this many degrees of the player for the selector to consider Gatling.")]
     public float facingAngleThreshold = 45f;
 
+    // Sustained ranged attack, so it benefits from the mech kiting/repositioning
+    // instead of standing rooted for the whole spin-up + fire duration.
+    public override bool AllowsMovementDuringExecution => true;
+
+    [Header("Line of Sight")]
+    [Tooltip("Layers that block sight to the player (walls, cover, etc.) — must NOT include the player's own layer. Leave as Nothing to disable LOS gating entirely (old behaviour: always 'sees' the player).")]
+    public LayerMask losBlockMask;
+    [Tooltip("Point sight is checked and aimed from. Defaults to the muzzle if unset.")]
+    public Transform sightOrigin;
+
+    // Updated only when the player is actually visible, so the turret/shots keep
+    // tracking the last place we saw them instead of snapping through walls.
+    private Vector3 _lastSeenPlayerPos;
+    private bool _hasSeenPlayer;
+
     public override bool IsAvailable(float distanceToPlayer)
     {
         if (!base.IsAvailable(distanceToPlayer)) return false;
-        return IsFacingPlayer();
+        if (!IsFacingPlayer()) return false;
+        if (PlayerHealth.Transform == null) return false;
+        // Don't start spinning up on a player we can't currently see.
+        return HasLineOfSight(SightOrigin, PlayerHealth.Transform.position + Vector3.up);
     }
 
     private bool IsFacingPlayer()
@@ -46,14 +68,45 @@ public class MechGatlingAttack : MechAttackBehaviour
         return Vector3.Angle(transform.forward, toPlayer) <= facingAngleThreshold;
     }
 
+    private Vector3 SightOrigin => sightOrigin != null ? sightOrigin.position : (muzzle != null ? muzzle.position : transform.position);
+
+    private bool HasLineOfSight(Vector3 from, Vector3 to)
+    {
+        Vector3 dir = to - from;
+        float dist = dir.magnitude;
+        if (dist < 0.01f) return true;
+        return !Physics.Raycast(from, dir.normalized, dist, losBlockMask);
+    }
+
+    // Refreshes the last-seen position whenever the player is actually visible and
+    // returns the point to aim/fire at: the player's real position when seen, or
+    // the last place we saw them otherwise. Returns false only if we've never seen
+    // the player at all (nothing to aim at yet).
+    private bool TryGetAimPoint(out Vector3 aimPoint)
+    {
+        aimPoint = _lastSeenPlayerPos;
+        if (PlayerHealth.Transform == null) return _hasSeenPlayer;
+
+        Vector3 targetPos = PlayerHealth.Transform.position + Vector3.up;
+        if (HasLineOfSight(SightOrigin, targetPos))
+        {
+            _lastSeenPlayerPos = targetPos;
+            _hasSeenPlayer = true;
+            aimPoint = targetPos;
+        }
+
+        return _hasSeenPlayer;
+    }
+
     private static readonly int AnimSpin = Animator.StringToHash("GatlingSpin");
     private static readonly int AnimFire = Animator.StringToHash("GatlingFire");
 
-    protected override void Update()
-    {
-        base.Update();
-        AimAtPlayer();
-    }
+    protected override void Update() => base.Update();
+
+    // Runs after the Animator has applied this frame's pose, so the gun-bone
+    // rotation is a procedural overlay on top of the animation instead of
+    // being fought/overwritten by it (Animator evaluates between Update and LateUpdate).
+    private void LateUpdate() => AimAtPlayer();
 
     private void AimAtPlayer()
     {
@@ -63,7 +116,9 @@ public class MechGatlingAttack : MechAttackBehaviour
         float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
         if (dist > maxRange) return;
 
-        Vector3 dir = (PlayerHealth.Transform.position + Vector3.up - gunBone.position).normalized;
+        if (!TryGetAimPoint(out Vector3 aimPoint)) return;
+
+        Vector3 dir = (aimPoint - gunBone.position).normalized;
         Quaternion targetRot = Quaternion.LookRotation(dir);
         gunBone.rotation = Quaternion.RotateTowards(gunBone.rotation, targetRot, aimTurnSpeed * Time.deltaTime);
     }
@@ -74,17 +129,21 @@ public class MechGatlingAttack : MechAttackBehaviour
     {
         IsExecuting = true;
         if (animator != null) animator.SetBool(AnimSpin, true);
+        RaiseTelegraphStart(spinUpTime);
 
         float spunUp = 0f;
+        bool interrupted = false;
         while (spunUp < spinUpTime)
         {
-            if (PlayerTooClose()) break;
+            if (PlayerTooClose()) { interrupted = true; break; }
             spunUp += Time.deltaTime;
             yield return null;
         }
 
-        if (!PlayerTooClose())
+        if (!interrupted && !PlayerTooClose())
         {
+            RaiseTelegraphResolved();
+
             if (animator != null) animator.SetBool(AnimFire, true);
 
             float elapsed = 0f;
@@ -95,6 +154,10 @@ public class MechGatlingAttack : MechAttackBehaviour
                 elapsed += fireRate;
                 yield return new WaitForSeconds(fireRate);
             }
+        }
+        else
+        {
+            RaiseTelegraphCancelled();
         }
 
         if (animator != null)
@@ -115,19 +178,61 @@ public class MechGatlingAttack : MechAttackBehaviour
 
     private void FireShot()
     {
-        if (muzzle == null || PlayerHealth.Transform == null) return;
+        if (muzzle == null) return;
+        if (!TryGetAimPoint(out Vector3 aimPoint)) return;
 
-        Vector3 dir = gunBone != null
-            ? gunBone.forward
-            : (PlayerHealth.Transform.position + Vector3.up - muzzle.position).normalized;
+        // Aim straight at the tracked point from the muzzle rather than trusting
+        // gunBone.forward — AimAtPlayer() turns the turret gradually
+        // (RotateTowards), so right after spin-up (or if the player is far
+        // below the mech) the barrel may not have caught up yet. Using
+        // gunBone.forward here fired shots wherever the turret currently was
+        // pointed (often still skyward from its resting pose) instead of at
+        // the target. The visual turret still tracks via AimAtPlayer; only
+        // the actual shot direction is decoupled from its catch-up lag.
+        // aimPoint is the player's live position when visible, or the last
+        // place they were seen if line of sight is currently broken.
+        Vector3 dir = (aimPoint - muzzle.position).normalized;
         dir += UnityEngine.Random.insideUnitSphere * (spread * 0.05f);
         dir.Normalize();
 
         if (muzzleFlashPrefab != null)
             Destroy(Instantiate(muzzleFlashPrefab, muzzle.position, muzzle.rotation), 0.1f);
 
-        if (Physics.Raycast(muzzle.position, dir, out RaycastHit hit, 60f, hitMask))
+        const float range = 60f;
+        Vector3 endPoint = muzzle.position + dir * range;
+
+        if (Physics.Raycast(muzzle.position, dir, out RaycastHit hit, range, hitMask))
+        {
+            endPoint = hit.point;
             if (hit.collider.TryGetComponent(out PlayerHealth ph)) ph.TakeDamage(damagePerShot);
+        }
+
+        SpawnBulletTrail(muzzle.position, endPoint);
+    }
+
+    private void SpawnBulletTrail(Vector3 start, Vector3 end)
+    {
+        if (bulletTrailPrefab == null) return;
+        StartCoroutine(AnimateTracer(start, end));
+    }
+
+    private IEnumerator AnimateTracer(Vector3 start, Vector3 end)
+    {
+        TrailRenderer trail = Instantiate(bulletTrailPrefab, start, Quaternion.identity);
+
+        float distance = Vector3.Distance(start, end);
+        float duration = distance / Mathf.Max(1f, tracerSpeed);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            trail.transform.position = Vector3.Lerp(start, end, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        trail.transform.position = end;
+        Destroy(trail.gameObject, trail.time);
     }
 
     private void OnDrawGizmosSelected()
@@ -152,8 +257,17 @@ public class MechGatlingAttack : MechAttackBehaviour
         // Live line to the player, green if the facing check currently passes.
         if (Application.isPlaying && PlayerHealth.Transform != null)
         {
-            Gizmos.color = IsFacingPlayer() ? Color.green : Color.red;
+            bool hasLos = HasLineOfSight(SightOrigin, PlayerHealth.Transform.position + Vector3.up);
+            Gizmos.color = (IsFacingPlayer() && hasLos) ? Color.green : Color.red;
             Gizmos.DrawLine(origin, PlayerHealth.Transform.position);
+
+            // If sight is currently blocked, show the last-seen point being aimed at.
+            if (!hasLos && _hasSeenPlayer)
+            {
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawWireSphere(_lastSeenPlayerPos, 0.3f);
+                Gizmos.DrawLine(SightOrigin, _lastSeenPlayerPos);
+            }
         }
     }
 }

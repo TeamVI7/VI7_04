@@ -14,48 +14,53 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DialogueData
   lines:
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
-    text: "T\xECnh b\xE1o c\u1EE7a ta \u0111\xE3 b\xE1o cho t\xF4i bi\u1EBFt c\xF3
-      r\u1EA5t nhi\u1EC1u t\xEDn hi\u1EC7u s\xF3ng \u0111\u01B0\u1EE3c ph\xE1t ra
-      trong c\u0103n c\u1EE9."
+    text: "C\u1EADp nh\u1EADt t\xECnh h\xECnh, \u0110i\u1EC7p vi\xEAn. L\u1EF1c l\u01B0\u1EE3ng
+      t\xECnh b\xE1o v\u1EEBa ghi nh\u1EADn h\xE0ng lo\u1EA1t dao \u0111\u1ED9ng
+      n\u0103ng l\u01B0\u1EE3ng b\u1EA5t th\u01B0\u1EDDng t\u1EEB b\xEAn trong c\u01A1
+      s\u1EDF. M\xE1y ph\xE1t \u0111i\u1EC7n ch\xEDnh \u0111\xE3 ph\xE1t n\u1ED5.
+      H\u1EC7 th\u1ED1ng d\u1EF1 ph\xF2ng v\u1EABn nguy\xEAn v\u1EB9n nh\u01B0ng
+      \u0111ang \u1EDF tr\u1EA1ng th\xE1i ng\u1EAFt k\u1EBFt n\u1ED1i.\n"
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 8
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
-    text: "H\xECnh nh\u01B0 \u0111\xE3 c\xF3 1 m\xE1y ph\xE1t \u0111i\u1EC7n \u0111\xE3
-      n\u1ED5 tung, may m\u1EAFn l\xE0 v\u1EABn c\xF2n m\u1ED9t m\xE1y d\u1EF1 ph\xF2ng
-      nh\u01B0ng n\xF3 ch\u01B0a \u0111\u01B0\u1EE3c k\xEDch ho\u1EA1t"
+    text: "M\u1EE5c ti\xEAu \u01B0u ti\xEAn c\u1EE7a c\u1EADu l\xE0 t\xE1i k\xEDch
+      ho\u1EA1t m\xE1y ph\xE1t d\u1EF1 ph\xF2ng. Tuy nhi\xEAn, c\xE1c h\u1EC7 th\u1ED1ng
+      an ninh n\u1ED9i b\u1ED9 \u0111\xE3 b\u1ECB kh\xF3a c\u1EE9ng. C\u1EADu c\u1EA7n
+      x\xE2m nh\u1EADp v\xE0o Ph\xF2ng Gi\xE1m s\xE1t v\xE0 thu th\u1EADp \u0111\u1EE7
+      5 ch\u1EEF s\u1ED1 m\xE3 h\xF3a \u0111\u01B0\u1EE3c c\u1EA5t gi\u1EA5u t\u1EA1i
+      \u0111\xF3 \u0111\u1EC3 m\u1EDF kh\xF3a h\u1EC7 th\u1ED1ng l\xF5i ch\xEDnh."
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 9
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
-    text: "K\xEDch ho\u1EA1t m\xE1y ph\xE1t \u0111i\u1EC7n v\xE0 \u0111i t\u1EDBi
-      ph\xF2ng gi\xE1m \u0111\u1ED1c, l\u1EA5y th\u1EBB NXC v\xE0 xu\u1ED1ng t\u1EA7ng
-      Khu d\u1EEF li\u1EC7u c\u1EE7a Vi\u1EC7n nguy\xEAn c\u1EE9u v\xE0 v\xF4 hi\u1EC7u
-      h\xF3a con AI"
+    text: "Sau khi kh\xF4i ph\u1EE5c ngu\u1ED3n \u0111i\u1EC7n v\xE0 c\xF3 m\xE3
+      x\xE1c th\u1EF1c, h\xE3y ti\u1EBFn th\u1EB3ng \u0111\u1EBFn ph\xF2ng Gi\xE1m
+      \u0111\u1ED1c \u0111\u1EC3 l\u1EA5y th\u1EBB quy\u1EC1n truy c\u1EADp c\u1EA5p
+      cao NXC. N\u1EAFm gi\u1EEF th\u1EBB n\xE0y, c\u1EADu s\u1EBD \u0111i xu\u1ED1ng
+      Khu d\u1EEF li\u1EC7u c\u1EE7a Vi\u1EC7n nghi\xEAn c\u1EE9u. M\u1EE5c ti\xEAu
+      c\u1ED1t l\xF5i: v\xF4 hi\u1EC7u h\xF3a ho\xE0n to\xE0n th\u1EF1c th\u1EC3
+      AI."
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 10
   - speaker: "\u0110\u1EA1i \xDAy.  Harsh"
-    text: "\xC0, v\xE0 c\xF3 m\u1ED9t n\u01A1i b\u1EA1n c\xF3 th\u1EC3 h\u1EE9ng
-      th\xFA \u0111\u1EBFn, s\u1EBD c\xF3 m\u1ED9t n\u01A1i c\u1EA5t v\u0169 kh\xED
-      \u1EDF trong c\u0103n c\u1EE9. b\u1EA1n c\xF3 th\u1EC3 \u0111\u1EBFn \u0111\xF3
-      n\u1EBFu nh\u01B0 b\u1EA1n mu\u1ED1n"
+    text: "D\u1EEF li\u1EC7u \u0111\u1ECBnh v\u1ECB b\u1ED5 sung: h\u1EC7 th\u1ED1ng
+      qu\xE9t \u0111\u01B0\u1EE3c m\u1ED9t kho v\u0169 kh\xED n\u1ED9i b\u1ED9 n\u1EB1m
+      trong khu v\u1EF1c t\xE1c chi\u1EBFn. C\u1EADu c\xF3 to\xE0n quy\u1EC1n quy\u1EBFt
+      \u0111\u1ECBnh vi\u1EC7c r\u1EBD h\u01B0\u1EDBng \u0111\u1EC3 b\u1ED5 sung
+      h\u1ECFa l\u1EF1c n\u1EBFu t\xECnh h\xECnh y\xEAu c\u1EA7u."
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 10
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
-    text: "Nhi\u1EC7m v\u1EE5 c\u1EE7a b\u1EA1n \u0111\xE3 \u0111\u01B0\u1EE3c c\u1EADp
-      nh\u1EADt ki\u1EC3m tra thi\u1EBFt b\u1ECB c\u1EE7a b\u1EA1n v\u1EC1 th\xF4ng
-      tin nhi\u1EC7m v\u1EE5, b\u1EA1n \u0111\u01B0\u1EE3c hi\u1EC3n th\u1ECB b\u1EB1ng
-      ch\u1EA5m cam tr\xEAn thi\u1EBFt b\u1ECB\n"
+    text: "Danh s\xE1ch nhi\u1EC7m v\u1EE5 \u0111\xE3 \u0111\u01B0\u1EE3c \u0111\u1ED3ng
+      b\u1ED9. V\u1ECB tr\xED hi\u1EC7n t\u1EA1i c\u1EE7a c\u1EADu \u0111\u01B0\u1EE3c
+      \u0111\xE1nh d\u1EA5u b\u1EB1ng t\u1ECDa \u0111\u1ED9 cam tr\xEAn b\u1EA3n
+      \u0111\u1ED3 chi\u1EBFn thu\u1EADt. B\u1EAFt \u0111\u1EA7u h\xE0nh \u0111\u1ED9ng!"
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 10
-  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
-    text: "Ch\xFAc may m\u1EAFn"
-    portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
-    voiceClip: {fileID: 0}
-    duration: 2
-  fullVoiceClip: {fileID: 8300000, guid: a02a6af25937aed4aa148000c80ee2ff, type: 3}
+  fullVoiceClip: {fileID: 8300000, guid: d75deb0ade3aeed42828cbe14f93a056, type: 3}
   autoPlay: 1
   autoPlayDelay: 5

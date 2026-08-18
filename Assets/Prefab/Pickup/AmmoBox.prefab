@@ -75,7 +75,7 @@ MonoBehaviour:
   bobHeight: 0.15
   bobSpeed: 2
   pickupVFX: {fileID: 0}
-  pickupSFX: {fileID: 0}
+  pickupSFX: {fileID: 8300000, guid: be8bddcd51efe39469f9df64a26e8ad5, type: 3}
   sfxVolume: 1
   respawnDelay: 0
   targetWeaponData: {fileID: 11400000, guid: 4efdf9ba9d9cda949a74ed464eec8c16, type: 2}

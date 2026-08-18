@@ -143,4 +143,28 @@ public class WeaponData : ScriptableObject
     public float casingDestroyTime  = 5f;
 
     #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Impact Decals
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Header("Impact Decals")]
+    [Tooltip("Spawned on world geometry (walls, floors, props) — must have an ImpactDecal component.")]
+    public GameObject worldImpactDecalPrefab;
+    [Tooltip("Spawned on IDamageable hits (enemies) — must have an ImpactDecal component. Falls back to worldImpactDecalPrefab if left empty.")]
+    public GameObject enemyImpactDecalPrefab;
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────
+    #region Impact Particles
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Header("Impact Particles")]
+    [Tooltip("One-shot spark/dust burst spawned on world geometry (not enemies — EnemyImpactVFX already " +
+             "owns the enemy hit burst via EnemyHealth.OnDamaged, so this only fires on non-IDamageable hits).")]
+    public GameObject worldImpactVFXPrefab;
+    public float      worldImpactVFXLifetime = 2f;
+
+    #endregion
 }

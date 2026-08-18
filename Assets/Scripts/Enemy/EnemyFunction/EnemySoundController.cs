@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.AI;
-using System;
 
 [RequireComponent(typeof(EnemyHealth))]
 public class EnemyAudio : MonoBehaviour
@@ -16,9 +15,13 @@ public class EnemyAudio : MonoBehaviour
     [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
     public AudioClip[] SMGClips;
     [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
-    public AudioClip[] ShotgunClips;
-    [Tooltip("Multiple clank variations — one is picked at random per shot so bursts don't sound identical.")]
     public AudioClip[] PistolClips;
+
+    [Header("Riot Shield")]
+    [Tooltip("Played whenever RiotShieldBehaviour absorbs a ranged hit.")]
+    public AudioClip ShieldBlockClip;
+    [Tooltip("Played once when a melee hit destroys the shield.")]
+    public AudioClip ShieldDestroyedClip;
 
     [Header("Shoot Sound Variation")]
     [Tooltip("Random pitch range applied to every gunfire one-shot, on top of clip variation, so even repeats of the same clip don't sound copy-pasted.")]
@@ -43,6 +46,10 @@ public class EnemyAudio : MonoBehaviour
     [Tooltip("Optional — played only if the melee swing actually connects (OnAttackLanded). Leave empty to skip.")]
     public AudioClip MeleeHitClip;
 
+    [Header("Squad")]
+    [Tooltip("Played when this enemy is alerted/enraged by a nearby squadmate dying (EnemyAvengeReaction.OnAvengeTriggered).")]
+    public AudioClip AvengeClip;
+
     [Header("3D Audio — Settings")]
     [Range(0f, 1f)] public float SpatialBlend = 1.0f;
     public float MinDistance = 5f;
@@ -57,11 +64,12 @@ public class EnemyAudio : MonoBehaviour
     private GrenadeBurstBehaviour _burst;
     private SMGAttackBehaviour    _smg;
     private PistolAttackBehaviour _pistol;
-    private NavMeshAgent           _nav; 
-    private SniperAttackBehaviour _sniper; 
+    private NavMeshAgent           _nav;
+    private SniperAttackBehaviour _sniper;
     private MeleeAttackBehaviour  _melee;
-    
-    private Component             _shotgunComponent; 
+    private RiotShieldBehaviour    _shield;
+    private EnemyAvengeReaction    _avenge;
+
     private bool _isAggro;
     private EnemyState _lastState = EnemyState.Idle;
 
@@ -73,9 +81,11 @@ public class EnemyAudio : MonoBehaviour
         _burst  = GetComponent<GrenadeBurstBehaviour>();
         _smg    = GetComponent<SMGAttackBehaviour>();
         _pistol = GetComponent<PistolAttackBehaviour>();
-        _sniper = GetComponent<SniperAttackBehaviour>(); 
-        _nav    = GetComponent<NavMeshAgent>(); 
+        _sniper = GetComponent<SniperAttackBehaviour>();
+        _nav    = GetComponent<NavMeshAgent>();
         _melee  = GetComponent<MeleeAttackBehaviour>();
+        _shield  = GetComponentInChildren<RiotShieldBehaviour>(); // lives on the shield prop, not this root
+        _avenge  = GetComponent<EnemyAvengeReaction>();
 
         _loopSource = gameObject.AddComponent<AudioSource>();
         Configure3D(_loopSource, loop: true);
@@ -93,7 +103,7 @@ public class EnemyAudio : MonoBehaviour
         if (_burst != null)  _burst.OnBurstStarted += PlayBomb;
         if (_smg    != null) _smg.OnSMGFired       += PlaySMG;
         if (_pistol != null) _pistol.OnPistolFired += PlayPistol;
-        if (_sniper != null) _sniper.OnSniperShot  += PlaySniper; 
+        if (_sniper != null) _sniper.OnSniperShot  += PlaySniper;
 
         if (_melee != null)
         {
@@ -101,16 +111,12 @@ public class EnemyAudio : MonoBehaviour
             _melee.OnAttackLanded  += PlayMeleeHit;
         }
 
-        _shotgunComponent = GetComponent("ShotgunAttackBehaviour");
-        if (_shotgunComponent != null)
+        if (_shield != null)
         {
-            var ev = _shotgunComponent.GetType().GetEvent("OnShotgunFired");
-            if (ev != null)
-            {
-                Action handler = PlayShotgun;
-                ev.AddMethod.Invoke(_shotgunComponent, new object[] { handler });
-            }
+            _shield.OnBlocked         += PlayShieldBlock;
+            _shield.OnShieldDestroyed += PlayShieldDestroyed;
         }
+        if (_avenge != null) _avenge.OnAvengeTriggered += PlayAvenge;
     }
 
     private void Update()
@@ -126,7 +132,7 @@ public class EnemyAudio : MonoBehaviour
         if (_burst  != null) _burst.OnBurstStarted -= PlayBomb;
         if (_smg    != null) _smg.OnSMGFired       -= PlaySMG;
         if (_pistol != null) _pistol.OnPistolFired -= PlayPistol;
-        if (_sniper != null) _sniper.OnSniperShot  -= PlaySniper; 
+        if (_sniper != null) _sniper.OnSniperShot  -= PlaySniper;
 
         if (_melee != null)
         {
@@ -134,15 +140,12 @@ public class EnemyAudio : MonoBehaviour
             _melee.OnAttackLanded  -= PlayMeleeHit;
         }
 
-        if (_shotgunComponent != null)
+        if (_shield != null)
         {
-            var ev = _shotgunComponent.GetType().GetEvent("OnShotgunFired");
-            if (ev != null)
-            {
-                Action handler = PlayShotgun;
-                ev.RemoveMethod.Invoke(_shotgunComponent, new object[] { handler });
-            }
+            _shield.OnBlocked         -= PlayShieldBlock;
+            _shield.OnShieldDestroyed -= PlayShieldDestroyed;
         }
+        if (_avenge != null) _avenge.OnAvengeTriggered -= PlayAvenge;
     }
 
     private void HandleWalking()
@@ -199,9 +202,8 @@ public class EnemyAudio : MonoBehaviour
 
     private void PlayBomb() { if (BombClip != null) _oneShotSource.PlayOneShot(BombClip); }
 
-    private void PlaySMG()     => PlayRandomShootClip(SMGClips);
-    private void PlayPistol()  => PlayRandomShootClip(PistolClips);
-    private void PlayShotgun() => PlayRandomShootClip(ShotgunClips);
+    private void PlaySMG()    => PlayRandomShootClip(SMGClips);
+    private void PlayPistol() => PlayRandomShootClip(PistolClips);
 
     /// <summary>Picks a random clip from the array and plays it with a random pitch,
     /// so repeated fire (SMG bursts, shotgun blasts) doesn't sound copy-pasted.</summary>
@@ -224,6 +226,10 @@ public class EnemyAudio : MonoBehaviour
     }
     private void PlayMeleeSwing() { if (MeleeSwingClip != null) _oneShotSource.PlayOneShot(MeleeSwingClip); }
     private void PlayMeleeHit() { if (MeleeHitClip != null) _oneShotSource.PlayOneShot(MeleeHitClip); }
+
+    private void PlayShieldBlock() { if (ShieldBlockClip != null) _oneShotSource.PlayOneShot(ShieldBlockClip); }
+    private void PlayShieldDestroyed() { if (ShieldDestroyedClip != null) _oneShotSource.PlayOneShot(ShieldDestroyedClip); }
+    private void PlayAvenge() { if (AvengeClip != null) _oneShotSource.PlayOneShot(AvengeClip); }
 
     private void PlaySniper() 
     { 
@@ -258,7 +264,7 @@ public class EnemyAudio : MonoBehaviour
         var go = new GameObject($"{gameObject.name}_Death");
         go.transform.position = transform.position;
         var src = go.AddComponent<AudioSource>();
-        src.spatialBlend = 0f;
+        Configure3D(src, loop: false); // was spatialBlend=0f (2D) — blasted at full volume regardless of distance, drowning out everything else
         src.clip = DeathClip;
         src.Play();
 

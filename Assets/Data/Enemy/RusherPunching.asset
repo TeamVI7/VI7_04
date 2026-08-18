@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: RusherPunching
   m_EditorClassIdentifier: Assembly-CSharp::EnemyStatsSO
   EnemyName: Rusher/Punching
+  WeaponAnimType: 2
   MaxHP: 100
   ExecuteHealAmount: 25
   StaggerThreshold: 0.25
@@ -21,13 +22,18 @@ MonoBehaviour:
   DeathImpulseScale: 8
   DeathVFXLifetime: 3
   DropUpwardForce: 4
+  DropChance: 1
   AggroRadius: 15
   RadarRange: 40
-  PatrolSpeed: 5
-  ChaseSpeed: 10
+  PatrolSpeed: 2
+  ChaseSpeed: 5
   PreferredRange: 2
+  MinRange: 3
   PatrolRadius: 12
   WaypointWaitTime: 2.5
+  MovementStyle: 2
+  StrafeRadius: 3
+  StrafeInterval: 1.2
   MaxArmor: 0
   ShieldActivateRange: 10
   LowArmorThreshold: 0.3
@@ -46,6 +52,9 @@ MonoBehaviour:
   MeleeDamage: 10
   MeleeCooldown: 1
   MeleeRange: 2
+  MeleeLungeDistance: 1.5
+  MeleeLungeSpeed: 14
+  MeleeKnockbackForce: 8
   VisibleDuration: 3
   CloakedDuration: 20
   StealthFadeSpeed: 2
@@ -60,8 +69,56 @@ MonoBehaviour:
   ShotgunPelletsPerShot: 6
   ShotgunSpreadAngle: 0.12
   ShotgunFireRate: 2
+  ShotgunTelegraphTime: 0.25
   SMGAttackRange: 20
   SMGDamagePerShot: 2
   SMGFireRate: 0.1
+  SMGTelegraphTime: 0.12
+  PistolAttackRange: 18
+  PistolDamagePerShot: 6
+  PistolFireRate: 0.5
+  PistolTelegraphTime: 0.15
   SniperAttackRange: 40
   SniperFireCooldown: 3.5
+  SniperDamage: 25
+  MinigunAttackRange: 25
+  MinigunDamagePerShot: 4
+  MinigunFireRate: 0.08
+  MinigunSpread: 3
+  MinigunSpinUpTime: 1
+  MinigunSpinDownTime: 0.6
+  MinigunBurstDuration: 4
+  MinigunCooldown: 4
+  MinigunActiveSpeedMultiplier: 0
+  ShieldBlockAngle: 100
+  RangedAimTurnSpeed: 220
+  RangedMaxFireAngle: 12
+  RangedSpread: 2.5
+  HitReactionMaxKickDistance: 0.06
+  HitReactionKickDuration: 0.15
+  HitReactionDamageFractionForMaxKick: 0.35
+  HitReactionMinDamageFraction: 0.01
+  HitReactionFlashDuration: 0.08
+  HitReactionHeadshotRadius: 0.35
+  HitReactionHeadshotFlashDurationMultiplier: 1.75
+  HitReactionStaggerFlashDuration: 0.25
+  HitReactionLimbDismemberFraction: 0.5
+  HitReactionLimbScaleDownDuration: 0.15
+  ImpactVFXLifetime: 2
+  ImpactVFXMinDamageFraction: 0.01
+  TorsoMaxTwistAngle: 12
+  TorsoTwistDuration: 0.18
+  AvengeRadius: 15
+  AvengeSpeedMultiplier: 1.3
+  AvengeDuration: 4
+  DodgeChance: 0.65
+  DodgeCooldown: 2.5
+  DodgeMinTriggerRange: 4
+  DodgeMaxTriggerRange: 30
+  DodgeDistance: 3
+  DodgeSpeed: 9
+  LookHeadWeight: 0.6
+  LookTorsoWeight: 0.25
+  LookMaxYawAngle: 70
+  LookMaxPitchAngle: 35
+  LookTurnSpeed: 8

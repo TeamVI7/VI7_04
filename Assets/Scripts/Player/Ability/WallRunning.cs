@@ -48,7 +48,7 @@ public class WallRunning : MonoBehaviour
 
     [Header("Camera FOV")]
     public float wallRunFov  = 90f;
-    public float normalFov   = 80f;
+    // 'normal' FOV now lives on PlayerCam.baseFov — see PlayerCam.FovLayer.
     public float wallTiltAngle = 5f;
 
     [Header("References")]
@@ -98,6 +98,7 @@ public class WallRunning : MonoBehaviour
 
     private PlayerMovement pm;
     private Rigidbody      rb;
+    private Climbing       _climbing;
 
     private bool       wallSliding;
     private bool       exitingWall;
@@ -120,14 +121,23 @@ public class WallRunning : MonoBehaviour
     #region Unity Lifecycle
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void Start()
+    private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        pm = GetComponent<PlayerMovement>();
+        rb        = GetComponent<Rigidbody>();
+        pm        = GetComponent<PlayerMovement>();
+        _climbing = GetComponent<Climbing>();   // optional — null if the ability isn't present
     }
 
     private void Update()
     {
+        // Reads Input directly, so it needs its own guard — see PlayerActionLock.InputBlocked.
+        if (PlayerActionLock.InputBlocked)
+        {
+            if (pm.wallrunning) StopWallRun();
+            if (wallSliding)    StopWallSlide();
+            return;
+        }
+
         CheckForWall();
         StateMachine();
     }
@@ -136,6 +146,28 @@ public class WallRunning : MonoBehaviour
     {
         if (pm.wallrunning) WallRunningMovement();
         else if (wallSliding) WallSlidingMovement();
+    }
+
+    /// <summary>
+    /// Safety net: the player GameObject is deactivated on death (DeathCamera.Play), which
+    /// would strand pm.wallrunning / pm.wallSliding true. MovePlayer() early-returns on those
+    /// flags, so the player would respawn unable to move at all.
+    /// </summary>
+    private void OnDisable() => ForceStop();
+
+    /// <summary>
+    /// Fully release this system's hold on the player — state flags, camera layers and
+    /// gravity. Called on disable, and by Climbing when a climb takes over from a wall run
+    /// so the handover runs the proper stop path instead of clearing flags behind our back.
+    /// </summary>
+    public void ForceStop()
+    {
+        if (pm == null) return;
+        if (pm.wallrunning) StopWallRun();
+        if (wallSliding)    StopWallSlide();
+
+        exitingWall = false;
+        if (rb != null) rb.useGravity = true; // wall run may have turned it off
     }
 
     #endregion
@@ -219,17 +251,22 @@ public class WallRunning : MonoBehaviour
 
     private void StartWallRun()
     {
-        cam.disableMoveTilt = true;
-        pm.wallrunning      = true;
-        pm.climbing         = false;
-        wallRunTimer        = maxWallRunTime;
-        rb.linearVelocity   = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        // FIX: this used to just write pm.climbing = false. Climbing stores its state IN
+        // that flag, so clearing it behind Climbing's back skipped StopClimbing() — leaving
+        // rb.useGravity off (floaty) and never firing OnClimbEnd (climb audio loop stuck on).
+        // Hand the stop to the owner instead.
+        if (_climbing != null) _climbing.ForceStop();
 
-        cam.DoFov(wallRunFov);
+        pm.wallrunning    = true;
+        wallRunTimer      = maxWallRunTime;
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+        cam.disableMoveTilt = true;
+        cam.SetFov(PlayerCam.FovLayer.WallRun, wallRunFov);
         cam.DoTilt(wallLeft ? -wallTiltAngle : wallTiltAngle);
 
         OnWallRunStart?.Invoke();
-        Log($"Wall run start — {'L' + (wallLeft ? "" : "R")} wall.");
+        Log($"Wall run start — {(wallLeft ? "left" : "right")} wall.");
     }
 
     private void WallRunningMovement()
@@ -259,11 +296,14 @@ public class WallRunning : MonoBehaviour
 
     private void StopWallRun()
     {
-        cam.disableMoveTilt = false;
-        pm.wallrunning      = false;
+        pm.wallrunning = false;
 
-        cam.DoFov(normalFov);
-        cam.DoTilt(0f);
+        if (cam != null) // reachable from OnDisable during teardown
+        {
+            cam.disableMoveTilt = false;
+            cam.ClearFov(PlayerCam.FovLayer.WallRun);
+            cam.DoTilt(0f);
+        }
 
         OnWallRunEnd?.Invoke();
         Log("Wall run end.");
@@ -271,8 +311,8 @@ public class WallRunning : MonoBehaviour
 
     private void StartWallSlide()
     {
-        wallSliding    = true;
-        pm.wallSliding = true;
+        wallSliding = true;
+        pm.SetWallSliding(PlayerMovement.WallSlideSource.WallRun, true);
 
         OnWallSlideStart?.Invoke();
         Log("Wall slide start.");
@@ -291,8 +331,10 @@ public class WallRunning : MonoBehaviour
 
     private void StopWallSlide()
     {
-        wallSliding    = false;
-        pm.wallSliding = false;
+        wallSliding = false;
+        // Releases only THIS system's claim — if Climbing is also wall sliding on a front
+        // wall, pm.wallSliding stays true until it releases too.
+        pm.SetWallSliding(PlayerMovement.WallSlideSource.WallRun, false);
 
         OnWallSlideEnd?.Invoke();
         Log("Wall slide end.");

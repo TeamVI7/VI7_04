@@ -33,7 +33,7 @@ MonoBehaviour:
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 10
-  - speaker: Lt. Harsh
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "n\xEAn h\u1EC7 th\u1ED1ng x\u1EA3 n\u01B0\u1EDBc c\u1EE7a \u0111\u1EADp
       \u0111\xE3 b\u1ECB v\xF4 hi\u1EC7u h\xF3a, b\u1EA1n \u0111\xE3 \u0111\u01B0\u1EE3c
       cung c\u1EA5p b\u1ED9 gi\xE1p EXO b\u1EA1n c\xF3 th\u1EC3 th\u1EED nghi\u1EC7m
@@ -58,6 +58,6 @@ MonoBehaviour:
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
     duration: 1
-  fullVoiceClip: {fileID: 8300000, guid: 9099dc198c83cda44a34f51a5e141af4, type: 3}
+  fullVoiceClip: {fileID: 8300000, guid: fc425c98392fe5b478306ef6ef84b454, type: 3}
   autoPlay: 1
   autoPlayDelay: 5

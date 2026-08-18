@@ -61,6 +61,47 @@ public class EnemySetup : MonoBehaviour
             patrol.StrafeInterval    = Stats.StrafeInterval;
         }
 
+        // Airborne enemies carry FlyingMovement instead of PatrolBehaviour — same
+        // role (patrol + combat positioning), NavMesh-free.
+        if (TryGetComponent(out FlyingMovement flight))
+        {
+            flight.HoverAltitude             = Stats.FlyHoverAltitude;
+            flight.CombatAltitudeAbovePlayer = Stats.FlyCombatAltitudeAbovePlayer;
+            flight.PatrolSpeed               = Stats.FlyPatrolSpeed;
+            flight.ChaseSpeed                = Stats.FlyChaseSpeed;
+            flight.Acceleration              = Stats.FlyAcceleration;
+            flight.Style                     = Stats.FlyStyle;
+            flight.PreferredRange            = Stats.FlyPreferredRange;
+            flight.MinRange                  = Stats.FlyMinRange;
+            flight.OrbitRadius               = Stats.FlyOrbitRadius;
+            flight.OrbitInterval             = Stats.FlyOrbitInterval;
+            flight.PatrolRadius              = Stats.FlyPatrolRadius;
+        }
+
+        if (TryGetComponent(out KamikazeDroneBehaviour drone))
+        {
+            drone.LockRange           = Stats.DroneLockRange;
+            drone.LockTime            = Stats.DroneLockTime;
+            drone.DiveSpeed           = Stats.DroneDiveSpeed;
+            drone.DiveTurnRate        = Stats.DroneDiveTurnRate;
+            drone.MaxDiveTime         = Stats.DroneMaxDiveTime;
+            drone.RecoverTime         = Stats.DroneRecoverTime;
+            drone.ProximityFuseRadius = Stats.DroneProximityFuseRadius;
+            drone.ExplosionRadius     = Stats.DroneExplosionRadius;
+            drone.MaxDamage           = Stats.DroneMaxDamage;
+            drone.MinDamage           = Stats.DroneMinDamage;
+            drone.KnockbackForce      = Stats.DroneKnockbackForce;
+        }
+
+        if (TryGetComponent(out FlyingSniperBehaviour flyingSniper))
+        {
+            flyingSniper.AttackRange  = Stats.FlyingSniperRange;
+            flyingSniper.Damage       = Stats.FlyingSniperDamage;
+            flyingSniper.FireCooldown = Stats.FlyingSniperFireCooldown;
+            flyingSniper.ChargeTime   = Stats.FlyingSniperChargeTime;
+            flyingSniper.LockTime     = Stats.FlyingSniperLockTime;
+        }
+
         if (TryGetComponent(out ShieldBehaviour shield))
         {
             shield.MaxArmor            = Stats.MaxArmor;
@@ -97,6 +138,7 @@ public class EnemySetup : MonoBehaviour
             melee.AttackRange   = Stats.MeleeRange;
             melee.LungeDistance = Stats.MeleeLungeDistance;
             melee.LungeSpeed    = Stats.MeleeLungeSpeed;
+            melee.KnockbackForce = Stats.MeleeKnockbackForce;
         }
 
         if (TryGetComponent(out StealthBehaviour stealth))
@@ -114,17 +156,6 @@ public class EnemySetup : MonoBehaviour
             ragdoll.VelocitySeedScale  = Stats.VelocitySeedScale;
             ragdoll.UpwardKick         = Stats.UpwardKick;
             ragdoll.LifetimeAfterDeath = Stats.RagdollLifetime;
-        }
-
-        if (TryGetComponent(out ShotgunAttackBehaviour shotgun))
-        {
-            shotgun.AttackRange     = Stats.ShotgunAttackRange;
-            shotgun.DamagePerPellet = Stats.ShotgunDamagePerPellet;
-            shotgun.PelletsPerShot  = Stats.ShotgunPelletsPerShot;
-            shotgun.SpreadAngle     = Stats.ShotgunSpreadAngle;
-            shotgun.FireRate        = Stats.ShotgunFireRate;
-            shotgun.TelegraphTime   = Stats.ShotgunTelegraphTime;
-            ApplyRangedAiming(shotgun);
         }
 
         if (TryGetComponent(out SMGAttackBehaviour smg))
@@ -152,6 +183,13 @@ public class EnemySetup : MonoBehaviour
             sniper.Damage        = Stats.SniperDamage;
         }
 
+        // RiotShieldBehaviour lives on the shield prop (a child of the hand bone), not
+        // on this root object, so it needs a child search rather than TryGetComponent.
+        if (GetComponentInChildren<RiotShieldBehaviour>() is RiotShieldBehaviour riotShield)
+        {
+            riotShield.BlockAngle = Stats.ShieldBlockAngle;
+        }
+
         if (TryGetComponent(out EnemyHitReaction hitReaction))
         {
             hitReaction.MaxKickDistance          = Stats.HitReactionMaxKickDistance;
@@ -166,6 +204,23 @@ public class EnemySetup : MonoBehaviour
             hitReaction.LimbScaleDownDuration    = Stats.HitReactionLimbScaleDownDuration;
             hitReaction.MaxTorsoTwistAngle       = Stats.TorsoMaxTwistAngle;
             hitReaction.TorsoTwistDuration       = Stats.TorsoTwistDuration;
+        }
+
+        if (TryGetComponent(out EnemyAvengeReaction avenge))
+        {
+            avenge.AvengeRadius          = Stats.AvengeRadius;
+            avenge.EnrageSpeedMultiplier = Stats.AvengeSpeedMultiplier;
+            avenge.EnrageDuration        = Stats.AvengeDuration;
+        }
+
+        if (TryGetComponent(out EnemyDodgeBehaviour dodge))
+        {
+            dodge.DodgeChance       = Stats.DodgeChance;
+            dodge.DodgeCooldown     = Stats.DodgeCooldown;
+            dodge.MinTriggerRange   = Stats.DodgeMinTriggerRange;
+            dodge.MaxTriggerRange   = Stats.DodgeMaxTriggerRange;
+            dodge.DodgeDistance     = Stats.DodgeDistance;
+            dodge.DodgeSpeed        = Stats.DodgeSpeed;
         }
 
         if (TryGetComponent(out EnemyLookAt lookAt))
@@ -184,8 +239,8 @@ public class EnemySetup : MonoBehaviour
         }
     }
 
-    // Shared aiming/spread push for every EnemyRangedAttackBehaviour subtype — one
-    // place to tune "how well do my ranged enemies aim" across the whole roster.
+    // Shared aiming/spread push for every EnemyRangedAttackBehaviour subtype (SMG,
+    // Pistol) — one place to tune "how well do my ranged enemies aim" across the roster.
     private void ApplyRangedAiming(EnemyRangedAttackBehaviour ranged)
     {
         ranged.AimTurnSpeed = Stats.RangedAimTurnSpeed;

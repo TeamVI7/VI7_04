@@ -72,6 +72,12 @@ public class WeaponHUD : MonoBehaviour
     private void OnEnable()
     {
         PlayerHealth.OnHealthChanged += HandleHealthChanged;
+
+        // PlayerHealth.Awake sets HP but never fires OnHealthChanged, so a purely
+        // event-driven HUD showed the prefab's placeholder numbers until the player
+        // first took damage. Pull the current value on enable, like HealthStaminaHUD does.
+        if (PlayerHealth.Instance != null)
+            HandleHealthChanged(PlayerHealth.Instance.HP, PlayerHealth.Instance.MaxHP);
     }
 
     private void OnDisable()
@@ -157,6 +163,11 @@ public class WeaponHUD : MonoBehaviour
     private void Bind(WeaponsController w)
     {
         if (w == null) return;
+
+        // Every current caller Unbinds first, but double-subscribing OnAmmoChanged would
+        // be silent and permanent — make Bind safe on its own.
+        Unbind();
+
         _tracked = w;
         _tracked.OnAmmoChanged += HandleAmmoChanged;
 
@@ -179,7 +190,10 @@ public class WeaponHUD : MonoBehaviour
         RefreshWeaponImage(weaponSwitcher.weapons.IndexOf(w));
         RefreshAmmo(w.CurrentAmmo, w.ReserveAmmo);
         SetVisible(true);
-        StartCoroutine(Co_LateRefresh());
+
+        // Bind() runs from switch events, which can fire while this HUD is hidden (the
+        // tablet panel deactivates playerUI). StartCoroutine throws on an inactive object.
+        if (isActiveAndEnabled) StartCoroutine(Co_LateRefresh());
     }
     private IEnumerator Co_LateRefresh()
     {

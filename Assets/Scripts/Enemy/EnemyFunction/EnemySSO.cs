@@ -56,7 +56,7 @@ public class EnemyStatsSO : ScriptableObject
 
     [Header("Combat Movement Style")]
     [Tooltip("How this enemy behaves once in combat range. Standoff = old behaviour (walk to PreferredRange, stop). Strafe = holds range but sidesteps. Aggressive = never stops closing.")]
-    public PatrolBehaviour.CombatMovementStyle MovementStyle = PatrolBehaviour.CombatMovementStyle.Standoff;
+    public PatrolBehaviour.CombatMovementStyle MovementStyle = PatrolBehaviour.CombatMovementStyle.Strafe;
     public float StrafeRadius        = 3f;
     public float StrafeInterval      = 1.2f;
 
@@ -89,6 +89,7 @@ public class EnemyStatsSO : ScriptableObject
     public float MeleeRange          = 2f;
     public float MeleeLungeDistance  = 1.5f;
     public float MeleeLungeSpeed     = 14f;
+    public float MeleeKnockbackForce = 8f;
 
     [Header("Stealth")]
     public float VisibleDuration     = 3f;
@@ -102,14 +103,6 @@ public class EnemyStatsSO : ScriptableObject
     public float VelocitySeedScale   = 1.4f;
     public float UpwardKick          = 2f;
     public float RagdollLifetime     = 8f;
-
-    [Header("New Weapons — Shotgun Setup")]
-    public float ShotgunAttackRange  = 15f;
-    public float ShotgunDamagePerPellet = 3f;
-    public int   ShotgunPelletsPerShot  = 6;
-    public float ShotgunSpreadAngle  = 0.12f;
-    public float ShotgunFireRate     = 2f;
-    public float ShotgunTelegraphTime = 0.25f;
 
     [Header("New Weapons — SMG Setup")]
     public float SMGAttackRange      = 20f;
@@ -128,7 +121,44 @@ public class EnemyStatsSO : ScriptableObject
     public float SniperFireCooldown  = 3.5f;
     public float SniperDamage        = 25f;
 
-    [Header("Ranged Aiming (SMG/Shotgun/Pistol)")]
+    [Header("Flying Movement (airborne enemies)")]
+    public float FlyHoverAltitude              = 6f;
+    public float FlyCombatAltitudeAbovePlayer  = 4f;
+    public float FlyPatrolSpeed                = 4f;
+    public float FlyChaseSpeed                 = 9f;
+    public float FlyAcceleration               = 10f;
+    public FlyingMovement.FlightStyle FlyStyle = FlyingMovement.FlightStyle.Orbit;
+    public float FlyPreferredRange             = 18f;
+    public float FlyMinRange                   = 8f;
+    public float FlyOrbitRadius                = 6f;
+    public float FlyOrbitInterval              = 2.5f;
+    public float FlyPatrolRadius               = 15f;
+
+    [Header("Kamikaze Drone")]
+    public float DroneLockRange       = 25f;
+    public float DroneLockTime        = 1.1f;
+    public float DroneDiveSpeed       = 26f;
+    public float DroneDiveTurnRate    = 110f;
+    public float DroneMaxDiveTime     = 3.5f;
+    public float DroneRecoverTime     = 2f;
+    public float DroneProximityFuseRadius = 1.6f;
+    public float DroneExplosionRadius = 5f;
+    public float DroneMaxDamage       = 45f;
+    public float DroneMinDamage       = 12f;
+    public float DroneKnockbackForce  = 12f;
+
+    [Header("Flying Sniper")]
+    public float FlyingSniperRange        = 80f;
+    public float FlyingSniperDamage       = 30f;
+    public float FlyingSniperFireCooldown = 4f;
+    public float FlyingSniperChargeTime   = 1.8f;
+    public float FlyingSniperLockTime     = 0.6f;
+
+    [Header("Riot Shield Setup")]
+    [Tooltip("Fallback block cone used only if damage is delivered without a real raycast (see RiotShieldBehaviour).")]
+    public float ShieldBlockAngle    = 100f;
+
+    [Header("Ranged Aiming (SMG/Pistol)")]
     public float RangedAimTurnSpeed  = 220f;
     public float RangedMaxFireAngle  = 12f;
     public float RangedSpread        = 2.5f;
@@ -154,6 +184,20 @@ public class EnemyStatsSO : ScriptableObject
     [Header("Torso Reaction")]
     public float TorsoMaxTwistAngle = 12f;
     public float TorsoTwistDuration = 0.18f;
+
+    [Header("Squad Avenge")]
+    public float AvengeRadius          = 15f;
+    public float AvengeSpeedMultiplier = 1.3f;
+    public float AvengeDuration        = 4f;
+
+    [Header("Threat Dodge")]
+    [Range(0f, 1f)]
+    public float DodgeChance       = 0.65f;
+    public float DodgeCooldown     = 2.5f;
+    public float DodgeMinTriggerRange = 4f;
+    public float DodgeMaxTriggerRange = 30f;
+    public float DodgeDistance     = 3f;
+    public float DodgeSpeed        = 9f;
 
     [Header("Look At")]
     [Range(0f, 1f)] public float LookHeadWeight = 0.6f;
