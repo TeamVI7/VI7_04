@@ -97,6 +97,19 @@ public class MissionDescriptionUI : MonoBehaviour
         yield return new WaitForSeconds(fadeOutDuration);
     }
 
+    /// Halts playback and releases every tween this sequence owns. Used by the
+    /// skip path, which must not fall back on DOTween.KillAll — that would also
+    /// kill cleanup tweens belonging to persistent objects in other scenes.
+    public void Stop()
+    {
+        StopAllCoroutines();
+
+        foreach (var tmp in textLines)
+        {
+            if (tmp != null) DOTween.Kill(tmp);
+        }
+    }
+
     IEnumerator TypeBriefingLine(TextMeshProUGUI tmp, BriefingLine line)
     {
         tmp.alpha = 1f;

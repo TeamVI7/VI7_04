@@ -30,25 +30,40 @@ public class MissionTitleUI : MonoBehaviour
     public float glitchDuration = 0.05f;     // seconds per glitch hit
     public float fadeOutDuration = 0.8f;
 
-    void Start()
+    void Awake()
     {
-        // Hide all lines at start
+        // Hide on frame zero. PlaySequence resets these too, but if the GameObject
+        // is left active in the scene the authored placeholder text would otherwise
+        // sit on screen through the whole briefing phase.
         foreach (var t in textLines)
         {
+            if (t == null) continue;
+            t.text = "";
+            t.alpha = 0f;
+        }
+    }
+
+    /// Driven explicitly by CutsceneManager. Previously this ran from Start(),
+    /// which meant it fired at scene load or on activation depending on how the
+    /// GameObject happened to be left in the scene.
+    public IEnumerator PlaySequence()
+    {
+        foreach (var t in textLines)
+        {
+            if (t == null) continue;
             t.text = "";
             t.alpha = 0f;
         }
 
-        StartCoroutine(PlaySequence()); // Runs immediately when GameObject becomes active!
-    }
-
-    IEnumerator PlaySequence()
-    {
         yield return new WaitForSeconds(0.5f);
 
         for (int i = 0; i < entries.Length && i < textLines.Length; i++)
         {
-            StartCoroutine(TypeLine(textLines[i], entries[i]));
+            if (textLines[i] == null) continue;
+
+            // Each line is awaited rather than fire-and-forget, so a long title
+            // can no longer still be typing when the hold timer starts.
+            yield return StartCoroutine(TypeLine(textLines[i], entries[i]));
             yield return new WaitForSeconds(delayBetweenLines);
         }
 
@@ -57,7 +72,22 @@ public class MissionTitleUI : MonoBehaviour
 
         foreach (var t in textLines)
         {
-            t.DOFade(0f, fadeOutDuration);
+            if (t != null) t.DOFade(0f, fadeOutDuration);
+        }
+
+        yield return new WaitForSeconds(fadeOutDuration);
+    }
+
+    /// Halts playback and releases every tween this sequence owns. Used by the
+    /// skip path, which must not fall back on DOTween.KillAll — that would also
+    /// kill cleanup tweens belonging to persistent objects in other scenes.
+    public void Stop()
+    {
+        StopAllCoroutines();
+
+        foreach (var t in textLines)
+        {
+            if (t != null) DOTween.Kill(t);
         }
     }
 
@@ -67,6 +97,9 @@ public class MissionTitleUI : MonoBehaviour
         tmp.alpha = 1f;
 
         string full = entry.text;
+        // Captured so the glitch snaps back to wherever this line actually sits.
+        // Hardcoding x=0 yanked any line that wasn't centre-anchored.
+        Vector2 originalPos = tmp.rectTransform.anchoredPosition;
 
         for (int i = 0; i <= full.Length; i++)
         {
@@ -78,14 +111,13 @@ public class MissionTitleUI : MonoBehaviour
             tmp.text = full.Substring(0, i) + glitchChar;
 
             // Glitch position flicker
-            tmp.rectTransform.anchoredPosition += new Vector2(
+            tmp.rectTransform.anchoredPosition = originalPos + new Vector2(
                 Random.Range(-glitchIntensity, glitchIntensity), 0f);
 
             yield return new WaitForSeconds(entry.typeSpeed);
 
             // Snap back
-            tmp.rectTransform.anchoredPosition = new Vector2(0f,
-                tmp.rectTransform.anchoredPosition.y);
+            tmp.rectTransform.anchoredPosition = originalPos;
         }
 
         tmp.text = full;

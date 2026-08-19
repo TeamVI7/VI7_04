@@ -34,6 +34,7 @@ public class PauseMenuController : MonoBehaviour
 
     [Header("Buttons")]
     public Button resumeButton;
+    public Button restartButton;
     public Button optionsButton;
     public Button optionsBackButton;
     public Button quitToMainMenuButton;
@@ -66,6 +67,7 @@ public class PauseMenuController : MonoBehaviour
         if (pauseCanvas != null) pauseCanvas.SetActive(false);
 
         resumeButton?.onClick.AddListener(Resume);
+        restartButton?.onClick.AddListener(RestartLevel);
         optionsButton?.onClick.AddListener(ShowOptions);
         optionsBackButton?.onClick.AddListener(ShowMain);
         quitToMainMenuButton?.onClick.AddListener(QuitToMainMenu);
@@ -136,6 +138,17 @@ public class PauseMenuController : MonoBehaviour
             playerCam.sensY = value;
         }
         PlayerPrefs.SetFloat(SensitivityPrefKey, value);
+    }
+
+    public void RestartLevel()
+    {
+        IsPaused = false;
+        Time.timeScale = 1f;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible   = false;
+
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public void QuitToMainMenu()

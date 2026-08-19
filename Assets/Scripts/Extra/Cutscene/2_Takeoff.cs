@@ -37,7 +37,6 @@ public class TakeoffCutscene : MonoBehaviour
     public float engineRampUpTime = 2f;     // seconds to reach full volume
 
     private bool _playing = false;
-    private bool _climbing = false;
 
 
     public IEnumerator Play()
@@ -72,6 +71,25 @@ public class TakeoffCutscene : MonoBehaviour
             engineAudio.DOFade(0f, 1f);
 
         cutsceneCamera.gameObject.SetActive(false);
+    }
+
+    /// Halts playback and releases every tween this cutscene owns. Used by the
+    /// skip path, which must not fall back on DOTween.KillAll — that would also
+    /// kill cleanup tweens belonging to persistent objects in other scenes.
+    public void Stop()
+    {
+        _playing = false;
+        StopAllCoroutines();
+
+        if (cutsceneCamera != null) DOTween.Kill(cutsceneCamera);
+        if (plane != null) DOTween.Kill(plane);
+        if (nacelleLeft != null) DOTween.Kill(nacelleLeft);
+        if (nacelleRight != null) DOTween.Kill(nacelleRight);
+        if (engineAudio != null)
+        {
+            DOTween.Kill(engineAudio);
+            engineAudio.Stop();
+        }
     }
 
     IEnumerator MovePlane()
@@ -115,7 +133,6 @@ public class TakeoffCutscene : MonoBehaviour
         }
 
         // Full speed after takeoff done
-        _climbing = true;
         while (_playing)
         {
             plane.position += plane.right * climbSpeed * Time.deltaTime;

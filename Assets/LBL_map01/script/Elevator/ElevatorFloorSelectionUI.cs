@@ -31,6 +31,8 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
         elevator.OnFloorSelectionOpened += HandleOpened;
         elevator.OnFloorSelectionClosed += HandleClosed;
         elevator.OnAccessDenied += HandleAccessDenied;
+        elevator.OnFloorSelected += HandleFloorSelected;
+        elevator.OnArrivedFloor += HandleArrived;
     }
 
     void OnDestroy()
@@ -39,6 +41,22 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
         elevator.OnFloorSelectionOpened -= HandleOpened;
         elevator.OnFloorSelectionClosed -= HandleClosed;
         elevator.OnAccessDenied -= HandleAccessDenied;
+        elevator.OnFloorSelected -= HandleFloorSelected;
+        elevator.OnArrivedFloor -= HandleArrived;
+    }
+
+    void Update()
+    {
+        if (elevator == null || panelRoot == null) return;
+
+        // Panel (và collider của các nút) phải còn bật khi người chơi đang ở trong
+        // cabin, kể cả lúc cửa đã đóng — nếu tắt theo OnFloorSelectionClosed thì
+        // raycast của PlayerElevatorInteractor không còn trúng nút nào nữa.
+        bool shouldShow = elevator.IsPlayerInside()
+                          || elevator.GetState() == ElevatorController.State.WaitingForSelection;
+
+        if (panelRoot.activeSelf != shouldShow)
+            panelRoot.SetActive(shouldShow);
     }
 
     void HandleOpened(int currentFloorIndex)
@@ -49,7 +67,21 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
 
     void HandleClosed()
     {
-        if (panelRoot) panelRoot.SetActive(false);
+        // Chỉ ẩn khi người chơi không ở trong cabin; Update() sẽ quyết định phần còn lại.
+        if (panelRoot && !elevator.IsPlayerInside()) panelRoot.SetActive(false);
+    }
+
+    // Đã chốt tầng: khoá toàn bộ nút cho tới khi cabin tới nơi.
+    void HandleFloorSelected(int floorIndex)
+    {
+        if (floorButtons == null) return;
+        foreach (var btn in floorButtons)
+            if (btn != null) btn.SetSelectable(false);
+    }
+
+    void HandleArrived(int floorIndex)
+    {
+        RefreshButtons(floorIndex);
     }
 
     void HandleAccessDenied(int floorIndex)
@@ -76,7 +108,7 @@ public class ElevatorFloorSelectionUI : MonoBehaviour
             bool isCurrent = (idx == currentFloorIndex);
             bool canAccess = elevator.CanAccessFloor(idx);
 
-            btn.SetSelectable(!isCurrent);
+            btn.SetSelectable(!isCurrent && !elevator.IsBusy);
 
             var lockIcon = btn.transform.Find("LockIcon");
             if (lockIcon) lockIcon.gameObject.SetActive(elevator.floors[idx].isLocked && !canAccess);

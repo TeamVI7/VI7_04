@@ -194,7 +194,13 @@ public class ElevatorController : MonoBehaviour
 
     public bool TrySelectFloor(int floorIndex)
     {
-        if (state != State.WaitingForSelection) return false;
+        // Chấp nhận cả khi cửa đã đóng (Idle) hoặc đang đóng/mở — nếu chỉ nhận ở
+        // WaitingForSelection thì người chơi đứng sẵn trong cabin sẽ bị kẹt: hết giờ
+        // chờ, cửa đóng, state về Idle, và OnTriggerEnter của vùng cận kề không bao
+        // giờ bắn lại để mở cửa.
+        // Đã chốt tầng đích thì khoá cho tới khi tới nơi — nếu không người chơi có
+        // thể bấm 1 rồi -1 liên tục và đổi đích giữa chừng.
+        if (state == State.Moving || hasTarget) return false;
         if (floorIndex < 0 || floorIndex >= floors.Count) return false;
         if (floorIndex == currentFloorIndex) return false;
 
@@ -222,6 +228,9 @@ public class ElevatorController : MonoBehaviour
         if (string.IsNullOrEmpty(floor.requiredCardId)) return true;
         return currentCardHolder != null && currentCardHolder.HasCard(floor.requiredCardId);
     }
+
+    /// Đang trong hành trình (đã chốt tầng đích, cửa đang đóng hoặc cabin đang chạy).
+    public bool IsBusy => state == State.Moving || hasTarget;
 
     public State GetState() => state;
     public int GetCurrentFloorIndex() => currentFloorIndex;

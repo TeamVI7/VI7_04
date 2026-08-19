@@ -40,7 +40,8 @@ public class InFlightCutscene : MonoBehaviour
             DOTween.To(
                 () => _clouds.globalSpeed .value,
                 x => _clouds.globalSpeed .value = x,
-                flightWindSpeed, 2f);  // 2 seconds to ramp up
+                flightWindSpeed, 2f)   // 2 seconds to ramp up
+                .SetTarget(cloudVolume); // tagged so Stop() can kill it by target
 
         if (engineHumAudio != null)
         {
@@ -60,12 +61,35 @@ public class InFlightCutscene : MonoBehaviour
             DOTween.To(
                 () => _clouds.globalSpeed .value,
                 x => _clouds.globalSpeed .value = x,
-                defaultWindSpeed, 2f);
+                defaultWindSpeed, 2f)
+                .SetTarget(cloudVolume);
 
         if (engineHumAudio != null)
             engineHumAudio.DOFade(0f, 1f);
 
         cutsceneCamera.gameObject.SetActive(false);
+    }
+
+    /// Halts playback and releases every tween this cutscene owns. Used by the
+    /// skip path, which must not fall back on DOTween.KillAll — that would also
+    /// kill cleanup tweens belonging to persistent objects in other scenes.
+    public void Stop()
+    {
+        _playing = false;
+        StopAllCoroutines();
+
+        if (cutsceneCamera != null) DOTween.Kill(cutsceneCamera);
+        if (cloudVolume != null) DOTween.Kill(cloudVolume);
+        if (engineHumAudio != null)
+        {
+            DOTween.Kill(engineHumAudio);
+            engineHumAudio.Stop();
+        }
+        if (turbulenceAudio != null) turbulenceAudio.Stop();
+
+        // The wind ramp is killed mid-tween above, so put the clouds back by hand
+        // rather than leaving the next scene running at flight speed.
+        if (_clouds != null) _clouds.globalSpeed.value = defaultWindSpeed;
     }
 
     IEnumerator Turbulence()
