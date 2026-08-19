@@ -11,9 +11,17 @@ public class BoardingCutscene : MonoBehaviour
     public Transform[] waypoints;       // empty GOs along ramp path
     public float moveSpeed = 1.5f;      // meters per second walking speed
 
-    [Header("Head Bob")]
+    [Header("Gait")]
+    [Range(0f, 0.5f)]
+    public float easeFraction = 0.15f;  // portion of the walk spent starting up / stopping
     public float bobHeight = 0.04f;     // meters of vertical sway
     public float bobSpeed = 10f;        // radians per second
+    public float swayScale = 0.6f;      // lateral sway relative to bobHeight
+    public float stepRoll = 0.35f;      // degrees of roll per step
+
+    [Header("Feel")]
+    public CameraHandheld handheld;     // optional drift layer
+    public float fovDrift = -2f;        // degrees of push-in across the walk
 
     [Header("Hatch")]
     public Transform hatch;
@@ -24,13 +32,17 @@ public class BoardingCutscene : MonoBehaviour
     public AudioSource footstepAudio;   // optional footstep loop
     public AudioClip hatchAudio;      // optional hatch close sound
 
+    private Camera _cam;
+    private float _baseFov;
+
     public IEnumerator Play()
     {
         cutsceneCamera.gameObject.SetActive(true);
 
+        CacheCamera();
+
         // Start at first waypoint
-        cutsceneCamera.position = waypoints[0].position;
-        cutsceneCamera.rotation = waypoints[0].rotation;
+        cutsceneCamera.SetPositionAndRotation(waypoints[0].position, waypoints[0].rotation);
 
         if (footstepAudio != null)
         {
@@ -39,41 +51,78 @@ public class BoardingCutscene : MonoBehaviour
         }
 
         // ── WALK UP RAMP ──────────────────────────────────────
-        // Bob phase runs continuously across every leg so the sway never jumps
-        // at a waypoint boundary.
+        // Distance is integrated from a gait envelope rather than driven off a
+        // fixed timer, so the walk can start up and settle without the position
+        // and the bob disagreeing about how fast the character is moving.
+        float[] segmentLengths = new float[Mathf.Max(0, waypoints.Length - 1)];
+        float totalLength = 0f;
+        for (int i = 0; i < segmentLengths.Length; i++)
+        {
+            segmentLengths[i] = Vector3.Distance(waypoints[i].position, waypoints[i + 1].position);
+            totalLength += segmentLengths[i];
+        }
+
+        float travelled = 0f;
         float bobPhase = 0f;
 
-        for (int i = 1; i < waypoints.Length; i++)
+        while (totalLength > 0f && travelled < totalLength)
         {
-            Vector3 startPos = cutsceneCamera.position;
-            Quaternion startRot = cutsceneCamera.rotation;
+            float u = travelled / totalLength;
 
-            float dist = Vector3.Distance(startPos, waypoints[i].position);
-            float duration = Mathf.Max(0.01f, dist / moveSpeed);
-
-            float elapsed = 0f;
-            while (elapsed < duration)
+            // Ease in at the start, ease out at the end, full stride in between.
+            float gait = 1f;
+            if (easeFraction > 0f)
             {
-                elapsed += Time.deltaTime;
-                bobPhase += Time.deltaTime * bobSpeed;
-                float t = Mathf.Clamp01(elapsed / duration);
+                gait = Mathf.Min(
+                    Mathf.SmoothStep(0f, 1f, u / easeFraction),
+                    Mathf.SmoothStep(0f, 1f, (1f - u) / easeFraction));
+            }
+            // Never let the stride reach exactly zero, or the loop cannot finish.
+            gait = Mathf.Clamp(gait, 0.05f, 1f);
 
-                // Travel and bob are composed into a single write. Running them
-                // as two concurrent tweens made them fight over the transform,
-                // and re-seeding the bob from the current Y each leg let it
-                // creep upward across the ramp.
-                Vector3 pos = Vector3.Lerp(startPos, waypoints[i].position, t);
-                pos.y += Mathf.Sin(bobPhase) * bobHeight;
-                cutsceneCamera.position = pos;
+            travelled += moveSpeed * gait * Time.deltaTime;
+            bobPhase += bobSpeed * gait * Time.deltaTime;
 
-                // Rotation settles over the first half of the leg, as before
-                float rotT = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t * 2f));
-                cutsceneCamera.rotation = Quaternion.Slerp(startRot, waypoints[i].rotation, rotT);
+            // Locate the current segment
+            float along = Mathf.Min(travelled, totalLength);
+            int seg = 0;
+            while (seg < segmentLengths.Length - 1 && along > segmentLengths[seg])
+            {
+                along -= segmentLengths[seg];
+                seg++;
+            }
+            float localT = segmentLengths[seg] > 0f ? Mathf.Clamp01(along / segmentLengths[seg]) : 1f;
 
-                yield return null;
+            Vector3 pos = Vector3.Lerp(waypoints[seg].position, waypoints[seg + 1].position, localT);
+            Quaternion rot = Quaternion.Slerp(
+                waypoints[seg].rotation, waypoints[seg + 1].rotation,
+                Mathf.SmoothStep(0f, 1f, localT));
+
+            // Real head bob traces a figure eight: the lateral sway runs at half
+            // the vertical frequency, with a little roll riding along with it.
+            // All of it scales with gait so the sway settles as the walk stops.
+            float bobY = Mathf.Sin(bobPhase) * bobHeight * gait;
+            float swayX = Mathf.Sin(bobPhase * 0.5f) * bobHeight * swayScale * gait;
+            float roll = Mathf.Sin(bobPhase * 0.5f) * stepRoll * gait;
+
+            pos += rot * new Vector3(swayX, bobY, 0f);
+            rot *= Quaternion.Euler(0f, 0f, roll);
+
+            // Handheld drift composed into the same single write
+            if (handheld != null)
+            {
+                handheld.Sample(Time.time);
+                pos += rot * handheld.PositionOffset;
+                rot *= handheld.RotationOffset;
             }
 
-            cutsceneCamera.rotation = waypoints[i].rotation;
+            cutsceneCamera.SetPositionAndRotation(pos, rot);
+
+            // Slow push-in across the approach
+            if (_cam != null)
+                _cam.fieldOfView = _baseFov + fovDrift * Mathf.SmoothStep(0f, 1f, u);
+
+            yield return null;
         }
 
         if (footstepAudio != null) footstepAudio.Stop();
@@ -93,6 +142,7 @@ public class BoardingCutscene : MonoBehaviour
 
         yield return new WaitForSeconds(0.3f);
 
+        RestoreFov();
         cutsceneCamera.gameObject.SetActive(false);
     }
 
@@ -102,6 +152,7 @@ public class BoardingCutscene : MonoBehaviour
     public void Stop()
     {
         StopAllCoroutines();
+        RestoreFov();
 
         if (cutsceneCamera != null) DOTween.Kill(cutsceneCamera);
         if (hatch != null) DOTween.Kill(hatch);
@@ -110,5 +161,18 @@ public class BoardingCutscene : MonoBehaviour
             DOTween.Kill(footstepAudio);
             footstepAudio.Stop();
         }
+    }
+
+    private void CacheCamera()
+    {
+        if (_cam == null && cutsceneCamera != null)
+            _cam = cutsceneCamera.GetComponentInChildren<Camera>(true);
+
+        if (_cam != null && _baseFov <= 0f) _baseFov = _cam.fieldOfView;
+    }
+
+    private void RestoreFov()
+    {
+        if (_cam != null && _baseFov > 0f) _cam.fieldOfView = _baseFov;
     }
 }

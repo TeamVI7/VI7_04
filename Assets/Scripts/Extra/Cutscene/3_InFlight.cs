@@ -16,9 +16,17 @@ public class InFlightCutscene : MonoBehaviour
     private VolumetricClouds _clouds;
 
     [Header("Turbulence")]
-    public float turbulenceStrength = 0.05f;  // meters of shake
-    public float turbulenceDuration = 0.3f;   // seconds per shake hit
-    public float turbulenceInterval = 2f;     // seconds between hits
+    // Seated inside an airframe you barely translate — the cabin pitches and rolls
+    // around you. Angular turbulence reads as flight in a way position shake does not.
+    public Vector3 turbulenceAngles = new Vector3(0.9f, 0.4f, 1.6f); // pitch, yaw, roll degrees
+    public float turbulencePositionShake = 0.01f; // meters, kept token on purpose
+    public float turbulenceFrequency = 9f;   // oscillations per second during a hit
+    public float turbulenceDecay = 2.5f;     // how fast a hit dies away
+    public float turbulenceInterval = 2f;    // seconds between hits
+
+    [Header("Feel")]
+    public CameraHandheld handheld;     // optional drift layer
+    public float fovDrift = 1.5f;       // degrees the lens eases open across the hold
 
     [Header("Timing")]
     public float sceneDuration = 8f;    // seconds total in flight scene
@@ -28,11 +36,23 @@ public class InFlightCutscene : MonoBehaviour
     public AudioSource turbulenceAudio; // optional turbulence hit sound
 
     private bool _playing = false;
+    private Camera _cam;
+    private float _baseFov;
+
+    // Decaying impulse, kicked to 1 by each turbulence hit
+    private float _jolt;
+    private float _joltPhase;
 
     public IEnumerator Play()
     {
         _playing = true;
         cutsceneCamera.gameObject.SetActive(true);
+
+        if (_cam == null) _cam = cutsceneCamera.GetComponentInChildren<Camera>(true);
+        if (_cam != null && _baseFov <= 0f) _baseFov = _cam.fieldOfView;
+
+        Vector3 homePos = cutsceneCamera.position;
+        Quaternion homeRot = cutsceneCamera.rotation;
 
         // Ramp up wind when scene starts
         cloudVolume.profile.TryGet(out _clouds);
@@ -49,10 +69,48 @@ public class InFlightCutscene : MonoBehaviour
             engineHumAudio.Play();
         }
 
-        // Start cloud loop and turbulence
         StartCoroutine(Turbulence());
 
-        yield return new WaitForSeconds(sceneDuration);
+        // ── HOLD ──────────────────────────────────────────────
+        // A single write per frame composing jolt and drift, rather than letting
+        // DOShakePosition own the transform. Keeps the two from fighting and lets
+        // the shake be angular.
+        float elapsed = 0f;
+        while (elapsed < sceneDuration)
+        {
+            elapsed += Time.deltaTime;
+
+            _jolt = Mathf.Max(0f, _jolt - turbulenceDecay * Time.deltaTime);
+            _joltPhase += turbulenceFrequency * Time.deltaTime;
+
+            // Three slightly detuned oscillators so the axes never line up into
+            // an obvious repeating wobble.
+            Vector3 shakeEuler = new Vector3(
+                Mathf.Sin(_joltPhase * 1.00f) * turbulenceAngles.x,
+                Mathf.Sin(_joltPhase * 0.71f) * turbulenceAngles.y,
+                Mathf.Sin(_joltPhase * 1.31f) * turbulenceAngles.z) * _jolt;
+
+            Vector3 pos = homePos;
+            Quaternion rot = homeRot * Quaternion.Euler(shakeEuler);
+
+            pos += rot * new Vector3(
+                Mathf.Sin(_joltPhase * 1.7f), Mathf.Sin(_joltPhase * 2.3f), 0f)
+                * (turbulencePositionShake * _jolt);
+
+            if (handheld != null)
+            {
+                handheld.Sample(Time.time);
+                pos += rot * handheld.PositionOffset;
+                rot *= handheld.RotationOffset;
+            }
+
+            cutsceneCamera.SetPositionAndRotation(pos, rot);
+
+            if (_cam != null && _baseFov > 0f)
+                _cam.fieldOfView = _baseFov + fovDrift * Mathf.SmoothStep(0f, 1f, elapsed / sceneDuration);
+
+            yield return null;
+        }
 
         _playing = false;
 
@@ -67,6 +125,7 @@ public class InFlightCutscene : MonoBehaviour
         if (engineHumAudio != null)
             engineHumAudio.DOFade(0f, 1f);
 
+        RestoreFov();
         cutsceneCamera.gameObject.SetActive(false);
     }
 
@@ -77,6 +136,7 @@ public class InFlightCutscene : MonoBehaviour
     {
         _playing = false;
         StopAllCoroutines();
+        RestoreFov();
 
         if (cutsceneCamera != null) DOTween.Kill(cutsceneCamera);
         if (cloudVolume != null) DOTween.Kill(cloudVolume);
@@ -92,22 +152,26 @@ public class InFlightCutscene : MonoBehaviour
         if (_clouds != null) _clouds.globalSpeed.value = defaultWindSpeed;
     }
 
+    private void RestoreFov()
+    {
+        if (_cam != null && _baseFov > 0f) _cam.fieldOfView = _baseFov;
+    }
+
     IEnumerator Turbulence()
     {
         while (_playing)
         {
-            yield return new WaitForSeconds(turbulenceInterval);
+            // Randomised locally so the serialized interval stays the authored
+            // value instead of being overwritten on the first hit.
+            yield return new WaitForSeconds(Random.Range(turbulenceInterval * 0.75f,
+                                                         turbulenceInterval * 1.75f));
 
             if (!_playing) break;
 
             if (turbulenceAudio != null) turbulenceAudio.Play();
 
-            cutsceneCamera.DOShakePosition(
-                turbulenceDuration, turbulenceStrength, 20)
-                .SetEase(Ease.OutQuad);
-
-            // Random next interval so it feels natural
-            turbulenceInterval = Random.Range(1.5f, 3.5f);
+            // Vary the strength so no two hits land identically
+            _jolt = Mathf.Max(_jolt, Random.Range(0.6f, 1f));
         }
     }
 }
