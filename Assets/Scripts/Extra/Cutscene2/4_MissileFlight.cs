@@ -40,6 +40,9 @@ public class MissileFlightCutscene : MonoBehaviour
     public AudioSource motorAudio;      // sustained rocket motor
     public float motorRampUpTime = 0.8f;// seconds to reach full volume
 
+    [Header("Editor")]
+    public bool drawGizmos = true;
+
     private bool _playing = false;
 
     // 0-1 along the run. Driven by the flight timer rather than by distance to
@@ -142,6 +145,79 @@ public class MissileFlightCutscene : MonoBehaviour
         }
 
         ImpactPoint = missile.position;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos || missile == null || target == null) return;
+
+        Color c = CutsceneGizmos.Shot4;
+
+        Vector3 start = missile.position;
+        Vector3 end = target.position;
+
+        // The run really does start from wherever shot 3's drop left the missile,
+        // so this arc is only truthful if the missile is sitting at its release
+        // position in the editor. Worth knowing while tuning arcHeight.
+        CutsceneGizmos.Arc(start, end, arcHeight, c);
+
+        CutsceneGizmos.Marker(start, 3f, c, "release");
+        CutsceneGizmos.Marker(end, 6f, CutsceneGizmos.Shot5, "target");
+        CutsceneGizmos.Ring(end, 40f, CutsceneGizmos.Shot5 * 0.7f);
+
+        // Straight-line reference against the lofted path — arcHeight only reads
+        // as a loft relative to the distance it spans.
+        Gizmos.color = c * 0.3f;
+        Gizmos.DrawLine(start, end);
+
+        float range = Vector3.Distance(start, end);
+        CutsceneGizmos.Label(Vector3.Lerp(start, end, 0.5f) + Vector3.down * 10f,
+                             "range " + CutsceneGizmos.Metres(range) +
+                             "   loft " + CutsceneGizmos.Metres(arcHeight) +
+                             "   " + flightDuration.ToString("0.#") + "s" +
+                             "   (" + (range / Mathf.Max(0.01f, flightDuration)).ToString("0") + " m/s)",
+                             c);
+
+        // Apex, since arcHeight is added on top of the interpolated line rather
+        // than being an absolute altitude — the peak is not at arcHeight.
+        Vector3 apex = CutsceneGizmos.ArcPoint(start, end, arcHeight, 0.5f);
+        CutsceneGizmos.Marker(apex, 4f, c * 0.8f, "apex  y=" + apex.y.ToString("0"));
+
+        // ── CHASE CAMERA ──────────────────────────────────────
+        // Sampled poses along the run: the offset is applied in the missile's
+        // frame, so on a steep arc the camera ends up somewhere quite unlike
+        // "behind and above" read off the inspector numbers.
+        float[] at = { 0.15f, 0.5f, 0.85f };
+        foreach (float t in at)
+        {
+            Vector3 p = CutsceneGizmos.ArcPoint(start, end, arcHeight, t);
+            Vector3 ahead = CutsceneGizmos.ArcPoint(start, end, arcHeight, Mathf.Min(1f, t + 0.02f));
+            Vector3 heading = ahead - p;
+            if (heading.sqrMagnitude < 0.0001f) continue;
+
+            Quaternion rot = Quaternion.LookRotation(heading);
+
+            // Terminal offset blends in over the dive, so the last sample is
+            // drawn from that offset instead of the cruise one.
+            Vector3 offset = Vector3.Lerp(chaseOffset, terminalOffset, t * t);
+            Vector3 camPos = p + rot * offset;
+
+            CutsceneGizmos.CameraPose(camPos, Quaternion.LookRotation(p - camPos), c * 0.85f,
+                                      "chase " + (t * 100f).ToString("0") + "%", 4f);
+            Gizmos.color = c * 0.35f;
+            Gizmos.DrawLine(camPos, p);
+        }
+
+        // Where the shot actually ends — short of the target on purpose, so the
+        // last frame still has the missile in the air.
+        float cutT = Mathf.Clamp01((flightDuration - cutBeforeImpact) / Mathf.Max(0.01f, flightDuration));
+        Vector3 cut = CutsceneGizmos.ArcPoint(start, end, arcHeight, cutT);
+        CutsceneGizmos.Marker(cut, 4f, CutsceneGizmos.Handoff,
+                              "cut  >  ImpactPoint handed to shot 5");
     }
 
     IEnumerator ChaseCamera()

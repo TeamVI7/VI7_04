@@ -43,6 +43,11 @@ public class ExtractionCutscene : MonoBehaviour
     public AudioClip hatchClip;         // hatch slam
     public float engineRampUpTime = 2f; // seconds to reach full volume
 
+    [Header("Editor")]
+    // All five shots sit on one GameObject, so selecting the manager draws all
+    // five at once — mute the ones not being tuned.
+    public bool drawGizmos = true;
+
     private bool _playing = false;
 
     public IEnumerator Play()
@@ -226,5 +231,91 @@ public class ExtractionCutscene : MonoBehaviour
                 3f * Time.deltaTime);
             yield return null;
         }
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos) return;
+
+        Color c = CutsceneGizmos.Shot1;
+
+        // ── BOARD PATH ────────────────────────────────────────
+        // Waypoint ROTATION is used, not just position — the camera adopts each
+        // one's pose — so they draw as camera frustums rather than dots. A
+        // waypoint left at identity rotation is the most common authoring
+        // mistake here and this is what makes it visible.
+        if (waypoints != null && waypoints.Length > 0)
+        {
+            var pts = new System.Collections.Generic.List<Vector3>();
+
+            for (int i = 0; i < waypoints.Length; i++)
+            {
+                if (waypoints[i] == null) continue;
+                pts.Add(waypoints[i].position);
+
+                // Leg duration is distance / moveSpeed, so the seconds each leg
+                // eats are a property of the spacing — printed per waypoint
+                // because that is the only way to feel the pacing before play.
+                string label = "wp " + i;
+                if (i > 0 && waypoints[i - 1] != null)
+                {
+                    float legTime = Vector3.Distance(waypoints[i - 1].position,
+                                                     waypoints[i].position)
+                                    / Mathf.Max(0.01f, moveSpeed);
+                    label += "  (" + legTime.ToString("0.0") + "s)";
+                }
+
+                CutsceneGizmos.CameraPose(waypoints[i].position, waypoints[i].rotation,
+                                          i == 0 ? c : c * 0.85f, label, 0.7f);
+            }
+
+            CutsceneGizmos.Path(pts.ToArray(), c * 0.7f, 0f);
+        }
+
+        // ── LIFT OFF ──────────────────────────────────────────
+        // Sampled from the same easing LiftOff uses: climb smoothsteps out,
+        // forward run eases in as t squared.
+        if (dropship != null)
+        {
+            Vector3 start = dropship.position;
+            Vector3 fwd = dropship.forward;
+
+            const int samples = 32;
+            Vector3 prev = start;
+            for (int i = 1; i <= samples; i++)
+            {
+                float t = i / (float)samples;
+                Vector3 next = start
+                    + Vector3.up * (liftHeight * Mathf.SmoothStep(0f, 1f, t))
+                    + fwd * (liftForward * t * t);
+
+                Gizmos.color = c;
+                Gizmos.DrawLine(prev, next);
+                prev = next;
+            }
+
+            CutsceneGizmos.Marker(start, 1.5f, c, "dropship");
+            CutsceneGizmos.Marker(prev, 3f, CutsceneGizmos.Handoff,
+                                  "end of climb  (+" + CutsceneGizmos.Metres(liftHeight) +
+                                  " up, " + CutsceneGizmos.Metres(liftForward) + " out)");
+
+            // The whole point of the shot: what the camera is looking at from up
+            // there once it swings back.
+            if (lookBackAnchor != null)
+            {
+                CutsceneGizmos.Marker(lookBackAnchor.position, 2f, c, "look-back anchor");
+                CutsceneGizmos.SightLine(prev, lookBackAnchor.position, c * 0.8f, "look back");
+            }
+        }
+        else if (lookBackAnchor != null)
+        {
+            CutsceneGizmos.Marker(lookBackAnchor.position, 2f, c, "look-back anchor");
+        }
+
+        if (hatch != null) CutsceneGizmos.Marker(hatch.position, 0.6f, c * 0.8f, "hatch pivot");
     }
 }

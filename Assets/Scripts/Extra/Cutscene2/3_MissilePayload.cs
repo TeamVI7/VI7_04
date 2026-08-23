@@ -43,6 +43,9 @@ public class MissilePayloadCutscene : MonoBehaviour
     public AudioClip clampClip;         // hardpoint release clunk
     public AudioClip ignitionClip;      // motor light-off
 
+    [Header("Editor")]
+    public bool drawGizmos = true;
+
     private bool _playing = false;
     private Transform _cameraOriginalParent;
 
@@ -164,6 +167,78 @@ public class MissilePayloadCutscene : MonoBehaviour
             }
 
             yield return null;
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos) return;
+
+        Color c = CutsceneGizmos.Shot3;
+
+        // ── DOLLY ─────────────────────────────────────────────
+        // Only localPosition/localRotation are read, and they are applied to a
+        // camera parented to the bomber. Anything not parented under the bomber
+        // therefore lands somewhere else entirely at runtime — flagged rather
+        // than drawn wrong, because a correct-looking gizmo on a misparented
+        // empty is worse than none.
+        bool startOk = dollyStart != null && bomber != null && dollyStart.IsChildOf(bomber);
+        bool endOk   = dollyEnd   != null && bomber != null && dollyEnd.IsChildOf(bomber);
+
+        if (dollyStart != null)
+            CutsceneGizmos.CameraPose(dollyStart, startOk ? c : Color.red,
+                                      startOk ? "dolly start (tail)"
+                                              : "dolly start NOT under bomber", 0.8f);
+        if (dollyEnd != null)
+            CutsceneGizmos.CameraPose(dollyEnd, endOk ? c : Color.red,
+                                      endOk ? "dolly end (nose)"
+                                            : "dolly end NOT under bomber", 0.8f);
+
+        if (dollyStart != null && dollyEnd != null)
+            CutsceneGizmos.SightLine(dollyStart.position, dollyEnd.position, c,
+                                     "push " + dollyDuration.ToString("0.#") + "s");
+
+        if (bomber != null) CutsceneGizmos.Marker(bomber.position, 2f, c * 0.7f, "bomber");
+        if (pylon  != null) CutsceneGizmos.Marker(pylon.position, 0.5f, c * 0.8f, "pylon pivot");
+
+        // ── DROP ──────────────────────────────────────────────
+        if (missile != null)
+        {
+            // The fall is authored in the parent's frame, so "down" is the
+            // parent's down, not the world's — on a banked wing those differ.
+            Vector3 down = missile.parent != null
+                ? missile.parent.TransformDirection(Vector3.down)
+                : Vector3.down;
+
+            Vector3 from = missile.position;
+            Vector3 to = from + down * dropDistance;
+
+            // t squared, matching Drop(): slow off the rail, then away fast.
+            const int samples = 20;
+            Vector3 prev = from;
+            for (int i = 1; i <= samples; i++)
+            {
+                float t = i / (float)samples;
+                Vector3 next = from + down * (dropDistance * t * t);
+                Gizmos.color = c;
+                Gizmos.DrawLine(prev, next);
+                prev = next;
+
+                // Where the booster lights, partway through the fall.
+                if (i == Mathf.RoundToInt(ignitionAt * samples))
+                    CutsceneGizmos.Marker(next, 1f, CutsceneGizmos.Shot4, "ignition");
+            }
+
+            bool parented = missile.parent != null;
+            CutsceneGizmos.Marker(from, 1f, parented ? c : Color.red,
+                                  parented ? "missile" : "missile has NO parent");
+            CutsceneGizmos.Marker(to, 2f, CutsceneGizmos.Handoff,
+                                  "released  (" + CutsceneGizmos.Metres(dropDistance) +
+                                  ")  >  shot 4 starts here");
         }
     }
 }

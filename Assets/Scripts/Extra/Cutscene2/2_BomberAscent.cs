@@ -35,6 +35,9 @@ public class BomberAscentCutscene : MonoBehaviour
     public AudioSource engineAudio;     // bomber pass — expects a doppler-ish clip
     public float engineRampUpTime = 1.5f; // seconds to reach full volume
 
+    [Header("Editor")]
+    public bool drawGizmos = true;
+
     private bool _playing = false;
 
     public IEnumerator Play()
@@ -137,5 +140,64 @@ public class BomberAscentCutscene : MonoBehaviour
 
             yield return null;
         }
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos || cutsceneCamera == null) return;
+
+        Color c = CutsceneGizmos.Shot2;
+
+        CutsceneGizmos.CameraPose(cutsceneCamera, c, "shot 2 camera", 2f);
+
+        // The bomber is NOT authored where it sits in the scene — Play() teleports
+        // it to startOffset in camera space and aims it down the camera's forward.
+        // Drawing the real spawn is the only way to tell whether the offset puts
+        // it behind and below the camera, which is what makes it enter frame from
+        // underneath rather than pop in already overhead.
+        Vector3 spawn = cutsceneCamera.position + cutsceneCamera.TransformVector(startOffset);
+        CutsceneGizmos.Marker(spawn, 4f, c, "bomber spawn (from startOffset)");
+        CutsceneGizmos.SightLine(cutsceneCamera.position, spawn, c * 0.7f, "entry");
+
+        // ── CLIMB ─────────────────────────────────────────────
+        // Integrated with the same rule FlyOut uses: pitch smoothsteps in over
+        // pitchUpDuration while the nose drives the travel, so the path curves
+        // instead of running straight out at the final angle.
+        float heading = Quaternion.LookRotation(cutsceneCamera.forward).eulerAngles.y;
+        float bankStart = pitchUpDuration * 0.5f;
+
+        const int samples = 40;
+        float dt = Mathf.Max(0.01f, sceneDuration) / samples;
+        Vector3 pos = spawn;
+        Vector3 prev = pos;
+
+        for (int i = 1; i <= samples; i++)
+        {
+            float elapsed = i * dt;
+            float pitchT = Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01(elapsed / Mathf.Max(0.01f, pitchUpDuration)));
+            float bankT = Mathf.SmoothStep(0f, 1f,
+                Mathf.Clamp01((elapsed - bankStart) / Mathf.Max(0.01f, bankDuration)));
+
+            Quaternion rot = Quaternion.Euler(-climbAngle * pitchT, heading, bankAngle * bankT);
+            pos += rot * Vector3.forward * climbSpeed * dt;
+
+            Gizmos.color = c;
+            Gizmos.DrawLine(prev, pos);
+            prev = pos;
+
+            // A pose partway up, where the bomber is roughly at its closest read.
+            if (i == samples / 3)
+                CutsceneGizmos.CameraPose(pos, rot, c * 0.8f, null, 3f);
+        }
+
+        CutsceneGizmos.Marker(pos, 6f, CutsceneGizmos.Handoff,
+                              "exit after " + sceneDuration.ToString("0.#") + "s  (" +
+                              CutsceneGizmos.Metres(Vector3.Distance(cutsceneCamera.position, pos)) +
+                              " out)");
     }
 }

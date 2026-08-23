@@ -48,6 +48,9 @@ public class NukeDetonationCutscene : MonoBehaviour
     public AudioClip explosionClip;     // Hovl → Sounds/Nuclear Explosion.wav
     public AudioClip shockwaveClip;     // Hovl → Sounds/Nuclear Shockwave.wav
 
+    [Header("Editor")]
+    public bool drawGizmos = true;
+
     private bool _playing = false;
     private GameObject _spawnedNuke;
     private bool _shaking = false;
@@ -213,5 +216,55 @@ public class NukeDetonationCutscene : MonoBehaviour
             }
             flashLight.intensity = 0f;
         }
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos) return;
+
+        Color c = CutsceneGizmos.Shot5;
+
+        // Only the fallback is drawable in the editor — the real ground zero is
+        // whatever shot 4 hands over at runtime. Worth keeping detonationPoint
+        // roughly where shot 4's target sits so this preview stays honest.
+        if (detonationPoint != null)
+        {
+            CutsceneGizmos.Marker(detonationPoint.position, 8f, c, "ground zero (fallback)");
+            CutsceneGizmos.Ring(detonationPoint.position, 60f * nukeScale, c * 0.7f);
+            CutsceneGizmos.Ring(detonationPoint.position, 150f * nukeScale, c * 0.4f,
+                                "blast scale x" + nukeScale.ToString("0.##"));
+        }
+
+        if (cameraAnchor == null) return;
+
+        CutsceneGizmos.CameraPose(cameraAnchor, c, "watch from here", 6f);
+
+        // ── SLOW PUSH ─────────────────────────────────────────
+        Vector3 pushed = cameraAnchor.position + cameraAnchor.forward * slowPushDistance;
+        CutsceneGizmos.Arrow(cameraAnchor.position, pushed, c * 0.8f,
+                             "push " + CutsceneGizmos.Metres(slowPushDistance) +
+                             " over " + pushDuration.ToString("0.#") + "s");
+
+        if (detonationPoint == null) return;
+
+        // The distance that decides whether the shot reads as a nuke or as a
+        // grenade. Also the one the shockwaveDelay is standing in for — a delay
+        // authored against a viewing distance it no longer matches is the thing
+        // that quietly breaks this shot.
+        float dist = Vector3.Distance(cameraAnchor.position, detonationPoint.position);
+        CutsceneGizmos.SightLine(cameraAnchor.position, detonationPoint.position, c, "standoff");
+
+        CutsceneGizmos.Label(
+            Vector3.Lerp(cameraAnchor.position, detonationPoint.position, 0.35f) + Vector3.up * 25f,
+            "shockwave arrives " + shockwaveDelay.ToString("0.#") + "s after flash" +
+            "   (" + (dist / Mathf.Max(0.01f, shockwaveDelay)).ToString("0") + " m/s implied)",
+            c * 0.85f);
+
+        if (flashLight != null)
+            CutsceneGizmos.Marker(flashLight.transform.position, 3f, c * 0.7f, "flash light");
     }
 }
