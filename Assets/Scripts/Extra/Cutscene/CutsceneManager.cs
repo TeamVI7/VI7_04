@@ -6,9 +6,17 @@ using System.Collections;
 
 public class CutsceneManager : MonoBehaviour
 {
-    [Header("Phase 1: Briefing Sequences (Runs First)")]
-    public MissionDescriptionUI missionDescription; 
-    public MissionTitleUI missionTitle;             
+    [Header("Phase 0: Introduction Camera")]
+    // Optional. Leave empty and the briefing types over black exactly as before.
+    public IntroCutscene intro;
+    // On: the shot runs underneath the briefing text and holds until it finishes.
+    // Off: the shot plays alone, then the screen cuts back to black for the text.
+    public bool briefingOverIntro = true;
+    public float introFadeInDuration = 1.5f;
+
+    [Header("Phase 1: Briefing Sequences")]
+    public MissionDescriptionUI missionDescription;
+    public MissionTitleUI missionTitle;
 
     [Header("Phase 2: Cinematic Cutscenes")]
     public BoardingCutscene boarding;
@@ -100,6 +108,7 @@ public class CutsceneManager : MonoBehaviour
         foreach (var listener in allListeners)
         {
             if (listener == null) continue;
+            if (IsUnder(listener, intro != null ? intro.cutsceneCamera : null)) continue;
             if (IsUnder(listener, boarding != null ? boarding.cutsceneCamera : null)) continue;
             if (IsUnder(listener, takeoff != null ? takeoff.cutsceneCamera : null)) continue;
             if (IsUnder(listener, inFlight != null ? inFlight.cutsceneCamera : null)) continue;
@@ -149,7 +158,9 @@ public class CutsceneManager : MonoBehaviour
 
     IEnumerator PlayMasterSequence()
     {
-        // Force all 3D cutscene cameras OFF while the text is running
+        // Force all 3D cutscene cameras OFF while the text is running. The intro
+        // camera turns itself back on below if one is assigned.
+        if (intro != null && intro.cutsceneCamera != null) intro.cutsceneCamera.gameObject.SetActive(false);
         if (boarding != null && boarding.cutsceneCamera != null) boarding.cutsceneCamera.gameObject.SetActive(false);
         if (takeoff != null && takeoff.cutsceneCamera != null) takeoff.cutsceneCamera.gameObject.SetActive(false);
         if (inFlight != null && inFlight.cutsceneCamera != null) inFlight.cutsceneCamera.gameObject.SetActive(false);
@@ -157,6 +168,28 @@ public class CutsceneManager : MonoBehaviour
         // BoardingCamera ships active in the scene, so its listener is live from
         // frame zero alongside the briefing one. Hand the briefing phase its own.
         UseListenerFor(null);
+
+        // ── STEP 0: INTRODUCTION SHOT ──────────────────────────────
+        // Started rather than awaited: the shot holds on its final framing, so the
+        // briefing sets the pace instead of the camera move having to be timed to it.
+        if (intro != null)
+        {
+            UseListenerFor(intro.cutsceneCamera);
+            intro.Begin();
+            yield return StartCoroutine(FadeIn(introFadeInDuration));
+
+            if (!briefingOverIntro)
+            {
+                // Standalone establishing shot: play it out, then cut back to black
+                // and hand the briefing its own listener again.
+                yield return StartCoroutine(intro.WaitForMove());
+
+                SetFadeInstant(true);
+                intro.End();
+                UseListenerFor(null);
+                yield return null;
+            }
+        }
 
         // ── STEP 1: RUN THE MISSION DESCRIPTION ────────────────────
         if (missionDescription != null)
@@ -175,7 +208,12 @@ public class CutsceneManager : MonoBehaviour
 
         // ── STEP 3: HARD CUT TO BLACK & START CINEMATICS ───────────
         SetFadeInstant(true);
-        yield return null; 
+
+        // Retired under the black, so the swap to the boarding camera is never
+        // visible. No-op if the shot already ended in the standalone branch.
+        if (intro != null) intro.End();
+
+        yield return null;
 
         // ── BOARDING START (Music keeps playing) ───────────────────
         if (boarding != null)
@@ -260,6 +298,7 @@ public class CutsceneManager : MonoBehaviour
         // takeoff AudioSource and relies on a DOFade(...).OnComplete(Destroy) to clean
         // it up — killing that tween strands the AudioSource across the scene load,
         // looping at full volume with nothing alive to destroy it.
+        if (intro != null) intro.Stop();
         if (missionDescription != null) missionDescription.Stop();
         if (missionTitle != null) missionTitle.Stop();
         if (boarding != null) boarding.Stop();
@@ -297,7 +336,7 @@ public class CutsceneManager : MonoBehaviour
         }
 
         // Handoff to loading scene
-        if (LoadingScreenController.Instance != null)
+        if (LoadingScreenController.Instance != null && rappelTransition != null)
             LoadingScreenController.Instance.BeginLoad(rappelTransition.BuildSteps());
         else
             SceneManager.LoadScene(rappelSceneName);

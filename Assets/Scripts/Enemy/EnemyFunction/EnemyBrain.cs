@@ -120,8 +120,23 @@ public class EnemyBrain : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Vector3 center = Application.isPlaying ? _spawnPos : transform.position;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(center, RadarRange);
+        // Both rings hang off the spawn point at runtime — that's the anchor the
+        // radar actually measures from, and it drifts away from the body once the
+        // enemy starts moving, which is exactly what you want to see.
+        Vector3 anchor = Application.isPlaying ? _spawnPos : transform.position;
+        Vector3 center = EnemyGizmos.Ground(anchor);
+
+        // Radar: solid outer ring, coloured by whether the brain is aggroed now.
+        Color radar = Application.isPlaying
+            ? (State == EnemyState.Aggro ? EnemyGizmos.Fail : EnemyGizmos.Radar)
+            : EnemyGizmos.Radar;
+        EnemyGizmos.GroundRing(center, RadarRange, radar, $"radar {RadarRange:0.#}m", 0f);
+
+        // Aggro: dashed, because it's a soft boundary — inside it the player is
+        // seen regardless of line of sight.
+        EnemyGizmos.GroundRing(center, AggroRadius, radar * 0.7f,
+                               $"aggro {AggroRadius:0.#}m", 15f, dashed: true);
+
+        if (Application.isPlaying) EnemyGizmos.DropLine(transform.position, center, radar * 0.6f);
     }
 }

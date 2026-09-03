@@ -222,7 +222,7 @@ public class SniperAttackBehaviour : MonoBehaviour, IEnemyAimController
         if (Physics.Raycast(origin, fireDir, out RaycastHit hit, AttackRange))
         {
             if (hit.collider.CompareTag("Player"))
-                PlayerHealth.Instance?.TakeDamage(Damage);
+                PlayerHealth.Instance?.TakeDamage(Damage, origin);
 
             SpawnHitVFX(hit.point, hit.normal);
         }
@@ -273,7 +273,8 @@ public class SniperAttackBehaviour : MonoBehaviour, IEnemyAimController
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, AttackRange);
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundRing(center, AttackRange, EnemyGizmos.Sniper,
+                               $"snipe {AttackRange:0.#}m", 250f);
     }
 }

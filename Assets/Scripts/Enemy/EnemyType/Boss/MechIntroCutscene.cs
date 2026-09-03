@@ -92,9 +92,18 @@ public class MechIntroCutscene : MonoBehaviour
     private const string TimeScaleTweenId = "MechIntroTimeScale";
 
     private MechBossBrain _brain;
+    private GameObject _letterboxCanvas;
     private RectTransform _barTop, _barBottom;
     private bool _tracking;
     private bool _cutBackStarted;
+
+    // The impact shake is kept as an offset applied in LateUpdate rather than as a
+    // DOShakePosition on the camera transform. Both the shake and the reveal's
+    // push-in drive the same transform, and whichever tween DOTween evaluates last
+    // wins the frame — the push-in is created second, so it silently swallowed the
+    // shake entirely. Layering an offset on top composes instead of competing.
+    private Vector3 _shakeOffset;
+    private Vector3 _appliedShake;
 
     // OnIntroComplete is a *gameplay* signal — the boss brain fires it the
     // instant landing settles, which is a fixed, short window. The reveal
@@ -125,14 +134,59 @@ public class MechIntroCutscene : MonoBehaviour
         StartCoroutine(Co_Direct());
     }
 
-    private void Update()
+    // LateUpdate, so this runs after DOTween has written the push-in's position for
+    // the frame: aim from where the camera actually ended up, then add the shake.
+    private void LateUpdate()
     {
-        if (!_tracking || cutsceneCamera == null) return;
-        // IntroFocus, not visualRoot — with a drop stand-in the real mech is
-        // invisible and stationary on the ground, so tracking it would leave the
-        // camera staring at nothing while the drop happens above.
-        Transform target = lookTarget != null ? lookTarget : _brain.IntroFocus;
-        if (target != null) cutsceneCamera.transform.LookAt(target);
+        if (cutsceneCamera == null) return;
+
+        Transform cam = cutsceneCamera.transform;
+
+        // Undo last frame's offset first. While the push-in tween is running it
+        // rewrites the position anyway, but once it finishes the offset would
+        // otherwise accumulate and walk the camera away.
+        if (_appliedShake != Vector3.zero)
+        {
+            cam.position -= _appliedShake;
+            _appliedShake = Vector3.zero;
+        }
+
+        if (_tracking)
+        {
+            // IntroFocus, not visualRoot — with a drop stand-in the real mech is
+            // invisible and stationary on the ground, so tracking it would leave the
+            // camera staring at nothing while the drop happens above.
+            Transform target = lookTarget != null ? lookTarget : _brain.IntroFocus;
+            if (target != null) cam.LookAt(target);
+        }
+
+        if (_shakeOffset != Vector3.zero)
+        {
+            cam.position += _shakeOffset;
+            _appliedShake = _shakeOffset;
+        }
+    }
+
+    /// <summary>Last line of defence for the global state this component touches.
+    /// The slow-mo tween, the watchdog and both restore paths all live on this
+    /// GameObject — if the boss is destroyed mid-intro they die with it, and the
+    /// player is left running at 30% speed for the rest of the session.</summary>
+    private void OnDestroy()
+    {
+        DOTween.Kill(TimeScaleTweenId);
+        if (!_cutBackStarted) Time.timeScale = 1f;
+
+        _pushInTween?.Kill();
+
+        if (_brain != null)
+        {
+            _brain.OnIntroImpact -= HandleImpact;
+            _brain.OnIntroComplete -= HandleIntroComplete;
+        }
+
+        // Built in Awake and parented to nothing, so it outlives the boss unless
+        // it's cleaned up here — one orphaned canvas per boss spawn otherwise.
+        if (_letterboxCanvas != null) Destroy(_letterboxCanvas);
     }
 
     #endregion
@@ -220,9 +274,13 @@ public class MechIntroCutscene : MonoBehaviour
             .SetUpdate(true)
             .SetId(TimeScaleTweenId);
 
-        cutsceneCamera.transform
-            .DOShakePosition(impactShakeDuration, impactShakeStrength, impactShakeVibrato)
-            .SetUpdate(true);
+        // Shakes a plain offset, not the transform — see _shakeOffset. Unscaled so
+        // the landing still hits hard while the clock is ramping back up.
+        DOTween.Shake(() => _shakeOffset, v => _shakeOffset = v,
+                      impactShakeDuration, impactShakeStrength, impactShakeVibrato,
+                      90f, false, true)
+               .SetUpdate(true)
+               .OnKill(() => _shakeOffset = Vector3.zero);
 
         StartCoroutine(Co_Reveal());
     }
@@ -329,6 +387,7 @@ public class MechIntroCutscene : MonoBehaviour
     private void BuildLetterbox()
     {
         GameObject canvasGO = new GameObject("MechCutsceneLetterbox", typeof(Canvas), typeof(CanvasScaler));
+        _letterboxCanvas = canvasGO;
         Canvas canvas = canvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
@@ -356,14 +415,18 @@ public class MechIntroCutscene : MonoBehaviour
         return rt;
     }
 
+    // Null-guarded: useLetterbox can be switched on at runtime after Awake already
+    // decided not to build the bars.
     private void ShowLetterbox()
     {
+        if (_barTop == null || _barBottom == null) return;
         _barTop.DOAnchorPosY(0f, letterboxTweenDuration).SetEase(Ease.OutQuad);
         _barBottom.DOAnchorPosY(0f, letterboxTweenDuration).SetEase(Ease.OutQuad);
     }
 
     private void HideLetterbox()
     {
+        if (_barTop == null || _barBottom == null) return;
         _barTop.DOAnchorPosY(letterboxHeight, letterboxTweenDuration).SetEase(Ease.InQuad);
         _barBottom.DOAnchorPosY(-letterboxHeight, letterboxTweenDuration).SetEase(Ease.InQuad);
     }

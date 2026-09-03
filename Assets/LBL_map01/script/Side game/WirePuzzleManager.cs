@@ -106,14 +106,20 @@ public class WirePuzzleManager : MonoBehaviour
         public Color  color;
     }
 
-    private readonly Dictionary<string, Color>     _colorMap    = new();
-    private readonly Dictionary<string, Transform> _activeLines = new();
+    private readonly Dictionary<string, Color> _colorMap = new();
+
+    // Danh sách phẳng, KHÔNG key theo wireId: nếu 2 điểm nguồn lỡ trùng wireId thì
+    // dictionary cũ sẽ ghi đè và bỏ rơi Transform của sợi trước (không bao giờ Destroy).
+    private readonly List<Transform> _activeLines = new();
+
+    // Đếm theo wireId DUY NHẤT cho khớp với cách _totalWires được tính, nếu không
+    // 2 nguồn trùng id sẽ đẩy số đếm vượt lên và puzzle hoàn thành sớm.
+    private readonly HashSet<string> _connectedWireIds = new();
 
     private WireConnectionPoint _dragSource;
     private Transform           _previewLine;
 
     private int  _totalWires;
-    private int  _connectedCount;
     private bool _completed;
 
     private Coroutine _revealCoroutine;
@@ -147,7 +153,7 @@ public class WirePuzzleManager : MonoBehaviour
             connectionPoints = GetComponentsInChildren<WireConnectionPoint>(true);
 
         foreach (var p in connectionPoints)
-            p.Init(this);
+            if (p != null) p.Init(this);
 
         var seenIds = new HashSet<string>();
         _totalWires = 0;
@@ -387,14 +393,14 @@ public class WirePuzzleManager : MonoBehaviour
                  GetLocalPos(target.RectTransform),
                  _colorMap.GetValueOrDefault(source.wireId, Color.white));
 
-        _activeLines[source.wireId] = _previewLine;
-        _previewLine = null; 
+        _activeLines.Add(_previewLine);
+        _previewLine = null;
 
-        _connectedCount++;
+        _connectedWireIds.Add(source.wireId);
 
         PlaySfx(sfxConnectCorrect);
 
-        if (_connectedCount >= _totalWires)
+        if (_connectedWireIds.Count >= _totalWires)
             CompletePuzzle();
     }
 
@@ -412,11 +418,11 @@ public class WirePuzzleManager : MonoBehaviour
 
     public void ResetPuzzle()
     {
-        _completed      = false;
-        _connectedCount = 0;
-        _dragSource     = null;
+        _completed  = false;
+        _dragSource = null;
+        _connectedWireIds.Clear();
 
-        foreach (var line in _activeLines.Values)
+        foreach (var line in _activeLines)
             if (line != null) Destroy(line.gameObject);
         _activeLines.Clear();
 

@@ -339,13 +339,12 @@ public class PatrolBehaviour : MonoBehaviour, IEnemyAimController
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, PreferredRange);
-        if (MinRange > 0f)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, MinRange);
-        }
+        // The standoff band: inside MinRange it backs off, outside PreferredRange
+        // it closes in. Drawn as one annulus so the corridor it wants to sit in is
+        // visible rather than implied by two unrelated circles.
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundBand(center, MinRange, PreferredRange, EnemyGizmos.Patrol,
+                               $"standoff {MinRange:0.#}–{PreferredRange:0.#}m", 30f);
     }
 #endif
 }

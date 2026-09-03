@@ -28,7 +28,7 @@ MonoBehaviour:
       m\u1ED9t chu k\u1EF3 tu\u1EA7n ho\xE0n."
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
-    duration: 3
+    duration: 7
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "Ti\u1EBFp theo, h\xE3y ki\u1EC3m tra thi\u1EBFt b\u1ECB \u0111\u1EA7u
       cu\u1ED1i \u1EDF b\xEAn ph\u1EA3i. Tr\u1EA1m m\xE1y t\xEDnh n\xE0y \u0111ang
@@ -36,7 +36,7 @@ MonoBehaviour:
       m\u1EADt m\xE3 \u0111\u1EC3 c\u1EA5p quy\u1EC1n truy c\u1EADp. "
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
-    duration: 10
+    duration: 7
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "D\u1EEF li\u1EC7u t\u1EEB b\u1ED1n \u0111\xE8n t\xEDn hi\u1EC7u kia ch\xEDnh
       l\xE0 m\xE3 kh\xF3a m\xE0 b\u1EA1n c\u1EA7n tr\xEDch xu\u1EA5t.\n\u0110\u1EC3
@@ -44,7 +44,7 @@ MonoBehaviour:
       t\u1EA1i. "
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
-    duration: 10
+    duration: 7
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "T\xECm m\u1ED9t t\u1EADp t\xE0i li\u1EC7u \u0111\u01B0\u1EE3c d\xE1n nh\xE3n
       'H\u01B0\u1EDBng d\u1EABn v\u1EADn h\xE0nh t\xEAn l\u1EEDa'. \u0110\xF3 ch\u1EC9
@@ -53,14 +53,14 @@ MonoBehaviour:
       Morse ti\xEAu chu\u1EA9n. "
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
-    duration: 10
+    duration: 5
   - speaker: "\u0110\u1EA1i \xDAy. Harsh"
     text: "H\xE3y thu th\u1EADp b\u1EA3ng m\xE3, d\u1ECBch chu\u1ED7i t\xEDn hi\u1EC7u
       \u0111\xE8n, nh\u1EADp th\xF4ng tin v\xE0o thi\u1EBFt b\u1ECB \u0111\u1EA7u
       cu\u1ED1i v\xE0 ti\u1EBFp t\u1EE5c nhi\u1EC7m v\u1EE5. H\u1EBFt. "
     portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
     voiceClip: {fileID: 0}
-    duration: 10
+    duration: 4
   fullVoiceClip: {fileID: 8300000, guid: 821848e325c46334980d747cb7cb751e, type: 3}
   autoPlay: 1
   autoPlayDelay: 5

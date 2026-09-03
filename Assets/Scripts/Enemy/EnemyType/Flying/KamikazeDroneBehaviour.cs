@@ -57,13 +57,19 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
     public GameObject WarningLight;
     public float WarningBlinkStartInterval = 0.25f;
     public float WarningBlinkEndInterval = 0.05f;
-    [Tooltip("Looping siren played from lock-on until detonation. Pitch ramps up through the dive.")]
-    public AudioSource SirenSource;
-    public float SirenMaxPitch = 1.6f;
 
+    // Audio lives in EnemyAudio, which drives the siren off these events and
+    // ThreatIntensity — the behaviour never owns an AudioSource itself.
     public event Action OnLockStarted;
     public event Action OnDiveStarted;
+    public event Action OnDiveAborted;
     public event Action OnDetonated;
+
+    /// <summary>
+    /// 0 while idle, ramping 0 → 0.5 across the lock telegraph and 0.5 → 1 as the
+    /// dive reaches full speed. EnemyAudio maps this onto siren pitch/volume.
+    /// </summary>
+    public float ThreatIntensity { get; private set; }
 
     // ── IEnemyAimController — outranks everything; a committed dive owns facing.
     public int AimPriority => 30;
@@ -149,13 +155,7 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
         _phase = Phase.Locking;
         _phaseTimer = LockTime;
         _blinkTimer = 0f;
-
-        if (SirenSource != null)
-        {
-            SirenSource.loop = true;
-            SirenSource.pitch = 1f;
-            SirenSource.Play();
-        }
+        ThreatIntensity = 0f;
 
         OnLockStarted?.Invoke();
     }
@@ -169,6 +169,7 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
         // Blink accelerates as the dive approaches — the readable "it's about to go" cue.
         float t = 1f - Mathf.Clamp01(_phaseTimer / Mathf.Max(LockTime, 0.01f));
         float interval = Mathf.Lerp(WarningBlinkStartInterval, WarningBlinkEndInterval, t);
+        ThreatIntensity = t * 0.5f;
 
         _blinkTimer -= dt;
         if (_blinkTimer <= 0f)
@@ -215,8 +216,7 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
 
         Vector3 step = _diveDirection * (_diveSpeed * dt);
 
-        if (SirenSource != null)
-            SirenSource.pitch = Mathf.Lerp(1f, SirenMaxPitch, Mathf.Clamp01(_diveSpeed / Mathf.Max(DiveSpeed, 0.01f)));
+        ThreatIntensity = 0.5f + 0.5f * Mathf.Clamp01(_diveSpeed / Mathf.Max(DiveSpeed, 0.01f));
 
         // Sweep the frame's movement instead of trusting a trigger — at dive speed
         // a discrete overlap test tunnels straight through walls and the player.
@@ -260,8 +260,10 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
         _flight.Reposition();
 
         _diveSpeed = 0f;
+        ThreatIntensity = 0f;
         SetWarningLight(false);
-        if (SirenSource != null) SirenSource.Stop();
+
+        OnDiveAborted?.Invoke();
     }
 
     // ── Detonation ──────────────────────────────────────────────────────────
@@ -271,15 +273,13 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
         _detonated = true;
 
         _flight.MovementOverrideActive = false;
+        ThreatIntensity = 0f;
         SetWarningLight(false);
-        if (SirenSource != null) SirenSource.Stop();
 
         Vector3 center = transform.position;
 
         if (ExplosionVFXPrefab != null)
             Destroy(Instantiate(ExplosionVFXPrefab, center, Quaternion.identity), ExplosionVFXLifetime);
-
-        SoundManager.Instance?.PlaySFX(SFXType.Bomb, center);
 
         ApplyExplosionDamage(center);
 
@@ -301,7 +301,7 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
         if (dist > ExplosionRadius) return;
 
         float t = Mathf.Clamp01(dist / Mathf.Max(ExplosionRadius, 0.01f));
-        PlayerHealth.Instance?.TakeDamage(Mathf.Lerp(MaxDamage, MinDamage, t));
+        PlayerHealth.Instance?.TakeDamage(Mathf.Lerp(MaxDamage, MinDamage, t), center);
 
         if (KnockbackForce > 0f && PlayerHealth.Transform.TryGetComponent(out Rigidbody rb))
         {
@@ -352,9 +352,19 @@ public class KamikazeDroneBehaviour : MonoBehaviour, IEnemyAimController
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(1f, 0.4f, 0f);
-        Gizmos.DrawWireSphere(transform.position, LockRange);
-        Gizmos.color = Color.red;
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+
+        // Lock-on reach: flat, dashed, it's a detection boundary not a hitbox.
+        EnemyGizmos.GroundRing(center, LockRange, EnemyGizmos.Ranged,
+                               $"lock {LockRange:0.#}m", 160f, dashed: true);
+        EnemyGizmos.DropLine(transform.position, center, EnemyGizmos.Ranged);
+
+        // The blast is genuinely spherical and centred on the drone, so it stays a
+        // sphere — but it also gets its footprint drawn on the same plane as every
+        // other ring, which is what makes it comparable to them.
+        Gizmos.color = EnemyGizmos.Blast;
         Gizmos.DrawWireSphere(transform.position, ExplosionRadius);
+        EnemyGizmos.GroundRing(center, ExplosionRadius, EnemyGizmos.Blast,
+                               $"blast {ExplosionRadius:0.#}m", 340f);
     }
 }

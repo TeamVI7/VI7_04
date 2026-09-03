@@ -170,6 +170,10 @@ public class RiotShieldBehaviour : MonoBehaviour, IDamageable, IMeleeDamageable,
     }
 
     // ── ISliceable ────────────────────────────────────────────────────────────────
+
+    /// <summary>The shield hands over its real MeshTarget, whose vertices are in that
+    /// object's own local space — so the cutter's normal scale correction applies.</summary>
+    public bool SliceTargetsAreWorldSpace => false;
     // The swing hits this object's block collider, which is usually a plain box that
     // isn't the visible mesh — so the cutter asks us which mesh to actually cut.
 

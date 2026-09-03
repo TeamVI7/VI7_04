@@ -31,19 +31,21 @@ public class SceneTransitionConfig : ScriptableObject
     public string sceneLoadLabel    = "MOUNTING SECTOR DATA";
     public string shaderWarmupLabel = "WARMING RENDER CACHE";
 
-    [Header("Hold To Confirm")]
-    [Tooltip("If true, once loading hits 100% the player must hold the " +
-             "confirm key/button before the scene actually activates — " +
-             "instead of auto-continuing. Leave off for normal transitions; " +
-             "turn on only for the specific scenes that need it.")]
-    public bool requireHoldToConfirm = false;
-
     /// <summary>Builds the ordered ILoadingStep list for this transition.</summary>
-    public System.Collections.Generic.List<ILoadingStep> BuildSteps()
+    /// <param name="sceneLoadLabelOverride">
+    /// Replaces <see cref="sceneLoadLabel"/> for this one load. Lets a caller
+    /// reuse a scene's config — crucially its shaderCollections — while still
+    /// showing its own status text (e.g. a save restore reading
+    /// "RESTORING OPERATIVE STATE" instead of "MOUNTING SECTOR DATA").
+    /// Pass null to keep the configured label.
+    /// </param>
+    public System.Collections.Generic.List<ILoadingStep> BuildSteps(string sceneLoadLabelOverride = null)
     {
+        string label = string.IsNullOrEmpty(sceneLoadLabelOverride) ? sceneLoadLabel : sceneLoadLabelOverride;
+
         var steps = new System.Collections.Generic.List<ILoadingStep>
         {
-            new SceneLoadStep(targetSceneName, sceneLoadWeight, sceneLoadLabel)
+            new SceneLoadStep(targetSceneName, sceneLoadWeight, label)
         };
 
         if (shaderCollections != null && shaderCollections.Length > 0 && shaderWarmupWeight > 0f)

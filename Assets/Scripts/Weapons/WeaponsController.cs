@@ -228,6 +228,9 @@ public class WeaponsController : MonoBehaviour
     #region Private State
     // ─────────────────────────────────────────────────────────────────────────
 
+    // Set once RestoreAmmo has written this weapon's state, so a later first-activation
+    // Awake cannot reset it. See InitAmmo.
+    private bool  _ammoRestored;
     private int   _currentAmmoInClip;
     private int   _ammoInReserve;
     private bool  _roundInChamber;
@@ -329,6 +332,12 @@ public class WeaponsController : MonoBehaviour
 
     private void InitAmmo()
     {
+        // A weapon slot that starts inactive does not run Awake until something activates
+        // it — which for a locked weapon is the moment it is unlocked. If a save already
+        // wrote this weapon's ammo, that deferred Awake would arrive afterwards and hand
+        // back a full magazine, quietly undoing the restore.
+        if (_ammoRestored) return;
+
         _currentAmmoInClip = weaponData.clipSize;
         _ammoInReserve     = weaponData.reservedAmmoCapacity;
         _roundInChamber    = true;
@@ -1047,6 +1056,37 @@ public class WeaponsController : MonoBehaviour
         NotifyAmmoChanged();
         Log($"Reserve ammo +{_ammoInReserve - before} -> {_ammoInReserve}/{weaponData.reservedAmmoCapacity}");
         return true;
+    }
+
+    /// <summary>
+    /// Overwrites the ammo state wholesale — the restore half of a checkpoint rewind or
+    /// a save load. Unlike <see cref="AddReserveAmmo"/> this can take ammo away, which is
+    /// the point: rewinding to a checkpoint has to undo the shots fired since.
+    ///
+    /// Runs ForceIdle first. A weapon caught mid-reload when the player died still has
+    /// Co_Reload queued to write its own clip value on completion, and that write would
+    /// land on top of the restored one a fraction of a second later.
+    /// </summary>
+    public void RestoreAmmo(int clip, int reserve, bool chambered)
+    {
+        ForceIdle();
+
+        int clipCap    = weaponData != null ? weaponData.clipSize : clip;
+        int reserveCap = weaponData != null ? weaponData.reservedAmmoCapacity : reserve;
+
+        _ammoRestored      = true;
+        _currentAmmoInClip = Mathf.Clamp(clip, 0, clipCap);
+        _ammoInReserve     = Mathf.Clamp(reserve, 0, reserveCap);
+
+        // A chambered round with an empty clip is a real, reachable state (last shot
+        // fired from the mag, bolt still holding one), so this is stored rather than derived.
+        _roundInChamber = chambered;
+        _canShoot       = true;
+
+        SetState(_currentAmmoInClip > 0 || _roundInChamber ? WeaponState.Idle : WeaponState.Empty);
+        NotifyAmmoChanged();
+
+        Log($"Ammo restored. Clip={_currentAmmoInClip}/{clipCap}  Reserve={_ammoInReserve}  Chambered={_roundInChamber}");
     }
 
     /// <summary>

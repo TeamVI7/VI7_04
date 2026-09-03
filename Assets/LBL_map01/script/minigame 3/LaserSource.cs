@@ -34,9 +34,23 @@ public class LaserSource : MonoBehaviour
         CastLaser();
     }
 
+    void OnDisable()
+    {
+        // Nhả cảm biến ra khi nguồn tắt, nếu không nó sẽ giữ nguyên trạng thái "đang bị
+        // chiếu" và tiếp tục đếm giờ dù không còn tia laser nào.
+        if (currentSensor != null)
+        {
+            currentSensor.SetHit(false);
+            currentSensor = null;
+        }
+
+        if (hitEffect != null) hitEffect.SetActive(false);
+    }
+
     void CastLaser()
     {
         points.Clear();
+        bool effectPlaced = false;
 
         Vector3 currentPos = transform.position;
         Vector3 currentDir = transform.forward;
@@ -60,6 +74,7 @@ public class LaserSource : MonoBehaviour
                 {
                     sensorHitThisFrame = sensor;
                     PlaceHitEffect(hit.point, hit.normal);
+                    effectPlaced = true;
                     stopped = true;
                 }
                 else if (isMirror)
@@ -72,6 +87,7 @@ public class LaserSource : MonoBehaviour
                 {
                     // Trúng tường / vật cản thường -> dừng
                     PlaceHitEffect(hit.point, hit.normal);
+                    effectPlaced = true;
                     stopped = true;
                 }
             }
@@ -82,6 +98,11 @@ public class LaserSource : MonoBehaviour
                 stopped = true;
             }
         }
+
+        // Không trúng gì -> giấu hiệu ứng va chạm đi, nếu không nó sẽ đứng lại ở
+        // điểm va chạm cũ dù tia đã bắn ra khoảng không.
+        if (hitEffect != null && hitEffect.activeSelf != effectPlaced)
+            hitEffect.SetActive(effectPlaced);
 
         // Cập nhật trạng thái cảm biến (bật cảm biến mới, tắt cảm biến cũ nếu không còn trúng)
         if (currentSensor != null && currentSensor != sensorHitThisFrame)

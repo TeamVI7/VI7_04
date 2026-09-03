@@ -140,7 +140,9 @@ public class BossHealthUI : MonoBehaviour
         }
 
         targetHealth.OnDamaged += HandleDamaged;
-        targetHealth.OnDied += _ => HandleDied();
+        // A lambda here can't be unsubscribed — the -= in OnDestroy silently did
+        // nothing, leaving the dead UI on the boss's invocation list.
+        targetHealth.OnDied += HandleDied;
 
         if (bossBrain != null)
         {
@@ -169,7 +171,11 @@ public class BossHealthUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (targetHealth != null) targetHealth.OnDamaged -= HandleDamaged;
+        if (targetHealth != null)
+        {
+            targetHealth.OnDamaged -= HandleDamaged;
+            targetHealth.OnDied -= HandleDied;
+        }
         if (tokenPool != null) tokenPool.OnTokensChanged -= HandleTokensChanged;
 
         if (bossBrain != null)
@@ -219,7 +225,7 @@ public class BossHealthUI : MonoBehaviour
         QueueChipDrain(fraction);
     }
 
-    private void HandleDied()
+    private void HandleDied(Vector3 impulse)
     {
         _immediateFill.fillAmount = 0f;
         _chipTween?.Kill();

@@ -59,13 +59,62 @@ public class ServerMinigameManager : MonoBehaviour
     [Tooltip("Độ sáng emission của trụ sau khi tối đi. Để 0 = tắt hẳn glow.")]
     public float pillarDimEmissionIntensity = 0f;
 
-    [Tooltip("Các đèn báo hiệu (Light) đặt rải rác quanh map, sẽ chớp màu đỏ liên tục sau khi tắt xong toàn bộ server.")]
+    [Tooltip("Các đèn báo hiệu (Light) đặt rải rác quanh map, sẽ chớp màu đỏ liên tục sau khi tắt xong toàn bộ server. " +
+             "CÓ THỂ để GameObject đèn tắt sẵn (SetActive false) trong scene — script sẽ tự bật lên khi cần.")]
     public Light[] redWarningLights;
     public Color warningLightColor = Color.red;
+    [Tooltip("Cường độ sáng ép cho đèn báo lúc chớp. Để <= 0 nếu muốn giữ nguyên intensity đã set sẵn trên đèn.")]
+    public float warningLightIntensity = 6f;
     [Tooltip("Thời gian giữa mỗi lần chớp (giây).")]
     public float warningBlinkInterval = 0.5f;
 
-    private MaterialPropertyBlock _pillarMpb;
+    [Header("Đèn vòng (ring light) trên trụ — đổi màu KHÁC với thân trụ")]
+    [Tooltip("Renderer của cái đèn vòng / vành sáng trên trụ. KHÁC với centerPillarRenderers: thân trụ thì tối đi, " +
+             "còn mấy cái này thì chuyển sang màu báo động và chớp theo đèn đỏ.")]
+    public Renderer[] pillarRingLightRenderers;
+    [Tooltip("Màu của ring light sau khi tắt xong server (lúc chớp SÁNG).")]
+    public Color ringLightOnColor = new Color(1f, 0.05f, 0.05f);
+    [Tooltip("Màu của ring light lúc chớp TỐI (giữa 2 nhịp chớp).")]
+    public Color ringLightOffColor = new Color(0.15f, 0.01f, 0.01f);
+    [Tooltip("Độ sáng emission của ring light lúc chớp SÁNG. Muốn cháy sáng/bloom mạnh thì để 5-15.")]
+    public float ringLightEmissionIntensity = 5f;
+    [Tooltip("Độ sáng emission lúc chớp TỐI. Để 0 = tắt glow hẳn giữa 2 nhịp; để ~0.2 nếu muốn còn âm ỉ đỏ.")]
+    public float ringLightOffEmissionIntensity = 0f;
+    [Tooltip("Bật = ring light chạy/chớp theo đèn đỏ. Tắt = ring light đứng yên ở màu ON.")]
+    public bool ringLightBlinks = true;
+
+    public enum WarningPattern
+    {
+        [Tooltip("Xung sáng CHẠY từ đèn index 0 → đèn cuối rồi quay lại đầu.")]
+        Chase = 0,
+        [Tooltip("Tất cả đèn cùng chớp on/off một lúc (kiểu cũ).")]
+        BlinkAll = 1,
+    }
+
+    [Header("Kiểu báo động")]
+    [Tooltip("Chase = xung sáng chạy lần lượt từ index đầu tới index cuối rồi lặp lại. " +
+             "THỨ TỰ CHẠY = đúng thứ tự bạn kéo đèn vào mảng redWarningLights / pillarRingLightRenderers.")]
+    public WarningPattern warningPattern = WarningPattern.Chase;
+    [Tooltip("Chase: số 'ô đèn' mà cái đuôi xung kéo dài. 1 = chỉ 1 đèn sáng mỗi lúc; " +
+             "2-3 = đèn phía sau còn sáng mờ dần cho mượt.")]
+    public float chaseTrailLength = 1.5f;
+    [Tooltip("Chase: bật = xung sáng mờ dần mượt mà. Tắt = bật/tắt dứt khoát từng đèn.")]
+    public bool chaseSmoothFade = true;
+
+    [Tooltip("Độ sáng TỐI THIỂU (0..1) của đèn báo — đèn KHÔNG BAO GIỜ tắt hẳn, xung chạy chỉ làm nó " +
+             "sáng bùng lên rồi rơi về mức này. Để 0 nếu muốn đèn tắt hẳn ngoài vùng xung.")]
+    [Range(0f, 1f)] public float warningMinLevel = 0.2f;
+    [Tooltip("Bật = đèn báo đỏ chạy xung VĨNH VIỄN: StopWarningLights() sẽ bị BỎ QUA hoàn toàn " +
+             "(MinigameFlowController gọi nó lúc bật lại đèn thường — chính chỗ này làm xung chạy 1 lượt rồi đứng im). " +
+             "Tắt = StopWarningLights() tắt hẳn đèn đỏ như cũ. Muốn tắt bằng tay thì gọi ForceStopWarningLights().")]
+    public bool keepWarningLightsOnForever = true;
+
+    // Đánh dấu báo động ĐANG bật, để tự chạy lại xung nếu GameObject bị tắt/bật lại
+    // (coroutine chết vĩnh viễn khi GameObject disable — đây là lý do thứ hai làm xung chỉ chạy được 1 lượt).
+    private bool _warningActive = false;
+
+    private Material[][] _pillarMats;
+    private Material[][] _ringMats;
     private Coroutine _warningBlinkCoroutine;
 
     [Header("Nổ trần + TẤT CẢ server chui xuống đất (khi tắt xong toàn bộ)")]
@@ -94,6 +143,9 @@ public class ServerMinigameManager : MonoBehaviour
     private bool _solved = false;
     private float[] _originalY;
 
+    /// <summary>True khi chuỗi trồi lên + puzzle đã được kích hoạt (bởi bất kỳ script nào).</summary>
+    public bool IsTriggered => _triggered;
+
     // Danh sách index (trong serverBlocks) theo ĐÚNG thứ tự phải tắt — được random mỗi lần bắt đầu / mỗi lần bấm sai
     private List<int> _shutdownOrder = new List<int>();
     private int _currentStep = 0;
@@ -110,6 +162,7 @@ public class ServerMinigameManager : MonoBehaviour
                 audioSource.playOnAwake = false;
             }
         }
+        if (serverBlocks == null) serverBlocks = new ServerBlock[0];
         _originalY = new float[serverBlocks.Length];
 
         for (int i = 0; i < serverBlocks.Length; i++)
@@ -142,12 +195,23 @@ public class ServerMinigameManager : MonoBehaviour
         noticeText = text;
     }
 
-    public void OnPlayerEnterTrigger()
+    /// <summary>Bắt đầu chuỗi trồi lên + puzzle tắt server.
+    /// Trả về FALSE nếu đã được kích hoạt trước đó (bởi script khác). Script gọi BẮT BUỘC phải
+    /// xử lý trường hợp này: các callback (OnPuzzleInteractionReady / OnCeilingExplosionTriggered /
+    /// OnAllServersShutdown) sẽ KHÔNG bao giờ chạy nữa, nên nếu cứ chờ callback là kẹt cứng.</summary>
+    public bool OnPlayerEnterTrigger()
     {
-        if (_triggered) return;
+        if (_triggered)
+        {
+            Debug.LogWarning("[ServerMinigameManager] OnPlayerEnterTrigger() bị gọi lần thứ hai — bỏ qua. " +
+                             "Chỉ nên có MỘT script sở hữu manager này trong scene.", this);
+            return false;
+        }
+
         _triggered = true;
         StartCoroutine(RiseThenStartPuzzle());
         if (puzzleUI) puzzleUI.SetActive(true);
+        return true;
     }
 
     private IEnumerator RiseThenStartPuzzle()
@@ -211,7 +275,11 @@ public class ServerMinigameManager : MonoBehaviour
 
     public float GetRiseSequenceDuration()
     {
-        int count = serverBlocks != null ? serverBlocks.Length : 0;
+        int count = 0;
+        if (serverBlocks != null)
+            foreach (var b in serverBlocks)
+                if (b != null) count++;
+
         if (count <= 0) return riseDuration;
         return (count - 1) * riseDelay + riseDuration;
     }
@@ -230,8 +298,21 @@ public class ServerMinigameManager : MonoBehaviour
     private void GenerateNewOrder()
     {
         _shutdownOrder.Clear();
+        // Chỉ đưa các slot ĐÃ GÁN vào thứ tự. Nếu để lọt index của 1 slot trống, bước đó sẽ
+        // không hiển thị được tên server và TryShutdownServer không bao giờ khớp được —
+        // puzzle đứng im vĩnh viễn mà không báo gì.
         for (int i = 0; i < serverBlocks.Length; i++)
-            _shutdownOrder.Add(i);
+            if (serverBlocks[i] != null) _shutdownOrder.Add(i);
+
+        if (_shutdownOrder.Count == 0)
+        {
+            Debug.LogError("[ServerMinigameManager] Mảng 'serverBlocks' không có khối hợp lệ nào — " +
+                           "bỏ qua puzzle và chạy thẳng phần kết để không kẹt người chơi.", this);
+            _currentStep = 0;
+            _puzzleActive = false;
+            StartCoroutine(SolveSequence());
+            return;
+        }
 
         // Fisher-Yates shuffle
         for (int i = _shutdownOrder.Count - 1; i > 0; i--)
@@ -379,64 +460,307 @@ public class ServerMinigameManager : MonoBehaviour
     {
         if (centerPillarRenderers == null) return;
 
-        if (_pillarMpb == null) _pillarMpb = new MaterialPropertyBlock();
         Color emissive = pillarDimColor * pillarDimEmissionIntensity;
 
-        foreach (var r in centerPillarRenderers)
-        {
-            if (r == null) continue;
+        foreach (var group in GetMaterials(centerPillarRenderers, ref _pillarMats))
+            foreach (var mat in group)
+                ApplyEmission(mat, pillarDimColor, emissive);
+    }
 
-            r.GetPropertyBlock(_pillarMpb);
-            _pillarMpb.SetColor("_BaseColor", pillarDimColor);
-            _pillarMpb.SetColor("_Color", pillarDimColor);
-            _pillarMpb.SetColor("_EmissionColor", emissive);
-            r.SetPropertyBlock(_pillarMpb);
+    // ===== Emission helpers =====
+    // Ghi thẳng vào MATERIAL chứ không dùng MaterialPropertyBlock: MPB không bật được keyword
+    // _EMISSION, và với nhiều shader thì _EmissionColor set qua MPB bị bỏ qua hoàn toàn
+    // => đèn/trụ không đổi sáng gì cả. Material instance được cache sẵn nên chớp không tạo rác.
+
+    private static readonly int _BaseColorID = Shader.PropertyToID("_BaseColor");
+    private static readonly int _ColorID = Shader.PropertyToID("_Color");
+    private static readonly int _EmissionColorID = Shader.PropertyToID("_EmissionColor");
+
+    private static readonly Material[] _emptyMats = new Material[0];
+
+    /// <summary>Lấy (và cache) material instance của từng renderer, GIỮ NGUYÊN chỉ số của mảng renderer
+    /// (groups[i] = các material của renderers[i]) để hiệu ứng chạy xung địa chỉ được từng đèn một.</summary>
+    private static Material[][] GetMaterials(Renderer[] renderers, ref Material[][] cache)
+    {
+        if (cache != null) return cache;
+
+        int count = renderers != null ? renderers.Length : 0;
+        var groups = new Material[count][];
+
+        for (int i = 0; i < count; i++)
+        {
+            var r = renderers[i];
+            if (r == null) { groups[i] = _emptyMats; continue; }
+
+            // r.materials trả về bản sao riêng của renderer này — chỉnh thoải mái, không đụng asset gốc.
+            var mats = r.materials;
+            var list = new List<Material>(mats.Length);
+            foreach (var m in mats)
+                if (m != null) list.Add(m);
+
+            groups[i] = list.ToArray();
         }
+
+        cache = groups;
+        return cache;
+    }
+
+    private static void ApplyEmission(Material mat, Color baseColor, Color emissive)
+    {
+        if (mat == null) return;
+
+        if (mat.HasProperty(_BaseColorID)) mat.SetColor(_BaseColorID, baseColor);
+        if (mat.HasProperty(_ColorID)) mat.SetColor(_ColorID, baseColor);
+        if (!mat.HasProperty(_EmissionColorID)) return;
+
+        bool wantsGlow = emissive.maxColorComponent > 0f;
+
+        if (wantsGlow)
+        {
+            mat.EnableKeyword("_EMISSION");
+            mat.globalIlluminationFlags &= ~MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+        }
+        else
+        {
+            // Tắt hẳn glow: giữ keyword bật cũng được nhưng cờ GI phải báo "đen" thì bake/realtime GI mới hết sáng.
+            mat.globalIlluminationFlags |= MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+        }
+
+        mat.SetColor(_EmissionColorID, emissive);
     }
 
     /// <summary>Bắt đầu chớp đèn báo đỏ khắp map — gọi khi đã tắt xong toàn bộ server.</summary>
     public void StartWarningLights()
     {
-        if (redWarningLights == null || redWarningLights.Length == 0) return;
+        bool hasLight = false;
+        if (redWarningLights != null)
+        {
+            for (int i = 0; i < redWarningLights.Length; i++)
+            {
+                if (redWarningLights[i] == null)
+                {
+                    Debug.LogWarning($"[ServerMinigameManager] redWarningLights[{i}] đang TRỐNG (null) — " +
+                                     "nhiều khả năng prefab 'warinng light' bị đổi tên thành 'warning light' " +
+                                     "nên tham chiếu trong scene bị đứt. Kéo lại đèn vào slot này.", this);
+                    continue;
+                }
+                hasLight = true;
+
+                // Bật cả GameObject: nếu object cha đang tắt thì dù có set l.enabled = true đèn vẫn KHÔNG sáng.
+                // Đây chính là lý do đèn đỏ "không chạy" khi để sẵn đèn tắt trong scene.
+                if (!redWarningLights[i].gameObject.activeSelf)
+                    redWarningLights[i].gameObject.SetActive(true);
+
+                if (warningLightIntensity > 0f)
+                    redWarningLights[i].intensity = warningLightIntensity;
+            }
+        }
+
+        bool hasRing = HasAnyRingRenderer();
+
+        if (!hasLight && !hasRing)
+        {
+            Debug.LogWarning("[ServerMinigameManager] Không có đèn báo đỏ NÀO hợp lệ trong 'redWarningLights' " +
+                             "và cũng không có 'pillarRingLightRenderers' — bỏ qua hiệu ứng báo động.", this);
+            return;
+        }
+
+        _warningActive = true;
 
         if (_warningBlinkCoroutine != null) StopCoroutine(_warningBlinkCoroutine);
-        _warningBlinkCoroutine = StartCoroutine(BlinkWarningLights());
+        _warningBlinkCoroutine = StartCoroutine(
+            warningPattern == WarningPattern.Chase ? ChaseWarningLights() : BlinkWarningLights());
     }
 
-    /// <summary>Tắt hẳn đèn báo đỏ (VD: gọi lúc bật lại đèn thường ở cuối chuỗi minigame).</summary>
+    private void OnEnable()
+    {
+        // Nếu GameObject này từng bị tắt đi bật lại, coroutine cũ đã chết — chạy lại xung để đèn không đứng im.
+        if (_warningActive && _warningBlinkCoroutine == null)
+            StartWarningLights();
+    }
+
+    private void OnDisable()
+    {
+        // Unity đã tự huỷ coroutine rồi, chỉ xoá handle để OnEnable biết đường chạy lại.
+        _warningBlinkCoroutine = null;
+    }
+
+    /// <summary>Dừng hiệu ứng chạy xung của đèn báo đỏ (VD: gọi lúc bật lại đèn thường ở cuối chuỗi minigame).
+    /// Nếu 'keepWarningLightsOnForever' bật thì đèn KHÔNG tắt — chỉ đứng yên ở mức sáng đầy và cháy vĩnh viễn.</summary>
     public void StopWarningLights()
     {
+        if (keepWarningLightsOnForever)
+        {
+            // Không dừng gì hết: xung phải chạy mãi. Chỉ bảo đảm nó vẫn đang chạy phòng khi bị chết giữa chừng.
+            if (_warningActive && _warningBlinkCoroutine == null) StartWarningLights();
+            return;
+        }
+
+        ForceStopWarningLights();
+    }
+
+    /// <summary>Tắt HẲN đèn báo đỏ, kể cả khi 'keepWarningLightsOnForever' đang bật.</summary>
+    public void ForceStopWarningLights()
+    {
+        _warningActive = false;
+
         if (_warningBlinkCoroutine != null)
         {
             StopCoroutine(_warningBlinkCoroutine);
             _warningBlinkCoroutine = null;
         }
 
-        if (redWarningLights == null) return;
-        foreach (var l in redWarningLights)
-            if (l != null) l.enabled = false;
+        if (redWarningLights != null)
+        {
+            foreach (var l in redWarningLights)
+                if (l != null) l.enabled = false;
+        }
+
+        SetRingLights(false);
+    }
+
+    /// <summary>Xung sáng chạy lần lượt từ index ĐẦU tới index CUỐI rồi lặp lại từ đầu (không tắt hết giữa chừng).
+    /// Mỗi 'warningBlinkInterval' giây thì xung đi được 1 bậc index.</summary>
+    private IEnumerator ChaseWarningLights()
+    {
+        int lightCount = redWarningLights != null ? redWarningLights.Length : 0;
+        int ringCount = pillarRingLightRenderers != null ? pillarRingLightRenderers.Length : 0;
+
+        // Vị trí đầu xung, chạy liên tục theo thời gian: 0 -> 1 -> 2 ... -> (n-1) -> quay lại 0.
+        float lightHead = 0f;
+        float ringHead = 0f;
+        float step = Mathf.Max(0.0001f, warningBlinkInterval);
+        float trail = Mathf.Max(0.01f, chaseTrailLength);
+
+        // Đèn Light phải bật component sẵn, việc sáng/tối do intensity lo — bật/tắt enabled mỗi frame
+        // sẽ làm đèn giật cục và huỷ cả bóng đổ realtime.
+        for (int i = 0; i < lightCount; i++)
+            if (redWarningLights[i] != null) redWarningLights[i].enabled = true;
+
+        // Ring light đứng yên ở màu ON nếu không cho chạy theo — set 1 lần rồi thôi.
+        if (!ringLightBlinks) SetRingLights(true);
+
+        while (true)
+        {
+            float delta = Time.deltaTime / step;
+
+            if (lightCount > 0)
+            {
+                lightHead = Mathf.Repeat(lightHead + delta, lightCount);
+                for (int i = 0; i < lightCount; i++)
+                {
+                    var l = redWarningLights[i];
+                    if (l == null) continue;
+
+                    float level = ChaseLevel(i, lightHead, lightCount, trail);
+                    l.color = warningLightColor;
+                    l.intensity = (warningLightIntensity > 0f ? warningLightIntensity : 1f) * level;
+                }
+            }
+
+            if (ringCount > 0 && ringLightBlinks)
+            {
+                ringHead = Mathf.Repeat(ringHead + delta, ringCount);
+                for (int i = 0; i < ringCount; i++)
+                    SetRingLightLevel(i, ChaseLevel(i, ringHead, ringCount, trail));
+            }
+
+            yield return null;
+        }
+    }
+
+    /// <summary>Độ sáng (0..1) của đèn thứ 'index' khi đầu xung đang ở vị trí 'head'.
+    /// Xung chạy theo chiều index tăng dần, nên đèn nằm NGAY SAU đầu xung là sáng nhất.</summary>
+    private float ChaseLevel(int index, float head, int count, float trail)
+    {
+        // Khoảng cách ngược về phía sau từ đầu xung tới đèn này (bọc vòng quanh mảng).
+        float dist = Mathf.Repeat(head - index, count);
+        if (dist >= trail) return warningMinLevel;
+
+        float level = 1f - (dist / trail);
+        if (chaseSmoothFade) level = Mathf.SmoothStep(0f, 1f, level);
+        else level = 1f;
+
+        // Xung chỉ NÂNG đèn từ mức nền lên tối đa — không bao giờ kéo xuống dưới warningMinLevel.
+        return Mathf.Lerp(warningMinLevel, 1f, level);
     }
 
     private IEnumerator BlinkWarningLights()
     {
         bool on = false;
+
+        // Ring light đứng yên ở màu ON nếu không cho chớp — set 1 lần rồi thôi.
+        if (!ringLightBlinks) SetRingLights(true);
+
         while (true)
         {
             on = !on;
-            foreach (var l in redWarningLights)
+
+            // Nhịp TỐI vẫn giữ đèn sáng ở mức nền 'warningMinLevel' (chỉ tắt hẳn khi mức nền = 0).
+            float level = on ? 1f : warningMinLevel;
+
+            if (redWarningLights != null)
             {
-                if (l == null) continue;
-                l.color = warningLightColor;
-                l.enabled = on;
+                foreach (var l in redWarningLights)
+                {
+                    if (l == null) continue;
+                    l.color = warningLightColor;
+                    l.intensity = (warningLightIntensity > 0f ? warningLightIntensity : 1f) * level;
+                    l.enabled = level > 0f;
+                }
             }
+
+            if (ringLightBlinks)
+            {
+                for (int i = 0; i < (pillarRingLightRenderers?.Length ?? 0); i++)
+                    SetRingLightLevel(i, level);
+            }
+
             yield return new WaitForSeconds(warningBlinkInterval);
         }
+    }
+
+    private bool HasAnyRingRenderer()
+    {
+        if (pillarRingLightRenderers == null) return false;
+        foreach (var r in pillarRingLightRenderers)
+            if (r != null) return true;
+        return false;
+    }
+
+    /// <summary>Đổi màu + emission của đèn vòng trên trụ (khác hẳn thân trụ: thân trụ tối đi, ring light đỏ chớp).</summary>
+    private void SetRingLights(bool on)
+    {
+        if (pillarRingLightRenderers == null) return;
+
+        float level = on ? 1f : 0f;
+        for (int i = 0; i < pillarRingLightRenderers.Length; i++)
+            SetRingLightLevel(i, level);
+    }
+
+    /// <summary>Đặt độ sáng (0 = màu OFF, 1 = màu ON) cho RIÊNG 1 ring light — dùng cho hiệu ứng chạy xung.</summary>
+    private void SetRingLightLevel(int index, float level)
+    {
+        var groups = GetMaterials(pillarRingLightRenderers, ref _ringMats);
+        if (index < 0 || index >= groups.Length) return;
+
+        level = Mathf.Clamp01(level);
+        Color baseColor = Color.Lerp(ringLightOffColor, ringLightOnColor, level);
+        Color emissive = Color.Lerp(
+            ringLightOffColor * ringLightOffEmissionIntensity,
+            ringLightOnColor * ringLightEmissionIntensity,
+            level);
+
+        foreach (var mat in groups[index])
+            ApplyEmission(mat, baseColor, emissive);
     }
 
     private void UpdateProgressUI()
     {
         if (progressText == null) return;
-        int total = serverBlocks != null ? serverBlocks.Length : 6;
+        int total = _shutdownOrder.Count > 0
+            ? _shutdownOrder.Count
+            : (serverBlocks != null ? serverBlocks.Length : 0);
         progressText.text = $"Server đã tắt: {_currentStep} / {total}";
     }
 }

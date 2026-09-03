@@ -15,8 +15,16 @@ public class MissileFlightCutscene : MonoBehaviour
     public Transform missile;
     public Transform target;            // the construction / facility being hit
     public float flightDuration = 7f;   // seconds from release to impact
-    public float arcHeight = 300f;      // meters the trajectory lofts above the straight line
-    public float rollSpeed = 40f;       // degrees per second of body roll
+    public float arcHeight = 300f;      // meters of CRUISE altitude above the straight line
+    public float rollSpeed = 6f;        // degrees per second of body roll
+
+    [Header("Flight Profile")]
+    // Powered flight, not a lob. A symmetric parabola coasts over the top like
+    // an artillery shell, which fights the motor burning and the trail emitting
+    // for the whole run — and leaves the terminal camera swing acting out a dive
+    // the missile never performs.
+    [Range(0.05f, 0.9f)] public float climbFraction = 0.25f; // portion of the run spent climbing to cruise
+    [Range(0.05f, 0.9f)] public float diveFraction = 0.2f;   // portion spent in the terminal dive
 
     [Header("Chase Camera")]
     public Vector3 chaseOffset = new Vector3(0f, 6f, -22f); // meters behind and above
@@ -40,6 +48,9 @@ public class MissileFlightCutscene : MonoBehaviour
     public AudioSource motorAudio;      // sustained rocket motor
     public float motorRampUpTime = 0.8f;// seconds to reach full volume
 
+    [Header("Editor")]
+    public bool drawGizmos = true;
+
     private bool _playing = false;
 
     // 0-1 along the run. Driven by the flight timer rather than by distance to
@@ -56,6 +67,11 @@ public class MissileFlightCutscene : MonoBehaviour
         cutsceneCamera.gameObject.SetActive(true);
 
         if (missile != null) missile.gameObject.SetActive(true);
+        if (missile == null || target == null)
+            Debug.LogWarning("MissileFlightCutscene: missile or target unassigned — the run " +
+                             "will not happen and the detonation gets world origin as its " +
+                             "impact point.", this);
+
         ImpactPoint = target != null ? target.position : Vector3.zero;
 
         if (exhaustTrail != null) exhaustTrail.Play();
@@ -122,9 +138,7 @@ public class MissileFlightCutscene : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / flightDuration);
             _progress = t;
 
-            Vector3 pos = Vector3.Lerp(start, end, t);
-            // Parabola peaking at mid-flight — 4t(1-t) is 0 at both ends, 1 at t=0.5.
-            pos.y += arcHeight * (4f * t * (1f - t));
+            Vector3 pos = PathPoint(start, end, t);
 
             missile.position = pos;
 
@@ -142,6 +156,150 @@ public class MissileFlightCutscene : MonoBehaviour
         }
 
         ImpactPoint = missile.position;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // TRAJECTORY
+    // ───────────────────────────────────────────────────────────────
+
+    /// Altitude profile as a 0-1 multiplier on <see cref="arcHeight"/>: climb off
+    /// the release, hold cruise, then bunt over into a dive that steepens into
+    /// the target. Asymmetric on purpose — the whole point is that the descent
+    /// does not mirror the climb.
+    public float ProfileHeight(float t)
+    {
+        float climb = climbFraction;
+        float dive = diveFraction;
+
+        // A climb and a dive that overlap would fight over the same stretch of
+        // the run. Both are scaled down rather than one being clipped, so the
+        // shape stays recognisable at any pair of values.
+        float total = climb + dive;
+        if (total > 0.98f)
+        {
+            float scale = 0.98f / total;
+            climb *= scale;
+            dive *= scale;
+        }
+
+        // Eased at both ends: the missile rotates into the climb instead of
+        // snapping to it, and levels off instead of cornering at the top.
+        if (t <= climb) return Mathf.SmoothStep(0f, 1f, t / climb);
+
+        float diveStart = 1f - dive;
+        if (t < diveStart) return 1f;
+
+        // Flat where it leaves cruise, accelerating down from there. The nose
+        // follows the path, so the dive angle steepens on its own as the shot
+        // runs out — no separate pitch authoring needed.
+        float u = (t - diveStart) / dive;
+        return 1f - u * u;
+    }
+
+    /// World point on the run at normalised time t. The runtime flight and the
+    /// scene-view gizmo both go through here, so the drawn path is the flown one.
+    public Vector3 PathPoint(Vector3 start, Vector3 end, float t)
+    {
+        Vector3 p = Vector3.Lerp(start, end, t);
+        p.y += arcHeight * ProfileHeight(t);
+        return p;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // EDITOR
+    // ───────────────────────────────────────────────────────────────
+
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawGizmos || missile == null || target == null) return;
+
+        Color c = CutsceneGizmos.Shot4;
+
+        Vector3 start = missile.position;
+        Vector3 end = target.position;
+
+        // The run really does start from wherever shot 3's drop left the missile,
+        // so this path is only truthful if the missile is sitting at its release
+        // position in the editor. Worth knowing while tuning arcHeight.
+        // Sampled through PathPoint, so what is drawn is what gets flown.
+        const int samples = 64;
+        var path = new Vector3[samples + 1];
+        for (int i = 0; i <= samples; i++)
+            path[i] = PathPoint(start, end, i / (float)samples);
+        CutsceneGizmos.Path(path, c, 0f);
+
+        CutsceneGizmos.Marker(start, 3f, c, "release");
+        CutsceneGizmos.Marker(end, 6f, CutsceneGizmos.Shot5, "target");
+        CutsceneGizmos.Ring(end, 40f, CutsceneGizmos.Shot5 * 0.7f);
+
+        // Straight-line reference against the lofted path — arcHeight only reads
+        // as a loft relative to the distance it spans.
+        Gizmos.color = c * 0.3f;
+        Gizmos.DrawLine(start, end);
+
+        float range = Vector3.Distance(start, end);
+        CutsceneGizmos.Label(Vector3.Lerp(start, end, 0.5f) + Vector3.down * 10f,
+                             "range " + CutsceneGizmos.Metres(range) +
+                             "   cruise +" + CutsceneGizmos.Metres(arcHeight) +
+                             "   " + flightDuration.ToString("0.#") + "s" +
+                             "   (" + (range / Mathf.Max(0.01f, flightDuration)).ToString("0") + " m/s)",
+                             c);
+
+        // The two corners of the profile. arcHeight is added on top of the
+        // interpolated line rather than being an absolute altitude, so cruise
+        // altitude is not the same number as cruise Y.
+        Vector3 topOfClimb = PathPoint(start, end, climbFraction);
+        Vector3 diveEntry = PathPoint(start, end, 1f - diveFraction);
+
+        CutsceneGizmos.Marker(topOfClimb, 4f, c * 0.8f,
+                              "top of climb  " + (climbFraction * flightDuration).ToString("0.#") +
+                              "s   y=" + topOfClimb.y.ToString("0"));
+        CutsceneGizmos.Marker(diveEntry, 4f, c * 0.8f,
+                              "dive entry  " + (diveFraction * flightDuration).ToString("0.#") + "s to impact");
+
+        // The camera's terminal swing should start around the dive, not before
+        // it — otherwise the framing commits to a dive the missile has not begun.
+        float diveStart = 1f - diveFraction;
+        if (Mathf.Abs(terminalStart - diveStart) > 0.1f)
+            CutsceneGizmos.Label(PathPoint(start, end, terminalStart) + Vector3.up * 25f,
+                                 "camera swings at " + terminalStart.ToString("0.00") +
+                                 ", dive starts " + diveStart.ToString("0.00"),
+                                 Color.red);
+
+        // ── CHASE CAMERA ──────────────────────────────────────
+        // Sampled poses along the run: the offset is applied in the missile's
+        // frame, so on a steep arc the camera ends up somewhere quite unlike
+        // "behind and above" read off the inspector numbers.
+        float[] at = { 0.15f, 0.5f, 0.92f };
+        foreach (float t in at)
+        {
+            Vector3 p = PathPoint(start, end, t);
+            Vector3 ahead = PathPoint(start, end, Mathf.Min(1f, t + 0.02f));
+            Vector3 heading = ahead - p;
+            if (heading.sqrMagnitude < 0.0001f) continue;
+
+            Quaternion rot = Quaternion.LookRotation(heading);
+
+            // Same blend ChaseCamera uses, so the drawn poses are the framing
+            // that actually plays.
+            float terminalT = terminalStart >= 1f
+                ? 0f
+                : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(terminalStart, 1f, t));
+            Vector3 offset = Vector3.Lerp(chaseOffset, terminalOffset, terminalT);
+            Vector3 camPos = p + rot * offset;
+
+            CutsceneGizmos.CameraPose(camPos, Quaternion.LookRotation(p - camPos), c * 0.85f,
+                                      "chase " + (t * 100f).ToString("0") + "%", 4f);
+            Gizmos.color = c * 0.35f;
+            Gizmos.DrawLine(camPos, p);
+        }
+
+        // Where the shot actually ends — short of the target on purpose, so the
+        // last frame still has the missile in the air.
+        float cutT = Mathf.Clamp01((flightDuration - cutBeforeImpact) / Mathf.Max(0.01f, flightDuration));
+        Vector3 cut = PathPoint(start, end, cutT);
+        CutsceneGizmos.Marker(cut, 4f, CutsceneGizmos.Handoff,
+                              "cut  >  ImpactPoint handed to shot 5");
     }
 
     IEnumerator ChaseCamera()

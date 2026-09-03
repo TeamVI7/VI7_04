@@ -21,10 +21,20 @@ public class MechDashAttack : MechAttackBehaviour
     [Tooltip("Optional -- enabled for the duration of the windup, disabled the instant the dash starts or is cancelled. Hook a ground-line, glow, or charge-up VFX so the player has a fair chance to see it coming.")]
     public GameObject TelegraphVFX;
 
+    /// <summary>Fires the instant the mech launches, after the wind-up. Audio hooks
+    /// the thruster/charge burst here.</summary>
+    public event Action OnDashStarted;
+    /// <summary>Fires when the dash actually connects with the player.</summary>
+    public event Action OnDashImpact;
+    /// <summary>Fires when the dash stops, whether it landed or not.</summary>
+    public event Action OnDashEnded;
+
     private static readonly int AnimDash = Animator.StringToHash("Dash");
 
     private NavMeshAgent _agent;
     private bool _hasHitPlayer;
+    private bool _agentOverridden;
+    private bool _wasStopped;
 
     protected override void Awake()
     {
@@ -32,11 +42,8 @@ public class MechDashAttack : MechAttackBehaviour
         _agent = GetComponent<NavMeshAgent>();
     }
 
-    public override void Execute(Action onComplete) => StartCoroutine(Co_Execute(onComplete));
-
-    private IEnumerator Co_Execute(Action onComplete)
+    protected override IEnumerator Run()
     {
-        IsExecuting = true;
         _hasHitPlayer = false;
 
         if (animator != null) animator.SetTrigger(AnimDash);
@@ -57,17 +64,13 @@ public class MechDashAttack : MechAttackBehaviour
         if (cancelled || PlayerHealth.Transform == null)
         {
             RaiseTelegraphCancelled();
-            IsExecuting = false;
-            onComplete?.Invoke();
             yield break;
         }
 
         RaiseTelegraphResolved();
+        OnDashStarted?.Invoke();
 
-        bool wasStopped = _agent.isStopped;
-        _agent.updatePosition = false;
-        _agent.updateRotation = false;
-        _agent.isStopped = true;
+        TakeOverAgent();
 
         float elapsed = 0f;
         while (elapsed < maxDashDuration)
@@ -88,14 +91,64 @@ public class MechDashAttack : MechAttackBehaviour
             yield return null;
         }
 
-        _agent.Warp(transform.position);
+        ReleaseAgent();
+        OnDashEnded?.Invoke();
+    }
+
+    // Death or a stagger mid-dash used to leave the agent detached from its
+    // transform for good — the boss would survive the stagger and then be unable
+    // to move again, with no error to explain why.
+    protected override void OnAborted()
+    {
+        if (TelegraphVFX != null) TelegraphVFX.SetActive(false);
+        ReleaseAgent();
+        OnDashEnded?.Invoke();
+    }
+
+    #region Agent Handover
+
+    private void TakeOverAgent()
+    {
+        if (_agentOverridden) return;
+        _agentOverridden = true;
+
+        // isStopped throws if the agent isn't on a NavMesh, so it's only safe to
+        // read (and worth restoring) when the agent is actually live.
+        _wasStopped = _agent.isOnNavMesh && _agent.isStopped;
+
+        _agent.updatePosition = false;
+        _agent.updateRotation = false;
+        if (_agent.isOnNavMesh) _agent.isStopped = true;
+    }
+
+    private void ReleaseAgent()
+    {
+        if (!_agentOverridden) return;
+        _agentOverridden = false;
+
+        // The dash drives the transform directly, with no NavMesh clamping — it can
+        // finish over a gap, past a ledge or inside geometry. Warping to a point
+        // that isn't on the mesh silently fails and takes the agent offline, and
+        // both MechChaseBehaviour and MechAttackSelector no-op forever after that
+        // (isOnNavMesh guards) with nothing in the console to say why.
+        Vector3 landing = transform.position;
+        if (!NavMesh.SamplePosition(landing, out NavMeshHit hit, 5f, NavMesh.AllAreas))
+        {
+            Debug.LogWarning($"[MechDashAttack] Dash ended {landing} with no NavMesh within 5m — " +
+                             "the boss would have been stranded. Check the NavMesh bake along the dash path.", this);
+        }
+        else
+        {
+            landing = hit.position;
+        }
+
+        _agent.Warp(landing);
         _agent.updatePosition = true;
         _agent.updateRotation = true;
-        _agent.isStopped = wasStopped;
-
-        IsExecuting = false;
-        onComplete?.Invoke();
+        if (_agent.isOnNavMesh) _agent.isStopped = _wasStopped;
     }
+
+    #endregion
 
     private void CheckDashHit()
     {
@@ -110,14 +163,19 @@ public class MechDashAttack : MechAttackBehaviour
                 h.attachedRigidbody.AddForce((h.transform.position - transform.position).normalized * knockback, ForceMode.Impulse);
 
             _hasHitPlayer = true;
+            OnDashImpact?.Invoke();
         }
     }
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawWireSphere(transform.position, standoffDistance);
-        Gizmos.color = new Color(1f, 0f, 1f, 0.4f);
-        Gizmos.DrawWireSphere(transform.position, maxRange);
+        if (!drawGizmos) return;
+
+        Vector3 origin = MechGizmos.Ground(transform.position);
+
+        // Where the dash can be launched from, where it stops, and what it sweeps.
+        MechGizmos.GroundBand(origin, minRange, maxRange, MechGizmos.Dash, "Dash range", 45f);
+        MechGizmos.GroundRing(origin, standoffDistance, MechGizmos.Dash * 0.75f, "standoff", 60f, dashed: true);
+        MechGizmos.GroundRing(origin, hitRadius, MechGizmos.Dash, "hit", 75f);
     }
 }

@@ -175,7 +175,18 @@ public class MechWeakpoint : MonoBehaviour, IDamageable, IMeleeDamageable
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = IsExposed ? Color.yellow : Color.red;
+        Color color = IsExposed ? Color.yellow : Color.red;
+        Gizmos.color = color;
         Gizmos.DrawWireSphere(transform.position, 0.3f);
+
+        // The accumulator is the whole mechanic and it's invisible otherwise —
+        // without this you can't tell whether you're two hits or ten from opening it.
+        string label = !Application.isPlaying
+            ? $"weakpoint\n{ExposeThreshold:0} dmg in {AccumulatorWindow:0.#}s"
+            : IsExposed
+                ? "EXPOSED"
+                : $"{_accumulator:0}/{ExposeThreshold:0}";
+
+        MechGizmos.Label(transform.position + Vector3.up * 0.6f, label, color);
     }
 }

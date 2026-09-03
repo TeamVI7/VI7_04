@@ -297,6 +297,12 @@ MonoBehaviour:
   impactMarkerPrefab: {fileID: 0}
   maxHealth: 12
   destroyedEffectPrefab: {fileID: 0}
+  thrusterLoopClip: {fileID: 8300000, guid: 6a754702a04efb646a393c7f622fa8fc, type: 3}
+  diveWhistleClip: {fileID: 0}
+  flightVolume: 0.4
+  explosionClip: {fileID: 8300000, guid: a44db7d4c2a3833408058d39043b6e02, type: 3}
+  shotDownClip: {fileID: 0}
+  explosionVolume: 0.7
   EnemyLayerMask:
     serializedVersion: 2
     m_Bits: 128

@@ -43,6 +43,20 @@ public class BarrageMissile : MonoBehaviour, IDamageable
     public float maxHealth = 12f;
     public GameObject destroyedEffectPrefab;
 
+    [Header("Audio")]
+    [Tooltip("Optional. Looping thruster/whine for the whole flight, so a volley overhead is audible before it lands.")]
+    public AudioClip thrusterLoopClip;
+    [Tooltip("Optional. One-shot as the missile noses over and starts falling — the audio half of the impact marker.")]
+    public AudioClip diveWhistleClip;
+    [Tooltip("Volume for the in-flight loop and the dive whistle. A volley is a dozen of these at once, so keep it well under the explosion.")]
+    [Range(0f, 1f)] public float flightVolume = 0.4f;
+    [Tooltip("Optional. Detonation on the ground. Played detached, since the missile destroys itself the same frame.")]
+    public AudioClip explosionClip;
+    [Tooltip("Optional. Played instead when the player shoots this missile down — the reward cue for intercepting one.")]
+    public AudioClip shotDownClip;
+    [Tooltip("A volley is a dozen of these going off close together, so leave headroom.")]
+    [Range(0f, 1f)] public float explosionVolume = 0.7f;
+
     [Header("Layer")]
     [Tooltip("The missile's layer. Pick your 'Enemy' layer here so weapon hitscans (filtered by hitMask) can actually register hits on it.")]
     public LayerMask EnemyLayerMask = 0;
@@ -55,6 +69,7 @@ public class BarrageMissile : MonoBehaviour, IDamageable
     private int _diveMask;
     private float _health;
     private bool _dead;
+    private AudioSource _flight;
 
     public void Init(Transform target, float scatterRadius)
     {
@@ -74,7 +89,28 @@ public class BarrageMissile : MonoBehaviour, IDamageable
         // collider and detonate it the instant the dive starts.
         _diveMask = groundMask & ~(1 << gameObject.layer);
 
+        StartFlightLoop();
         StartCoroutine(Co_Fly());
+    }
+
+    // Added rather than required on the prefab, so an existing barrage missile
+    // prefab picks the loop up just by having a clip dropped on it.
+    private void StartFlightLoop()
+    {
+        if (thrusterLoopClip == null && diveWhistleClip == null) return;
+
+        _flight = gameObject.AddComponent<AudioSource>();
+        _flight.playOnAwake = false;
+        _flight.spatialBlend = 1f;
+        _flight.rolloffMode = AudioRolloffMode.Linear;
+        _flight.minDistance = 5f;
+        _flight.maxDistance = 60f;
+        _flight.volume = flightVolume;
+
+        if (thrusterLoopClip == null) return;
+        _flight.clip = thrusterLoopClip;
+        _flight.loop = true;
+        _flight.Play();
     }
 
     private static int LayerMaskToLayer(LayerMask mask)
@@ -106,6 +142,10 @@ public class BarrageMissile : MonoBehaviour, IDamageable
         // --- Commit to an impact point and telegraph it ---
         PickImpactPoint();
         SpawnMarker();
+
+        // Layered over the loop rather than replacing it: the whistle is the cue
+        // that this particular missile has picked its spot and is coming down.
+        if (_flight != null && diveWhistleClip != null) _flight.PlayOneShot(diveWhistleClip, flightVolume);
 
         Vector3 apex = transform.position;
         Vector3 over = new Vector3(_targetPoint.x, apex.y, _targetPoint.z);
@@ -206,6 +246,9 @@ public class BarrageMissile : MonoBehaviour, IDamageable
 
         GameObject fx = damagePlayer ? explosionPrefab : (destroyedEffectPrefab != null ? destroyedEffectPrefab : explosionPrefab);
         if (fx != null) Destroy(Instantiate(fx, transform.position, Quaternion.identity), 3f);
+
+        AudioClip sfx = damagePlayer ? explosionClip : (shotDownClip != null ? shotDownClip : explosionClip);
+        if (sfx != null) AudioSource.PlayClipAtPoint(sfx, transform.position, explosionVolume);
 
         Destroy(gameObject);
     }

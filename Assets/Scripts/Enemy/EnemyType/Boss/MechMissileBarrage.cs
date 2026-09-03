@@ -34,8 +34,16 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
     [Tooltip("Used when no launchPoints are assigned — local-space offset from the mech's origin.")]
     public Vector3 fallbackLaunchOffset = new Vector3(0f, 4f, 0f);
 
+    /// <summary>Fires as the pods open, before the first tube empties.</summary>
+    public event Action OnVolleyStarted;
+    /// <summary>Fires per missile leaving the rack, so audio can stutter with the launches.</summary>
+    public event Action OnMissileLaunched;
+    /// <summary>Fires when the rack is empty (or the volley was aborted).</summary>
+    public event Action OnVolleyEnded;
+
     private int _animTriggerHash;
     private int _nextLaunchPoint;
+    private bool _volleyLive;
 
     // Editor-add defaults. This is a long-range phase-3 finisher, so it wants a
     // very different profile from the base class's generic values.
@@ -60,18 +68,12 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
         if (!string.IsNullOrEmpty(animatorTrigger)) _animTriggerHash = Animator.StringToHash(animatorTrigger);
     }
 
-    public override void Execute(Action onComplete)
+    protected override IEnumerator Run()
     {
-        if (IsExecuting) return;
-        StartCoroutine(Co_Execute(onComplete));
-    }
-
-    private IEnumerator Co_Execute(Action onComplete)
-    {
-        IsExecuting = true;
-
         if (animator != null && _animTriggerHash != 0) animator.SetTrigger(_animTriggerHash);
         RaiseTelegraphStart(telegraphTime);
+        _volleyLive = true;
+        OnVolleyStarted?.Invoke();
 
         yield return new WaitForSeconds(telegraphTime);
 
@@ -81,8 +83,7 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
                 Debug.LogWarning("[MechMissileBarrageAttack] No barrageMissilePrefab assigned — volley skipped.", this);
 
             RaiseTelegraphCancelled();
-            IsExecuting = false;
-            onComplete?.Invoke();
+            EndVolley();
             yield break;
         }
 
@@ -95,10 +96,20 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
             yield return new WaitForSeconds(delayBetweenLaunches);
         }
 
-        yield return new WaitForSeconds(recoveryTime);
+        EndVolley();
 
-        IsExecuting = false;
-        onComplete?.Invoke();
+        yield return new WaitForSeconds(recoveryTime);
+    }
+
+    protected override void OnAborted() => EndVolley();
+
+    // Idempotent: the rack empties before the recovery tail, so a stagger during
+    // that tail must not fire a second "volley over" cue.
+    private void EndVolley()
+    {
+        if (!_volleyLive) return;
+        _volleyLive = false;
+        OnVolleyEnded?.Invoke();
     }
 
     private void LaunchOne()
@@ -114,6 +125,8 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
 
         if (go.TryGetComponent(out BarrageMissile missile)) missile.Init(PlayerHealth.Transform, scatterRadius);
         else Debug.LogWarning($"[MechMissileBarrageAttack] {go.name} has no BarrageMissile component — it will just sit where it spawned.", this);
+
+        OnMissileLaunched?.Invoke();
     }
 
     private Transform NextLaunchPoint()
@@ -133,15 +146,28 @@ public class MechMissileBarrageAttack : MechAttackBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(1f, 0.4f, 0f, 0.6f);
-        Gizmos.DrawWireSphere(transform.position, maxRange);
-        Gizmos.color = new Color(1f, 0.4f, 0f, 0.3f);
-        Gizmos.DrawWireSphere(transform.position, minRange);
+        if (!drawGizmos) return;
 
+        Vector3 origin = MechGizmos.Ground(transform.position);
+        MechGizmos.GroundBand(origin, minRange, maxRange, MechGizmos.Missile, "Barrage range", 195f);
+
+        // Where the volley will actually land — the only part of this attack the
+        // player has to read, so it gets drawn on the ground under them.
         if (Application.isPlaying && PlayerHealth.Transform != null)
         {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(PlayerHealth.Transform.position, scatterRadius);
+            MechGizmos.GroundRing(MechGizmos.Ground(PlayerHealth.Transform.position), scatterRadius,
+                                  MechGizmos.Missile, $"scatter ×{minMissiles}-{maxMissiles}", 0f);
+        }
+
+        // The pods themselves, so an unassigned or mis-parented launch point is
+        // obvious rather than showing up as missiles spawning inside the mech.
+        if (launchPoints == null) return;
+        Gizmos.color = MechGizmos.Missile;
+        foreach (var pod in launchPoints)
+        {
+            if (pod == null) continue;
+            Gizmos.DrawWireSphere(pod.position, 0.25f);
+            Gizmos.DrawRay(pod.position, pod.forward * 1.5f);
         }
     }
 }

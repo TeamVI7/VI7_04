@@ -16,20 +16,80 @@ public class MissionListUI : MonoBehaviour
 
     private readonly Dictionary<string, GameObject> entries = new();
 
-    void Awake() => Instance = this;
+    /// <summary>False when this component is missing the references it needs to build rows.
+    /// map1 contains a second, unwired MissionListUI, and because OnMissionsChanged is a
+    /// static event that copy received every mission event too — then threw on
+    /// Instantiate(null), taking down whatever raised the event. Checked rather than
+    /// assumed so a stray duplicate is inert instead of fatal.</summary>
+    private bool IsConfigured => missionEntryPrefab != null && listContainer != null;
+
+    private bool _warnedUnconfigured;
+
+    void Awake()
+    {
+        // An unwired duplicate must not claim the singleton — PlayCompleteThenRemove would
+        // then run against a component that has no rows and silently drop the callback that
+        // removes the mission.
+        if (Instance == null || !Instance.IsConfigured) Instance = this;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 
     void OnEnable()  => MissionManager.OnMissionsChanged += Rebuild;
     void OnDisable() => MissionManager.OnMissionsChanged -= Rebuild;
 
+    /// <summary>
+    /// Syncs the visible rows to <paramref name="missions"/>: adds what is new and removes
+    /// what is gone.
+    ///
+    /// Removal matters for the save system. This used to be add-only, which was fine while
+    /// missions only ever arrived one at a time, but a checkpoint restore can take missions
+    /// away — and an add-only rebuild left those rows on screen forever.
+    /// </summary>
     void Rebuild(List<MissionData> missions)
     {
-        // add any missions that don't have an entry yet
+        if (!IsConfigured)
+        {
+            if (!_warnedUnconfigured)
+            {
+                _warnedUnconfigured = true;
+                Debug.LogWarning($"[MissionListUI] '{name}' has no {(missionEntryPrefab == null ? "Mission Entry Prefab" : "List Container")} " +
+                                 "assigned, so it cannot show objectives. Ignoring mission updates. " +
+                                 "If this is a leftover duplicate component, delete it.", this);
+            }
+            return;
+        }
+
+        if (missions == null) missions = new List<MissionData>();
+
+        // Remove rows for missions that are no longer active.
+        var live = new HashSet<string>();
+        foreach (var m in missions)
+            if (m != null) live.Add(m.missionId);
+
+        var stale = new List<string>();
+        foreach (var kvp in entries)
+            if (!live.Contains(kvp.Key)) stale.Add(kvp.Key);
+
+        foreach (string id in stale)
+        {
+            if (entries[id] != null) Destroy(entries[id]);
+            entries.Remove(id);
+        }
+
+        // Add any mission that doesn't have a row yet.
         foreach (var m in missions)
         {
-            if (entries.ContainsKey(m.missionId)) continue;
+            if (m == null || entries.ContainsKey(m.missionId)) continue;
 
             var go = Instantiate(missionEntryPrefab, listContainer);
-            go.GetComponentInChildren<TMP_Text>().text = m.missionText;
+
+            var label = go.GetComponentInChildren<TMP_Text>();
+            if (label != null) label.text = m.missionText;
+
             entries[m.missionId] = go;
         }
     }
@@ -47,7 +107,9 @@ public class MissionListUI : MonoBehaviour
         if (cg == null) cg = go.AddComponent<CanvasGroup>();
 
         Sequence seq = DOTween.Sequence();
-        seq.AppendCallback(() => label.fontStyle |= FontStyles.Strikethrough);
+        // Null-guarded: the callback runs a frame or more later, by which point a scene
+        // change or a checkpoint restore may already have destroyed the row.
+        seq.AppendCallback(() => { if (label != null) label.fontStyle |= FontStyles.Strikethrough; });
         seq.AppendInterval(strikeDuration + holdBeforeFade);
         seq.Append(cg.DOFade(0f, fadeOutDuration));
         seq.OnComplete(() =>

@@ -205,13 +205,22 @@ public class VoltageCalibrationMinigame : MonoBehaviour
     private void PositionBarTargetZone()
     {
         if (!barTargetZone) return;
-        Vector2 pos = barTargetZone.anchoredPosition;
-        pos.y = (_barTargetMin / 360f) * barTrackHeight;
-        barTargetZone.anchoredPosition = pos;
+
+        float minPixel = (_barTargetMin / 360f) * barTrackHeight;
+        float zoneHeight = (targetRangeWidth / 360f) * barTrackHeight;
 
         Vector2 size = barTargetZone.sizeDelta;
-        size.y = (targetRangeWidth / 360f) * barTrackHeight;
+        size.y = zoneHeight;
         barTargetZone.sizeDelta = size;
+
+        // anchoredPosition.y trỏ tới PIVOT của rect, không phải cạnh dưới. Gán thẳng
+        // minPixel vào đó sẽ vẽ vùng đích lệch nửa khoảng so với vùng mà IsBarMatched()
+        // thực sự chấp nhận (pivot mặc định = 0.5), khiến người chơi canh vào đúng chỗ
+        // nhìn thấy mà vẫn báo "NOT BALANCED YET". Bù lại theo pivot để rect phủ đúng
+        // [_barTargetMin, _barTargetMax] với mọi giá trị pivot.
+        Vector2 pos = barTargetZone.anchoredPosition;
+        pos.y = minPixel + barTargetZone.pivot.y * zoneHeight;
+        barTargetZone.anchoredPosition = pos;
     }
 
     private void TryComplete()

@@ -51,8 +51,6 @@ public class LoadingScreenController : MonoBehaviour
 
     private void Awake()
     {
-        if (!persistAcrossScenes) return;
-
         if (Instance != null && Instance != this)
         {
             LogWarning("Duplicate LoadingScreenController found — destroying this one. " +
@@ -61,8 +59,18 @@ public class LoadingScreenController : MonoBehaviour
             return;
         }
 
+        // Register as Instance regardless of persistence: every caller gates on
+        // Instance != null and silently falls back to a plain SceneManager.LoadScene
+        // when it's null, which would skip the loading screen entirely.
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+
+        if (persistAcrossScenes)
+            DontDestroyOnLoad(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     #endregion
@@ -70,6 +78,15 @@ public class LoadingScreenController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
     #region Inspector
     // ─────────────────────────────────────────────────────────────────────────
+
+    [Header("Scene Transition Registry")]
+    [Tooltip("Every SceneTransitionConfig in the game. Loads that aren't fired " +
+             "by a SceneTransitionTrigger — save restores, most notably — look " +
+             "up their shader collections here by target scene name. A scene " +
+             "missing from this list still loads, it just gets no shader warmup " +
+             "and will hitch on its first frame. Drag every asset from " +
+             "Assets/Data/LoadingData in here.")]
+    public SceneTransitionConfig[] transitionConfigs;
 
     [Header("Behaviour")]
     [Tooltip("Minimum seconds the loading screen stays up, even if loading " +
@@ -109,14 +126,6 @@ public class LoadingScreenController : MonoBehaviour
     /// <summary>Fired once all steps finish and the hold time elapses.</summary>
     public event Action OnLoadComplete;
 
-    /// <summary>
-    /// Fired once progress hits 100%% ONLY when this load was started with
-    /// requireHoldToConfirm = true. UI (e.g. LoadingBIOSDisplay) should show
-    /// its hold-to-confirm prompt on this and call ConfirmReady() once the
-    /// hold completes.
-    /// </summary>
-    public event Action OnReadyForConfirm;
-
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -126,11 +135,6 @@ public class LoadingScreenController : MonoBehaviour
     public bool  IsLoading      { get; private set; }
     public float CurrentProgress { get; private set; }
 
-    /// <summary>True while a load is waiting on the player to hold the
-    /// confirm key — only ever true when this load started with
-    /// requireHoldToConfirm = true.</summary>
-    public bool  AwaitingConfirm { get; private set; }
-
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -139,8 +143,6 @@ public class LoadingScreenController : MonoBehaviour
 
     private Coroutine _loadCoroutine;
     private float     _lastLoggedProgress = -1f;
-    private bool      _requireHoldToConfirm;
-    private bool      _confirmReceived;
 
     #endregion
 
@@ -153,13 +155,7 @@ public class LoadingScreenController : MonoBehaviour
     /// already loading — a second call while IsLoading is true is ignored
     /// (with a warning) rather than stacking coroutines.
     /// </summary>
-    /// <param name="requireHoldToConfirm">
-    /// If true, once all steps hit 100%% the coroutine pauses and fires
-    /// OnReadyForConfirm instead of auto-continuing — call ConfirmReady()
-    /// (typically from a hold-E UI) to let it proceed. Per-transition, not
-    /// global — pass config.requireHoldToConfirm from SceneTransitionConfig.
-    /// </param>
-    public void BeginLoad(List<ILoadingStep> steps, bool requireHoldToConfirm = false)
+    public void BeginLoad(List<ILoadingStep> steps)
     {
         if (IsLoading)
         {
@@ -172,24 +168,24 @@ public class LoadingScreenController : MonoBehaviour
             return;
         }
 
-        _requireHoldToConfirm = requireHoldToConfirm;
-        _confirmReceived      = false;
         _loadCoroutine = StartCoroutine(Co_RunSteps(steps));
     }
 
     /// <summary>
-    /// Call once the player has finished holding the confirm input. No-op
-    /// if no load is currently waiting on a confirm — safe to call blindly
-    /// from UI without checking AwaitingConfirm first.
+    /// The registered config targeting <paramref name="sceneName"/>, or null if
+    /// none is listed. Callers that build their own step list (SaveSystem) use
+    /// this to pick up the scene's shader collections instead of loading cold.
     /// </summary>
-    public void ConfirmReady()
+    public SceneTransitionConfig FindConfigFor(string sceneName)
     {
-        if (!AwaitingConfirm)
+        if (string.IsNullOrEmpty(sceneName) || transitionConfigs == null) return null;
+
+        foreach (var config in transitionConfigs)
         {
-            LogWarning("ConfirmReady called but nothing is awaiting confirm — ignored.");
-            return;
+            if (config != null && config.targetSceneName == sceneName)
+                return config;
         }
-        _confirmReceived = true;
+        return null;
     }
 
     #endregion
@@ -271,31 +267,38 @@ public class LoadingScreenController : MonoBehaviour
 
         ReportProgress(1f, "READY");
 
-        if (_requireHoldToConfirm)
-        {
-            Log("Waiting for hold-to-confirm input...");
-            AwaitingConfirm = true;
-            OnReadyForConfirm?.Invoke();
-            yield return new WaitUntil(() => _confirmReceived);
-            AwaitingConfirm = false;
-            Log("Confirm received — continuing.");
-        }
-
-        // Activate any pending scene load now that every step (incl. shader
-        // warmup) has finished, so the new scene's first frame is already warm.
-        foreach (var step in steps)
-        {
-            if (step is SceneLoadStep sceneStep)
-                sceneStep.Activate();
-        }
-
-        // Respect minimum display time so fast loads don't flash.
+        // Respect minimum display time so fast loads don't flash. This waits
+        // BEFORE activation on purpose — activating first would put the new
+        // scene live (player input, spawners, timers, enemy AI all ticking)
+        // behind an opaque loading screen for the rest of the hold.
         float elapsed = Time.unscaledTime - startTime;
         if (elapsed < minimumDisplayTime)
             yield return new WaitForSecondsRealtime(minimumDisplayTime - elapsed);
 
         if (completeHoldTime > 0f)
             yield return new WaitForSecondsRealtime(completeHoldTime);
+
+        // Activate any pending scene load now that every step (incl. shader
+        // warmup) has finished, so the new scene's first frame is already warm.
+        var sceneSteps = new List<SceneLoadStep>();
+        foreach (var step in steps)
+        {
+            if (step is SceneLoadStep sceneStep)
+            {
+                sceneSteps.Add(sceneStep);
+                sceneStep.Activate();
+            }
+        }
+
+        // allowSceneActivation only unblocks the swap — it doesn't complete it.
+        // Hold the screen up until the scene is genuinely done activating, or
+        // OnLoadComplete fires the fade-out over the activation stall and the
+        // player watches the hitch instead of the loading screen.
+        foreach (var sceneStep in sceneSteps)
+        {
+            while (!sceneStep.IsActivationComplete)
+                yield return null;
+        }
 
         Log("Load complete.");
         IsLoading = false;
@@ -404,7 +407,7 @@ public class SceneTransitionTrigger : MonoBehaviour
             return;
         }
 
-        LoadingScreenController.Instance.BeginLoad(config.BuildSteps(), config.requireHoldToConfirm);
+        LoadingScreenController.Instance.BeginLoad(config.BuildSteps());
     }
 
     private void OnTriggerEnter(Collider other)

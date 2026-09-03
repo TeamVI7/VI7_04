@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43129b57210751f44b8695eb34d4b9c7, type: 3}
+  m_Name: Emergency
+  m_EditorClassIdentifier: Assembly-CSharp::DialogueData
+  lines:
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "\u0110\u1EB7c v\u1EE5, nghe r\xF5 l\u1EC7nh! "
+    portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
+    voiceClip: {fileID: 0}
+    duration: 3
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "Anh \u0111\xE3 ng\u1EAFt m\xE1y ch\u1EE7 th\xE0nh c\xF4ng, nh\u01B0ng
+      ph\xE2n t\xEDch qu\xE9t b\u1EC1 m\u1EB7t cho th\u1EA5y t\xE0n d\u01B0 m\xE3
+      \u0111\u1ED9c c\u1EE7a AI \u0111ang t\xECm c\xE1ch ph\xE2n t\xE1n ra m\u1EA1ng
+      di\u1EC7n r\u1ED9ng. B\u1ED9 Ch\u1EC9 huy kh\xF4ng th\u1EC3 m\u1EA1o hi\u1EC3m.
+      ch\xFAng ta v\u1EEBa ph\xF3ng m\u1ED9t \u0111\u1EA7u \u0111\u1EA1n h\u1EA1t
+      nh\xE2n chi\u1EBFn thu\u1EADt \u0111\u1EC3 san ph\u1EB3ng ho\xE0n to\xE0n khu
+      ph\u1EE9c h\u1EE3p n\xE0y."
+    portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
+    voiceClip: {fileID: 0}
+    duration: 7
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "Con \u0111\u1EADp v\xE0 to\xE0n b\u1ED9 vi\u1EC7n nghi\xEAn c\u1EE9u s\u1EBD
+      bi\u1EBFn th\xE0nh b\xECnh \u0111\u1ECBa trong ch\u1EDBp m\u1EAFt. L\u1EC7nh
+      r\xFAt lui to\xE0n di\u1EC7n c\xF3 hi\u1EC7u l\u1EF1c ngay l\u1EADp t\u1EE9c!
+      Anh ch\u1EC9 c\xF3 \u0111\xFAng hai ph\xFAt tr\u01B0\u1EDBc khi t\xEAn l\u1EEDa
+      ch\u1EA1m m\u1EE5c ti\xEAu. [urgent] Hai ph\xFAt! B\u1ECF l\u1EA1i t\u1EA5t
+      c\u1EA3."
+    portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
+    voiceClip: {fileID: 0}
+    duration: 7
+  - speaker: "\u0110\u1EA1i \xDAy. Harsh"
+    text: "Kh\u1EA9n tr\u01B0\u01A1ng l\xEAn, \u0110\u1EB7c v\u1EE5! Ch\xFAng t\xF4i
+      kh\xF4ng th\u1EC3 \u1EDF l\u1EA1i qu\xE1 th\u1EDDi gian \u0111\u1ECBnh m\u1EE9c!
+      R\xFAt qu\xE2n ngay! H\u1EBFt!"
+    portrait: {fileID: 21300000, guid: 4e720ec10f0df474eadb80653e04e8a3, type: 3}
+    voiceClip: {fileID: 0}
+    duration: 3
+  fullVoiceClip: {fileID: 8300000, guid: c92b4c955fce27745a12b587514a4e46, type: 3}
+  autoPlay: 1
+  autoPlayDelay: 3

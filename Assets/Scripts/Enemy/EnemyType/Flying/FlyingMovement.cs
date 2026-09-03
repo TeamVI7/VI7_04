@@ -321,15 +321,16 @@ public class FlyingMovement : MonoBehaviour, IEnemyAimController
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, PreferredRange);
-        if (MinRange > 0f)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(transform.position, MinRange);
-        }
+        Vector3 center = EnemyGizmos.Ground(transform.position);
 
-        Gizmos.color = Color.green;
-        Gizmos.DrawLine(transform.position, transform.position + Vector3.down * HoverAltitude);
+        // Standoff corridor as one annulus rather than two loose circles.
+        EnemyGizmos.GroundBand(center, MinRange, PreferredRange, EnemyGizmos.Patrol,
+                               $"standoff {MinRange:0.#}–{PreferredRange:0.#}m", 30f);
+
+        // Hover altitude read against the floor, so the target height is visible as
+        // a gap rather than a bare downward ray of unknown endpoint.
+        EnemyGizmos.DropLine(transform.position, center, EnemyGizmos.Patrol);
+        EnemyGizmos.HeightMarker(center, center.y + HoverAltitude, transform.forward, 2f,
+                                 EnemyGizmos.Safe, $"hover {HoverAltitude:0.#}m");
     }
 }

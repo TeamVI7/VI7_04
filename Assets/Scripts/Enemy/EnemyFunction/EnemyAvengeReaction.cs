@@ -107,8 +107,11 @@ public class EnemyAvengeReaction : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(1f, 0.2f, 0.2f, 0.5f);
-        Gizmos.DrawWireSphere(transform.position, AvengeRadius);
+        // Dashed: this isn't a reach, it's an earshot — allies dying inside it pull
+        // this enemy into aggro.
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundRing(center, AvengeRadius, EnemyGizmos.Avenge,
+                               $"avenge {AvengeRadius:0.#}m", 200f, dashed: true);
     }
 #endif
 }

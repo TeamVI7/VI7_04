@@ -58,9 +58,16 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
     public GameObject HitVFXPrefab;
     public float HitVFXLifetime = 2f;
 
+    // Audio hooks — EnemyAudio subscribes to these; this behaviour owns no AudioSource.
+    public event Action OnChargeStarted;
+    public event Action OnLockAcquired;
+    public event Action OnAimAborted;
     public event Action OnShotFired;
 
     [HideInInspector] public float CooldownMultiplier = 1f;
+
+    /// <summary>True from the first frame of the charge until the shot resolves or aborts.</summary>
+    public bool IsAiming => _aiming;
 
     // ── IEnemyAimController ─────────────────────────────────────────────────
     public int AimPriority => 20;
@@ -152,6 +159,8 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
             LaserRenderer.endColor = AimColor;
         }
 
+        OnChargeStarted?.Invoke();
+
         // ── Charge: laser tracks the player, breaking LOS cancels the shot ──
         for (float t = 0f; t < ChargeTime; t += Time.deltaTime)
         {
@@ -169,6 +178,8 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
             LaserRenderer.startColor = LockColor;
             LaserRenderer.endColor = LockColor;
         }
+
+        OnLockAcquired?.Invoke();
 
         for (float t = 0f; t < LockTime; t += Time.deltaTime)
         {
@@ -194,11 +205,9 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
         if (MuzzleFlashPrefab != null)
             Destroy(Instantiate(MuzzleFlashPrefab, origin, Quaternion.LookRotation(dir)), 1f);
 
-        SoundManager.Instance?.PlaySFX(SFXType.Laser, origin);
-
         if (Physics.Raycast(origin, dir, out RaycastHit hit, AttackRange))
         {
-            hit.collider.GetComponentInParent<PlayerHealth>()?.TakeDamage(Damage);
+            hit.collider.GetComponentInParent<PlayerHealth>()?.TakeDamage(Damage, origin);
 
             if (HitVFXPrefab != null)
             {
@@ -266,6 +275,8 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
         if (LaserRenderer != null) LaserRenderer.enabled = false;
         _flight.ExternalSpeedMultiplier = 1f;
         _cooldownTimer = Mathf.Max(_cooldownTimer, 0.5f);
+
+        OnAimAborted?.Invoke();
     }
 
     private void OnStateChanged(EnemyState state)
@@ -275,7 +286,11 @@ public class FlyingSniperBehaviour : MonoBehaviour, IEnemyAimController
 
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawWireSphere(transform.position, AttackRange);
+        // Ring on the floor beneath the flyer, tethered by a drop line — the reach
+        // is a flat XZ distance, so showing it at altitude just floats it loose.
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundRing(center, AttackRange, EnemyGizmos.Sniper,
+                               $"snipe {AttackRange:0.#}m", 250f);
+        EnemyGizmos.DropLine(transform.position, center, EnemyGizmos.Sniper);
     }
 }

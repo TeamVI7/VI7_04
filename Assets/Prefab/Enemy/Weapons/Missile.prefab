@@ -114,6 +114,10 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8500247577252458025, guid: c7b0ffe8fe565bc49bec453bf0813522, type: 3}
   maxHealth: 20
   destroyedEffectPrefab: {fileID: 0}
+  thrusterLoopClip: {fileID: 8300000, guid: 6a754702a04efb646a393c7f622fa8fc, type: 3}
+  explosionClip: {fileID: 0}
+  shotDownClip: {fileID: 0}
+  explosionVolume: 0.8
   EnemyLayerMask:
     serializedVersion: 2
     m_Bits: 128

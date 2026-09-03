@@ -72,4 +72,14 @@ public class SceneLoadStep : ILoadingStep
         if (_pendingActivation != null)
             _pendingActivation.allowSceneActivation = true;
     }
+
+    /// <summary>
+    /// False between Activate() and the moment the swap actually finishes.
+    /// Flipping allowSceneActivation only *unblocks* activation — Unity still
+    /// needs several frames to tear down the old scene and run Awake/OnEnable/
+    /// Start across the new one. Poll this so the loading screen stays up
+    /// through that stall instead of fading out over it.
+    /// Also true when there was nothing to activate (null op / early bail).
+    /// </summary>
+    public bool IsActivationComplete => _pendingActivation == null || _pendingActivation.isDone;
 }

@@ -316,8 +316,13 @@ public class PlayerMelee : MonoBehaviour
                 var brain  = hit.collider.GetComponentInParent<EnemyBrain>();
                 var health = hit.collider.GetComponentInParent<EnemyHealth>();
 
-                if (brain != null && brain.State == EnemyState.Staggered
-                    && health != null && health.IsAlive)
+                // Downed counts on its own, without consulting EnemyBrain — the boss is driven
+                // by MechBossBrain and its own state enum, so requiring EnemyBrain.Staggered
+                // would make the boss's last stand unfinishable.
+                bool staggered = brain  != null && brain.State == EnemyState.Staggered;
+                bool downed    = health != null && health.IsDowned;
+
+                if (health != null && health.IsAlive && (staggered || downed))
                 {
                     health.Execute(transform);
                     TriggerExecuteSlowMo();

@@ -2900,6 +2900,7 @@ GameObject:
   - component: {fileID: 5261536301122133222}
   - component: {fileID: 5550299922672712140}
   - component: {fileID: 3612243276155222768}
+  - component: {fileID: -7843989675538714059}
   m_Layer: 7
   m_Name: Enemy_Rusher/Punching
   m_TagString: Enemy
@@ -2980,7 +2981,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b022c90ebee70a46baf8c3097657007, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyBrain
-  AggroRadius: 15
+  AggroRadius: 35
   RadarRange: 40
   LOSBlockingLayers:
     serializedVersion: 2
@@ -3039,10 +3040,14 @@ MonoBehaviour:
   StaggerThreshold: 0.25
   StaggerDuration: 1.5
   StaggerWindow: 3
+  DownedOnLethalDamage: 0
+  DownedDuration: 8
+  DieWhenDownedExpires: 1
   DeathImpulseScale: 8
   ExplosionCount: 1
   DelayBetweenExplosions: 0.4
   ExplosionScatterRadius: 1.2
+  CorpseLifetime: 0
   DropPrefab: {fileID: 0}
   DropChance: 1
   DropTable:
@@ -3149,16 +3154,28 @@ MonoBehaviour:
   - {fileID: 8300000, guid: fdcef0940722cfa4ea032ba85215bc64, type: 3}
   - {fileID: 8300000, guid: 94430d762a832404aa9f999893576126, type: 3}
   - {fileID: 8300000, guid: da810fdacb72e544c84c507bd17a6493, type: 3}
-  ShieldBlockClip: {fileID: 0}
+  ShieldBlockClip: {fileID: 8300000, guid: 1063808e5e5036346af948e8c9f65f70, type: 3}
   ShieldDestroyedClip: {fileID: 0}
   ShootPitchRange: {x: 0.95, y: 1.05}
   SniperMuzzleClip: {fileID: 0}
   SniperImpactClip: {fileID: 0}
   SniperWhizClip: {fileID: 0}
-  DeathClip: {fileID: 8300000, guid: bb939b76868e1bd42a0d46423b109c5c, type: 3}
-  DetectClip: {fileID: 8300000, guid: cd02f6947dfaa114eb6c85f0c2977e1a, type: 3}
+  DeathClip: {fileID: 8300000, guid: 14f932aaf041e3e47b972a7f64494d15, type: 3}
+  DetectClip: {fileID: 8300000, guid: d03b14358b241c44081b39d40b874ddb, type: 3}
   MeleeSwingClip: {fileID: 8300000, guid: 46b5cb5127a9fe346a75aa9918b8730a, type: 3}
   MeleeHitClip: {fileID: 8300000, guid: ce394cfa56d232b4fbf8766d16eb76e7, type: 3}
+  RotorLoopClip: {fileID: 0}
+  RotorPitchRange: {x: 0.8, y: 1.25}
+  RotorVolumeRange: {x: 0.35, y: 1}
+  DroneLockOnClip: {fileID: 0}
+  DroneSirenLoopClip: {fileID: 0}
+  DroneSirenPitchRange: {x: 1, y: 1.7}
+  DroneDiveClip: {fileID: 0}
+  DroneDetonateClip: {fileID: 0}
+  DroneAbortClip: {fileID: 0}
+  FlyingSniperChargeLoopClip: {fileID: 0}
+  FlyingSniperLockClip: {fileID: 0}
+  FlyingSniperShotClip: {fileID: 0}
   AvengeClip: {fileID: 0}
   SpatialBlend: 1
   MinDistance: 5
@@ -5387,7 +5404,10 @@ MonoBehaviour:
   - {fileID: 6267927532778790479}
   - {fileID: 2974856510981163425}
   - {fileID: 952136626168304952}
+  CombineBodyMeshes: 1
+  ProxyFallbackDelay: 1
   ExecuteSliceWindow: 0.5
+  SliceOnMeleeKill: 1
   PieceSeparationSpeed: 2
   PieceTorque: 2
   SliceVFXPrefab: {fileID: 0}
@@ -5396,7 +5416,29 @@ MonoBehaviour:
   HideRemainingRenderers: 1
   DespawnRootAfterSlice: 1
   RootDespawnMargin: 2
+  OverridePieceLifetime: 0
+  PieceLifetime: 20
+  PieceExitDuration: 3
+  PieceBlink: 1
   debugLog: 0
+--- !u!114 &-7843989675538714059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8455069146641717447}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51386964c4b65ec49ab8914e721aa025, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyImpactVFX
+  ImpactPrefab: {fileID: 7077355519987932895, guid: 579357df66620f747a0c8f99cabbd10e, type: 3}
+  ImpactLifetime: 2
+  MinDamageFraction: 0.01
+  HeadshotImpactPrefab: {fileID: 7077355519987932895, guid: 6d813d766b473a04680efdb264997f8d, type: 3}
+  HeadTransform: {fileID: 0}
+  HeadshotRadius: 0.35
 --- !u!1 &8485884064293327457
 GameObject:
   m_ObjectHideFlags: 0

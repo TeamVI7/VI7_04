@@ -9,6 +9,7 @@ public class MechGatlingAttack : MechAttackBehaviour
     public Transform muzzle;
     public float spinUpTime = 0.8f;
     public float fireDuration = 3f;
+    [Tooltip("Seconds between shots. Clamped to a sensible floor — a rate of 0 would fire an unbounded number of shots without the attack ever ending.")]
     public float fireRate = 0.08f;
     public float damagePerShot = 6f;
     public float spread = 2f;
@@ -42,6 +43,16 @@ public class MechGatlingAttack : MechAttackBehaviour
     public LayerMask losBlockMask;
     [Tooltip("Point sight is checked and aimed from. Defaults to the muzzle if unset.")]
     public Transform sightOrigin;
+
+    /// <summary>Fires as the barrels start turning — hook the spin-up whine here.</summary>
+    public event Action OnSpinUpStarted;
+    /// <summary>Fires once when the gun actually opens up.</summary>
+    public event Action OnFireStarted;
+    /// <summary>Fires per shot, so audio can rattle in step with the real fire rate.</summary>
+    public event Action OnShotFired;
+    /// <summary>Fires when the gun stops, however it stopped — finished, broken off,
+    /// or aborted by a stagger. Audio uses it to kill the loop.</summary>
+    public event Action OnFireStopped;
 
     // Updated only when the player is actually visible, so the turret/shots keep
     // tracking the last place we saw them instead of snapping through walls.
@@ -101,8 +112,6 @@ public class MechGatlingAttack : MechAttackBehaviour
     private static readonly int AnimSpin = Animator.StringToHash("GatlingSpin");
     private static readonly int AnimFire = Animator.StringToHash("GatlingFire");
 
-    protected override void Update() => base.Update();
-
     // Runs after the Animator has applied this frame's pose, so the gun-bone
     // rotation is a procedural overlay on top of the animation instead of
     // being fought/overwritten by it (Animator evaluates between Update and LateUpdate).
@@ -123,13 +132,18 @@ public class MechGatlingAttack : MechAttackBehaviour
         gunBone.rotation = Quaternion.RotateTowards(gunBone.rotation, targetRot, aimTurnSpeed * Time.deltaTime);
     }
 
-    public override void Execute(Action onComplete) => StartCoroutine(Co_Execute(onComplete));
-
-    private IEnumerator Co_Execute(Action onComplete)
+    private void OnValidate()
     {
-        IsExecuting = true;
+        // At 0 the fire loop advances its clock by 0 per iteration while
+        // WaitForSeconds(0) yields a single frame — an attack that never ends.
+        fireRate = Mathf.Max(0.01f, fireRate);
+    }
+
+    protected override IEnumerator Run()
+    {
         if (animator != null) animator.SetBool(AnimSpin, true);
         RaiseTelegraphStart(spinUpTime);
+        OnSpinUpStarted?.Invoke();
 
         float spunUp = 0f;
         bool interrupted = false;
@@ -145,14 +159,16 @@ public class MechGatlingAttack : MechAttackBehaviour
             RaiseTelegraphResolved();
 
             if (animator != null) animator.SetBool(AnimFire, true);
+            OnFireStarted?.Invoke();
 
+            float step = Mathf.Max(0.01f, fireRate);
             float elapsed = 0f;
             while (elapsed < fireDuration)
             {
                 if (PlayerTooClose()) break;
                 FireShot();
-                elapsed += fireRate;
-                yield return new WaitForSeconds(fireRate);
+                elapsed += step;
+                yield return new WaitForSeconds(step);
             }
         }
         else
@@ -160,14 +176,20 @@ public class MechGatlingAttack : MechAttackBehaviour
             RaiseTelegraphCancelled();
         }
 
+        StopFiring();
+    }
+
+    protected override void OnAborted() => StopFiring();
+
+    private void StopFiring()
+    {
         if (animator != null)
         {
             animator.SetBool(AnimFire, false);
             animator.SetBool(AnimSpin, false);
         }
 
-        IsExecuting = false;
-        onComplete?.Invoke();
+        OnFireStopped?.Invoke();
     }
 
     private bool PlayerTooClose()
@@ -208,6 +230,7 @@ public class MechGatlingAttack : MechAttackBehaviour
         }
 
         SpawnBulletTrail(muzzle.position, endPoint);
+        OnShotFired?.Invoke();
     }
 
     private void SpawnBulletTrail(Vector3 start, Vector3 end)
@@ -237,37 +260,34 @@ public class MechGatlingAttack : MechAttackBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Vector3 origin = transform.position;
-        Vector3 forward = transform.forward;
+        if (!drawGizmos) return;
 
-        // Facing cone: yellow boundary lines at +-facingAngleThreshold, cyan center line.
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(origin, origin + forward * maxRange);
+        Vector3 origin = MechGizmos.Ground(transform.position);
 
-        Vector3 leftDir = Quaternion.AngleAxis(-facingAngleThreshold, Vector3.up) * forward;
-        Vector3 rightDir = Quaternion.AngleAxis(facingAngleThreshold, Vector3.up) * forward;
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(origin, origin + leftDir * maxRange);
-        Gizmos.DrawLine(origin, origin + rightDir * maxRange);
+        // Usable band, the cone the body has to be inside, and the ring the gun
+        // gives up at — the three gates in the order the selector applies them.
+        MechGizmos.GroundBand(origin, minRange, maxRange, MechGizmos.Gatling, "Gatling range", 90f);
+        MechGizmos.GroundCone(origin, transform.forward, facingAngleThreshold, maxRange * 0.6f,
+                              MechGizmos.Gatling * 0.8f, $"facing ±{facingAngleThreshold:0}°");
+        MechGizmos.GroundRing(origin, breakOffRange, MechGizmos.Safe, "break off", 105f, dashed: true);
 
-        // Break-off range: the ring inside which Gatling aborts.
-        Gizmos.color = new Color(1f, 0.5f, 0f);
-        Gizmos.DrawWireSphere(origin, breakOffRange);
+        if (!Application.isPlaying || PlayerHealth.Transform == null) return;
 
-        // Live line to the player, green if the facing check currently passes.
-        if (Application.isPlaying && PlayerHealth.Transform != null)
+        // Live read on the two runtime gates, so you can see which one is failing.
+        bool hasLos = HasLineOfSight(SightOrigin, PlayerHealth.Transform.position + Vector3.up);
+        bool facing = IsFacingPlayer();
+
+        Gizmos.color = (facing && hasLos) ? MechGizmos.Pass : MechGizmos.Fail;
+        Gizmos.DrawLine(SightOrigin, PlayerHealth.Transform.position);
+        MechGizmos.Label(PlayerHealth.Transform.position + Vector3.up * 2.2f,
+                         facing ? (hasLos ? "can fire" : "no line of sight") : "not facing",
+                         Gizmos.color);
+
+        if (!hasLos && _hasSeenPlayer)
         {
-            bool hasLos = HasLineOfSight(SightOrigin, PlayerHealth.Transform.position + Vector3.up);
-            Gizmos.color = (IsFacingPlayer() && hasLos) ? Color.green : Color.red;
-            Gizmos.DrawLine(origin, PlayerHealth.Transform.position);
-
-            // If sight is currently blocked, show the last-seen point being aimed at.
-            if (!hasLos && _hasSeenPlayer)
-            {
-                Gizmos.color = Color.magenta;
-                Gizmos.DrawWireSphere(_lastSeenPlayerPos, 0.3f);
-                Gizmos.DrawLine(SightOrigin, _lastSeenPlayerPos);
-            }
+            Gizmos.color = MechGizmos.Gatling;
+            Gizmos.DrawLine(SightOrigin, _lastSeenPlayerPos);
+            MechGizmos.Label(_lastSeenPlayerPos, "last seen", MechGizmos.Gatling);
         }
     }
 }

@@ -11,10 +11,10 @@
 // player — no tunnelling regardless of frame rate or spin speed. The vertical test
 // is separate, which is what makes jumping/crouching an actual dodge rather than
 // a cosmetic one.
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Events;
 
 public class MechLaserSweepUltimate : MechAttackBehaviour
@@ -27,6 +27,38 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         CounterClockwise,
         [Tooltip("Flips every time the attack is used, so the player can't learn one dodge and coast.")]
         Alternate,
+    }
+
+    public enum EmitterMode
+    {
+        [Tooltip("The mech emits the beams itself, from the pivot below.")]
+        Self,
+        [Tooltip("The mech launches drones that orbit it, one per beam, each dragging a beam outward. " +
+                 "Same sweep, but the ring under the drones is safe and shooting a drone down kills its beam.")]
+        Drones,
+    }
+
+    public enum PivotMode
+    {
+        [Tooltip("Measured from the mech's renderers every cast — horizontally centred on the body, vertically at the anchor below.")]
+        AutoCentre,
+        [Tooltip("Use the Beam Pivot transform exactly as it is.")]
+        ExplicitTransform,
+    }
+
+    /// <summary>Where up the mech's measured height the emitter sits. Named points
+    /// rather than a raw metre value so it stays right across differently sized
+    /// mechs and survives someone rescaling the model.</summary>
+    public enum PivotAnchor
+    {
+        Ground,
+        Knees,
+        Hips,
+        Chest,
+        Shoulders,
+        Head,
+        [Tooltip("Uses Pivot Height Fraction.")]
+        Custom,
     }
 
     #region Inspector
@@ -48,10 +80,41 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
     [Range(0.01f, 1f)] public float chargeBeamWidthScale = 0.15f;
 
     [Header("Emitter")]
-    [Tooltip("What the beams pivot around. Leave empty and one is created as a child of the boss at Auto Pivot Height.")]
+    [Tooltip("Who actually holds the beams — the mech itself, or a flight of drones it launches.")]
+    public EmitterMode emitterMode = EmitterMode.Self;
+    [Tooltip("Auto Centre measures the mech's own renderers and puts the pivot on its centre line at the anchor below — that's what a 360 sweep wants, and it can't drift the way a rig bone does. " +
+             "Explicit Transform hands control to Beam Pivot instead; only use it for a purpose-built empty, never for a muzzle or gun bone.")]
+    public PivotMode pivotMode = PivotMode.AutoCentre;
+    [Tooltip("Which point up the mech's body the beams come from. Ground/Head are the extremes of its measured height; Custom uses Pivot Height Fraction.")]
+    public PivotAnchor pivotAnchor = PivotAnchor.Chest;
+    [Tooltip("Only used by the Custom anchor. 0 = the mech's feet, 1 = the top of its head.")]
+    [Range(0f, 1.5f)] public float pivotHeightFraction = 0.7f;
+    [Tooltip("Fine-tune in metres, added on top of the anchor. Positive raises the emitter.")]
+    public float pivotHeightOffset = 0f;
+    [Tooltip("Only used when Pivot Mode is Explicit Transform.")]
     public Transform beamPivot;
-    [Tooltip("Local height of the auto-created pivot. Ignored when Beam Pivot is assigned.")]
-    public float autoPivotHeight = 3f;
+
+    [Header("Drones (Emitter Mode = Drones)")]
+    [Tooltip("The drone that carries a beam. One is spawned per beam. Without a prefab the beams still work — they just come from invisible points on the orbit.")]
+    public GameObject dronePrefab;
+    [Tooltip("Drones in the flight, and therefore beams. Overrides Beam Count while in drone mode. 2-3 reads best; more and the safe angles get too tight to find.")]
+    [Range(1, 8)] public int droneCount = 3;
+    [Tooltip("How far out from the mech's centre line the drones orbit. Everything inside this ring is safe, so this is the size of the bubble at the boss's feet.")]
+    public float droneOrbitRadius = 6f;
+    [Tooltip("Seconds the drones take to fly from the mech out to their orbit. Clamped to the charge time — they're in position by the moment the beams go live.")]
+    public float droneDeployTime = 1.2f;
+    [Tooltip("Where on the mech the drones launch from, relative to the emitter pivot.")]
+    public Vector3 droneLaunchOffset = new Vector3(0f, 1f, 0f);
+    [Tooltip("Where the beam leaves the drone, in the drone's own local space. Leave at zero to fire from its origin; use it to move the beam out to a nose or an underslung emitter.")]
+    public Vector3 droneBeamOriginOffset = Vector3.zero;
+    [Tooltip("How far a drone may be from its station and still have the beam anchored to it. Beyond this the beam stays on the station instead — that's what stops a drone that's still flying out (or one whose own prefab is driving it around) from dragging its beam back through the mech.")]
+    public float droneOnStationTolerance = 1.5f;
+    [Tooltip("Switch off the drone's own NavMeshAgent and physics for the sweep so this script's formation flying is the only thing moving it. Turn this off only if the prefab is a dumb visual with no movement of its own.")]
+    public bool droneMotionOverride = true;
+    [Tooltip("Burst spawned on each drone as the flight is recalled at the end of the sweep.")]
+    public GameObject droneDespawnVfxPrefab;
+    [Tooltip("Leave the drones behind when the sweep ends instead of despawning them. Only do this if the prefab can look after itself — it has its own health and despawn.")]
+    public bool droneOutlivesSweep;
 
     [Header("Beams")]
     [Min(1)] public int beamCount = 2;
@@ -101,6 +164,10 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
     [Tooltip("Optional scorch/ground VFX spawned where a beam crosses the floor. Purely cosmetic.")]
     public GameObject fireStartVfxPrefab;
 
+    [Header("Debug")]
+    [Tooltip("Log one line per cast with the beams' resolved world width, ground Y and heights. Turn this on if the beams don't show up — it says exactly which number is wrong.")]
+    public bool debugLog;
+
     [Header("Events")]
     [Tooltip("Fires when the charge begins — hook the audio cue and any camera push-in here.")]
     public UnityEvent onChargeStart;
@@ -119,13 +186,31 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
 
     private readonly List<LineRenderer> _beams = new List<LineRenderer>();
     private readonly List<GameObject> _impactVfx = new List<GameObject>();
+    private readonly List<GameObject> _drones = new List<GameObject>();
+    private Vector3 _droneLaunchWorld;
+    private readonly RaycastHit[] _groundHits = new RaycastHit[8];
     private Transform _pivot;
+    // Beams live under here rather than under the pivot. A LineRenderer's WIDTH is
+    // multiplied by its transform's lossy scale even when useWorldSpace is on, and
+    // the pivot is usually a rig bone with a wildly non-uniform scale — parenting to
+    // it silently shrank every beam to a hairline. This holder is kept at world
+    // scale 1 so beamThickness means metres.
+    private Transform _beamRoot;
+    private Material _runtimeBeamMaterial;
     private int _chargeTriggerHash;
     private int _firingBoolHash;
     private float _lastSpinSign = 1f;
     private float _nextDamageTime;
     private Collider _playerCollider;
     private CharacterController _playerController;
+    private GameObject _chargeVfx;
+
+    private void ClearChargeVfx()
+    {
+        if (_chargeVfx == null) return;
+        Destroy(_chargeVfx);
+        _chargeVfx = null;
+    }
 
     private void Reset()
     {
@@ -144,31 +229,35 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         if (!string.IsNullOrEmpty(chargeTrigger)) _chargeTriggerHash = Animator.StringToHash(chargeTrigger);
         if (!string.IsNullOrEmpty(firingBool)) _firingBoolHash = Animator.StringToHash(firingBool);
         EnsurePivot();
+
+        // The single easiest thing to get wrong here: wire up a drone prefab, leave
+        // Emitter Mode on Self, and wonder why the beams still come out of the mech.
+        if (dronePrefab != null && emitterMode != EmitterMode.Drones)
+            Debug.LogWarning($"[{nameof(MechLaserSweepUltimate)}] {name} has a Drone Prefab assigned but Emitter Mode is " +
+                             $"{emitterMode} — the beams will fire from the mech and no drones will launch. " +
+                             "Set Emitter Mode to Drones.", this);
     }
 
     private void OnDisable()
     {
-        // Death mid-sweep kills the coroutine wherever it happens to be. Without
-        // this the beams stay on screen, still lethal-looking, over a dead boss.
+        // Backstop for the component being switched off outright, which no abort
+        // path runs through. Normal interruption goes via OnAborted/ShutDown.
+        ClearChargeVfx();
         TeardownBeams();
+        RecallDrones(false);
         IsSweeping = false;
+    }
+
+    private void OnDestroy()
+    {
+        // Built with `new Material(...)`, so nothing else will collect it.
+        if (_runtimeBeamMaterial != null) Destroy(_runtimeBeamMaterial);
     }
 
     #region Execution
 
-    public override void Execute(Action onComplete)
+    protected override IEnumerator Run()
     {
-        if (IsExecuting)
-        {
-            onComplete?.Invoke();
-            return;
-        }
-        StartCoroutine(Co_Execute(onComplete));
-    }
-
-    private IEnumerator Co_Execute(Action onComplete)
-    {
-        IsExecuting = true;
         EnsurePivot();
 
         float groundY = SampleGroundY();
@@ -186,20 +275,31 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         RaiseTelegraphStart(chargeTime);
         onChargeStart?.Invoke();
 
-        GameObject chargeVfx = chargeVfxPrefab != null
+        // Held in a field, not a local: an abort during the charge kills this
+        // coroutine outright, and a parented VFX would otherwise sit on the pivot
+        // spinning up forever.
+        _chargeVfx = chargeVfxPrefab != null
             ? Instantiate(chargeVfxPrefab, _pivot.position, _pivot.rotation, _pivot)
             : null;
+
+        // The flight launches with the charge and is on station by the time the
+        // beams go live — the drones flying out IS the tell in that mode.
+        DeployDrones(heights);
+        float deployTime = Mathf.Clamp(droneDeployTime, 0.01f, Mathf.Max(0.01f, chargeTime));
+        LogSetup(groundY, heights, startAngle);
 
         SetBeamsVisible(showChargeBeams);
         float charged = 0f;
         while (charged < chargeTime)
         {
+            UpdateDrones(startAngle, heights, Mathf.Clamp01(charged / deployTime));
             if (showChargeBeams) DrawBeams(startAngle, heights, chargeBeamWidthScale);
             charged += Time.deltaTime;
             yield return null;
         }
 
-        if (chargeVfx != null) Destroy(chargeVfx);
+        UpdateDrones(startAngle, heights, 1f);
+        ClearChargeVfx();
 
         // Fire.
         RaiseTelegraphResolved();
@@ -223,23 +323,35 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
             angle += step * spinSign;
             swept += step;
 
+            UpdateDrones(angle, heights, 1f);
             DrawBeams(angle, heights, 1f);
             TestSweepHit(prevAngle, angle, heights);
 
             yield return null;
         }
 
-        if (animator != null && _firingBoolHash != 0) animator.SetBool(_firingBoolHash, false);
-        IsSweeping = false;
-        TeardownBeams();
-        onSweepEnd?.Invoke();
+        ShutDown();
 
         // Short tail so the boss doesn't snap straight into its next move the
         // frame the beams cut out.
         yield return new WaitForSeconds(0.5f);
+    }
 
-        IsExecuting = false;
-        onComplete?.Invoke();
+    // A stagger or death mid-sweep leaves the coroutine dead wherever it stood —
+    // without this the beams stay lit and turning over a boss that isn't there.
+    protected override void OnAborted() => ShutDown();
+
+    private void ShutDown()
+    {
+        ClearChargeVfx();
+        if (animator != null && _firingBoolHash != 0) animator.SetBool(_firingBoolHash, false);
+
+        bool wasLive = IsSweeping || _beams.Count > 0;
+        IsSweeping = false;
+        TeardownBeams();
+        RecallDrones(wasLive);
+
+        if (wasLive) onSweepEnd?.Invoke();
     }
 
     private float ResolveTotalDegrees()
@@ -264,7 +376,10 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
     /// the spin so the player is swept *towards*, never spawned on top of.</summary>
     private float ResolveStartAngle(float spinSign)
     {
-        float baseAngle = _pivot.eulerAngles.y;
+        // The mech's yaw, not the pivot's. The pivot is often a rig bone (a muzzle,
+        // a gun gimbal) whose own rotation is baked at some arbitrary angle, which
+        // made the opening direction unrelated to where the boss is facing.
+        float baseAngle = transform.eulerAngles.y;
 
         if (startAimedAtPlayer && PlayerHealth.Transform != null)
         {
@@ -294,7 +409,7 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         flat.y = 0f;
 
         float dist = flat.magnitude;
-        if (dist < innerSafeRadius || dist > beamLength) return;
+        if (dist < EffectiveInnerRadius || dist > EffectiveOuterRadius) return;
 
         float playerAngle = Quaternion.LookRotation(flat.normalized, Vector3.up).eulerAngles.y;
 
@@ -307,6 +422,8 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
 
         for (int i = 0; i < _beams.Count; i++)
         {
+            if (BeamEmitterLost(i)) continue; // that drone is down — no beam to be hit by
+
             float beamPrev = prevAngle + BeamAngleOffset(i);
             if (!ArcPassedOver(beamPrev, sweep, playerAngle, halfWidth)) continue;
 
@@ -316,9 +433,10 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
             if (beamY + beamThickness * 0.5f < feetY) continue;
             if (beamY - beamThickness * 0.5f > headY) continue;
 
-            // Cover. Sighted from the beam's own height so ducking behind a low
-            // wall blocks the low beam without also blocking the high one.
-            Vector3 origin = new Vector3(pivotPos.x, beamY, pivotPos.z);
+            // Cover. Sighted from the beam's own origin — the drone's position in
+            // drone mode — so ducking behind a low wall blocks the low beam without
+            // also blocking the high one.
+            Vector3 origin = BeamOrigin(i, curAngle, heights);
             Vector3 target = new Vector3(PlayerHealth.Transform.position.x,
                                          Mathf.Clamp(beamY, feetY, headY),
                                          PlayerHealth.Transform.position.z);
@@ -413,32 +531,256 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
 
     private void EnsurePivot()
     {
-        if (beamPivot != null) { _pivot = beamPivot; return; }
-        if (_pivot != null) return;
+        if (pivotMode == PivotMode.ExplicitTransform && beamPivot != null)
+        {
+            _pivot = beamPivot;
+            return;
+        }
 
-        var go = new GameObject("LaserSweepPivot");
-        go.transform.SetParent(transform, false);
-        go.transform.localPosition = new Vector3(0f, autoPivotHeight, 0f);
-        _pivot = go.transform;
+        if (_pivot == null || _pivot == beamPivot)
+        {
+            var go = new GameObject("LaserSweepPivot");
+            go.transform.SetParent(transform, false);
+            _pivot = go.transform;
+        }
+
+        // Re-solved on every cast rather than once at Awake: the mech's measured
+        // bounds move with its pose and its phase, and the pivot has to stay on the
+        // body's centre line for the sweep to read as coming from the boss itself.
+        _pivot.position = ResolveAutoPivotWorld();
+        _pivot.rotation = transform.rotation;
+        _pivot.localScale = Vector3.one;
     }
+
+    /// <summary>The mech's own centre line at the chosen anchor height. Measured from
+    /// the renderers, so it lands correctly whatever the model's scale or rig layout.</summary>
+    private Vector3 ResolveAutoPivotWorld()
+    {
+        if (!TryGetBodyBounds(out Bounds body))
+            return transform.position + Vector3.up * pivotHeightOffset;
+
+        float y = Mathf.Lerp(body.min.y, body.max.y, AnchorFraction()) + pivotHeightOffset;
+        return new Vector3(body.center.x, y, body.center.z);
+    }
+
+    private float AnchorFraction()
+    {
+        switch (pivotAnchor)
+        {
+            case PivotAnchor.Ground: return 0f;
+            case PivotAnchor.Knees: return 0.25f;
+            case PivotAnchor.Hips: return 0.5f;
+            case PivotAnchor.Chest: return 0.7f;
+            case PivotAnchor.Shoulders: return 0.85f;
+            case PivotAnchor.Head: return 1f;
+            default: return pivotHeightFraction;
+        }
+    }
+
+    /// <summary>World bounds of the mech's body. Only mesh/skinned renderers count —
+    /// line, trail and particle renderers would drag the bounds out to wherever the
+    /// beams and VFX currently reach, which would feed the pivot back into itself.</summary>
+    private bool TryGetBodyBounds(out Bounds bounds)
+    {
+        bounds = default;
+        bool any = false;
+
+        var renderers = GetComponentsInChildren<Renderer>(false);
+        foreach (Renderer r in renderers)
+        {
+            if (r == null || !r.enabled) continue;
+            if (!(r is MeshRenderer || r is SkinnedMeshRenderer)) continue;
+            if (_beamRoot != null && r.transform.IsChildOf(_beamRoot)) continue;
+
+            if (!any) { bounds = r.bounds; any = true; }
+            else bounds.Encapsulate(r.bounds);
+        }
+
+        if (any) return true;
+
+        // Nothing renderable (renderers disabled during a phase transition, say) —
+        // the collider still describes roughly the right volume.
+        var col = GetComponentInChildren<Collider>();
+        if (col == null) return false;
+
+        bounds = col.bounds;
+        return true;
+    }
+
+    /// <summary>Beams in this cast. In drone mode the flight size decides it, so the
+    /// two numbers can't disagree.</summary>
+    private int ActiveBeamCount =>
+        Mathf.Max(1, emitterMode == EmitterMode.Drones ? droneCount : beamCount);
 
     /// <summary>Angle each beam sits at relative to beam 0 — evenly spread so two
     /// beams are a spinning bar, four are a cross.</summary>
-    private float BeamAngleOffset(int index) => 360f / Mathf.Max(1, beamCount) * index;
+    private float BeamAngleOffset(int index) => 360f / ActiveBeamCount * index;
 
-    private float SampleGroundY()
+    /// <summary>Nothing inside this ring can be hit. With drones the beams start out
+    /// at the orbit rather than at the mech, so the bubble under the boss grows to
+    /// match — which is the whole trade of the drone version.</summary>
+    private float EffectiveInnerRadius =>
+        emitterMode == EmitterMode.Drones ? Mathf.Max(innerSafeRadius, droneOrbitRadius) : innerSafeRadius;
+
+    /// <summary>Furthest a beam reaches from the mech's centre line.</summary>
+    private float EffectiveOuterRadius =>
+        emitterMode == EmitterMode.Drones ? droneOrbitRadius + beamLength : beamLength;
+
+    private Vector3 BeamDirection(int index, float baseAngle) =>
+        Quaternion.AngleAxis(baseAngle + BeamAngleOffset(index), Vector3.up) * Vector3.forward;
+
+    /// <summary>Where drone <paramref name="index"/> should be sitting for this angle
+    /// — on the orbit, out along its own beam, at its beam's height.</summary>
+    private Vector3 DroneStation(int index, float baseAngle, float[] heights)
     {
-        Vector3 probe = _pivot.position + Vector3.up * 2f;
-        if (Physics.Raycast(probe, Vector3.down, out RaycastHit hit, 50f, groundMask, QueryTriggerInteraction.Ignore))
-            return hit.point.y;
-        return _pivot.position.y;
+        Vector3 pivotPos = _pivot.position;
+        Vector3 dir = BeamDirection(index, baseAngle);
+        Vector3 centre = new Vector3(pivotPos.x, heights[index], pivotPos.z);
+        return centre + dir * droneOrbitRadius;
+    }
+
+    /// <summary>Point the beam is drawn and traced from.
+    ///
+    /// In drone mode this is the drone's STATION, not the drone's current position.
+    /// Following the live position meant that for the whole fly-out the beams poured
+    /// out of the middle of the mech — the drones hadn't got there yet — which reads
+    /// as the boss firing them itself and makes the telegraph a lie about where the
+    /// beams end up. The station is fixed from the first frame of the charge, and the
+    /// drones arrive onto beams already drawn where they'll be.</summary>
+    private Vector3 BeamOrigin(int index, float baseAngle, float[] heights)
+    {
+        if (emitterMode != EmitterMode.Drones)
+        {
+            Vector3 pivotPos = _pivot.position;
+            return new Vector3(pivotPos.x, heights[index], pivotPos.z);
+        }
+
+        Vector3 station = DroneStation(index, baseAngle, heights);
+
+        // Once it's actually on station, hand the origin to the drone so the beam
+        // stays welded to its muzzle even if the model bobs or the prefab animates.
+        GameObject drone = index < _drones.Count ? _drones[index] : null;
+        if (drone == null) return station;
+
+        Vector3 muzzle = drone.transform.TransformPoint(droneBeamOriginOffset);
+        return Vector3.SqrMagnitude(muzzle - station) < droneOnStationTolerance * droneOnStationTolerance
+            ? muzzle
+            : station;
+    }
+
+    /// <summary>True once a drone that was supposed to be carrying this beam is gone —
+    /// shot down, or despawned by its own prefab. Its beam goes dark with it.</summary>
+    private bool BeamEmitterLost(int index) =>
+        emitterMode == EmitterMode.Drones && dronePrefab != null
+        && (index >= _drones.Count || _drones[index] == null);
+
+    private void DeployDrones(float[] heights)
+    {
+        RecallDrones(false);
+        if (emitterMode != EmitterMode.Drones || dronePrefab == null) return;
+
+        _droneLaunchWorld = _pivot.position + _pivot.rotation * droneLaunchOffset;
+
+        for (int i = 0; i < ActiveBeamCount; i++)
+        {
+            GameObject drone = Instantiate(dronePrefab, _droneLaunchWorld, _pivot.rotation);
+            SetDroneMotionSuspended(drone, droneMotionOverride);
+            _drones.Add(drone);
+        }
+    }
+
+    /// <summary>A drone prefab reused from a normal enemy brings its own NavMeshAgent
+    /// and rigidbody, and both will happily overwrite the position this script writes
+    /// each frame — the drone wanders off formation and drags its beam with it. For
+    /// the duration of the sweep, this script is the only thing flying them.</summary>
+    private static void SetDroneMotionSuspended(GameObject drone, bool suspend)
+    {
+        if (drone == null) return;
+
+        if (drone.TryGetComponent(out NavMeshAgent agent))
+        {
+            if (suspend && agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
+            agent.enabled = !suspend;
+        }
+
+        if (drone.TryGetComponent(out Rigidbody rb))
+        {
+            if (suspend)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+            rb.isKinematic = suspend;
+        }
+    }
+
+    /// <summary><paramref name="deployT"/> runs 0..1 across the fly-out, then stays
+    /// at 1 for the sweep itself.</summary>
+    private void UpdateDrones(float baseAngle, float[] heights, float deployT)
+    {
+        if (emitterMode != EmitterMode.Drones) return;
+
+        for (int i = 0; i < _drones.Count; i++)
+        {
+            GameObject drone = _drones[i];
+            if (drone == null) continue;
+
+            Vector3 station = DroneStation(i, baseAngle, heights);
+            drone.transform.position = deployT >= 1f
+                ? station
+                : Vector3.Lerp(_droneLaunchWorld, station, Mathf.SmoothStep(0f, 1f, deployT));
+
+            // Nose pointed down its own beam, so the drone reads as the thing firing
+            // it rather than a prop that happens to be in the way.
+            drone.transform.rotation = Quaternion.LookRotation(BeamDirection(i, baseAngle), Vector3.up);
+        }
+    }
+
+    private void RecallDrones(bool withVfx)
+    {
+        foreach (GameObject drone in _drones)
+        {
+            if (drone == null) continue;
+
+            if (withVfx && droneDespawnVfxPrefab != null)
+                Destroy(Instantiate(droneDespawnVfxPrefab, drone.transform.position, drone.transform.rotation), 3f);
+
+            if (droneOutlivesSweep) SetDroneMotionSuspended(drone, false); // hand it back to its own AI
+            else Destroy(drone);
+        }
+
+        _drones.Clear();
+    }
+
+    /// <summary>Floor level under the emitter. The probe starts above the pivot and
+    /// looks down, so with a permissive Ground Mask the first thing it hits is the
+    /// mech's OWN collider — that put every beam at shoulder height instead of on the
+    /// floor. Hits belonging to this boss are skipped.</summary>
+    private float SampleGroundY() => GroundYUnder(_pivot.position);
+
+    private float GroundYUnder(Vector3 point)
+    {
+        Vector3 probe = point + Vector3.up * 2f;
+        int count = Physics.RaycastNonAlloc(probe, Vector3.down, _groundHits, 50f, groundMask, QueryTriggerInteraction.Ignore);
+
+        float best = float.NegativeInfinity;
+        for (int i = 0; i < count; i++)
+        {
+            Collider c = _groundHits[i].collider;
+            if (c == null || c.transform.IsChildOf(transform)) continue;
+            if (_groundHits[i].point.y > best) best = _groundHits[i].point.y;
+        }
+
+        // Nothing but ourselves down there — fall back to the boss's own feet, which
+        // are on the navmesh, rather than the pivot's height up on the chassis.
+        return best > float.NegativeInfinity ? best : transform.position.y;
     }
 
     /// <summary>Absolute world Y for each beam, from the per-beam heights above the
     /// ground under the emitter. The list repeats if it's shorter than Beam Count.</summary>
     private float[] ResolveBeamHeights(float groundY)
     {
-        var result = new float[Mathf.Max(1, beamCount)];
+        var result = new float[ActiveBeamCount];
         for (int i = 0; i < result.Length; i++)
         {
             result[i] = (beamHeights != null && beamHeights.Length > 0)
@@ -448,15 +790,39 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         return result;
     }
 
+    /// <summary>Holder for the beams, pinned to world scale 1. See _beamRoot.</summary>
+    private void EnsureBeamRoot()
+    {
+        if (_beamRoot != null) return;
+
+        var go = new GameObject("LaserSweepBeams");
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localRotation = Quaternion.identity;
+
+        Vector3 parentScale = transform.lossyScale;
+        go.transform.localScale = new Vector3(
+            Mathf.Abs(parentScale.x) > 0.0001f ? 1f / parentScale.x : 1f,
+            Mathf.Abs(parentScale.y) > 0.0001f ? 1f / parentScale.y : 1f,
+            Mathf.Abs(parentScale.z) > 0.0001f ? 1f / parentScale.z : 1f);
+
+        _beamRoot = go.transform;
+    }
+
     private void BuildBeams()
     {
         TeardownBeams();
+        EnsureBeamRoot();
 
-        for (int i = 0; i < Mathf.Max(1, beamCount); i++)
+        for (int i = 0; i < ActiveBeamCount; i++)
         {
             LineRenderer lr = beamPrefab != null
-                ? Instantiate(beamPrefab, _pivot)
+                ? Instantiate(beamPrefab, _beamRoot)
                 : CreateFallbackBeam();
+
+            // An assigned prefab can carry any parent scale of its own; the width
+            // has to come out in metres either way.
+            lr.transform.localScale = Vector3.one;
 
             lr.useWorldSpace = true;
             lr.positionCount = 2;
@@ -473,20 +839,51 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
     private LineRenderer CreateFallbackBeam()
     {
         var go = new GameObject("LaserBeam");
-        go.transform.SetParent(_pivot, false);
+        go.transform.SetParent(_beamRoot, false);
 
         var lr = go.AddComponent<LineRenderer>();
-        lr.material = beamMaterial != null ? beamMaterial : new Material(Shader.Find("Sprites/Default"));
+        lr.material = beamMaterial != null ? beamMaterial : ResolveFallbackMaterial();
         lr.startColor = lr.endColor = beamColor;
         lr.textureMode = LineTextureMode.Tile;
+        lr.alignment = LineAlignment.View;
+        lr.numCapVertices = 0;
         lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         lr.receiveShadows = false;
         return lr;
     }
 
+    /// <summary>Built once and shared by every beam. Shader.Find is tried against a
+    /// URP name first and a null result is reported rather than fed to the Material
+    /// constructor — that used to throw inside Run(), which killed the coroutine and
+    /// left the cast with no beams at all and no obvious reason why.</summary>
+    private Material ResolveFallbackMaterial()
+    {
+        if (_runtimeBeamMaterial != null) return _runtimeBeamMaterial;
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                     ?? Shader.Find("Universal Render Pipeline/Unlit")
+                     ?? Shader.Find("Sprites/Default")
+                     ?? Shader.Find("Unlit/Color");
+
+        if (shader == null)
+        {
+            Debug.LogError($"[{nameof(MechLaserSweepUltimate)}] No fallback shader available on {name} — " +
+                           "assign Beam Material (or Beam Prefab) or the sweep has no visuals.", this);
+            return null;
+        }
+
+        _runtimeBeamMaterial = new Material(shader) { name = "LaserSweepBeam (runtime)" };
+
+        // Vertex colour alone leaves the beam grey under some of these shaders, so
+        // set whichever tint property the chosen one actually exposes.
+        if (_runtimeBeamMaterial.HasProperty("_BaseColor")) _runtimeBeamMaterial.SetColor("_BaseColor", beamColor);
+        if (_runtimeBeamMaterial.HasProperty("_Color")) _runtimeBeamMaterial.SetColor("_Color", beamColor);
+
+        return _runtimeBeamMaterial;
+    }
+
     private void DrawBeams(float baseAngle, float[] heights, float widthScale)
     {
-        Vector3 pivotPos = _pivot.position;
         float width = beamThickness * widthScale;
 
         for (int i = 0; i < _beams.Count; i++)
@@ -494,8 +891,17 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
             LineRenderer lr = _beams[i];
             if (lr == null) continue;
 
-            Vector3 dir = Quaternion.AngleAxis(baseAngle + BeamAngleOffset(i), Vector3.up) * Vector3.forward;
-            Vector3 origin = new Vector3(pivotPos.x, heights[i], pivotPos.z);
+            // Drone shot down — its beam dies with it, and so does the impact VFX
+            // sitting at the far end of it.
+            if (BeamEmitterLost(i))
+            {
+                lr.enabled = false;
+                if (_impactVfx[i] != null) _impactVfx[i].SetActive(false);
+                continue;
+            }
+
+            Vector3 dir = BeamDirection(i, baseAngle);
+            Vector3 origin = BeamOrigin(i, baseAngle, heights);
 
             // The visual stops where the damage does, so a beam clipped by a wall
             // isn't drawn shining through it.
@@ -522,6 +928,30 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
             if (vfx != null) vfx.SetActive(visible);
     }
 
+    /// <summary>Everything that decides whether a beam is visible, in one line. The
+    /// world width is the number that matters most — anything under a centimetre is
+    /// a beam that technically exists and can't be seen.</summary>
+    private void LogSetup(float groundY, float[] heights, float startAngle)
+    {
+        if (!debugLog) return;
+
+        Vector3 rootScale = _beamRoot != null ? _beamRoot.lossyScale : Vector3.one;
+        string mat = beamMaterial != null ? beamMaterial.name
+                   : beamPrefab != null ? "(from Beam Prefab)"
+                   : _runtimeBeamMaterial != null ? _runtimeBeamMaterial.shader.name
+                   : "NONE — no shader found";
+
+        string emitter = emitterMode == EmitterMode.Drones
+            ? $"{_drones.Count} drone(s) @ r{droneOrbitRadius:0.#}" + (dronePrefab == null ? " [NO PREFAB]" : "")
+            : "self";
+
+        Debug.Log($"[{nameof(MechLaserSweepUltimate)}] {name}: {emitter}, {_beams.Count} beam(s), material {mat}, " +
+                  $"width {beamThickness:0.###}m x rootScale {rootScale.y:0.###} = {beamThickness * rootScale.y:0.###}m world, " +
+                  $"pivot {_pivot.position} ({(pivotMode == PivotMode.ExplicitTransform && beamPivot != null ? beamPivot.name : pivotAnchor.ToString())}), " +
+                  $"beam0 fires from {BeamOrigin(0, startAngle, heights)}, " +
+                  $"groundY {groundY:0.##}, beamY [{string.Join(", ", System.Array.ConvertAll(heights, h => h.ToString("0.##")))}].", this);
+    }
+
     private void TeardownBeams()
     {
         foreach (var lr in _beams)
@@ -541,35 +971,85 @@ public class MechLaserSweepUltimate : MechAttackBehaviour
         beamThickness = Mathf.Max(0.05f, beamThickness);
         innerSafeRadius = Mathf.Max(0f, innerSafeRadius);
         damageTickInterval = Mathf.Max(0.05f, damageTickInterval);
+        droneOrbitRadius = Mathf.Max(0.5f, droneOrbitRadius);
+        droneDeployTime = Mathf.Max(0.01f, droneDeployTime);
+        droneOnStationTolerance = Mathf.Max(0.05f, droneOnStationTolerance);
     }
 
     private void OnDrawGizmosSelected()
     {
-        Transform pivot = beamPivot != null ? beamPivot : _pivot;
-        Vector3 origin = pivot != null ? pivot.position : transform.position + Vector3.up * autoPivotHeight;
+        if (!drawGizmos) return;
 
-        // Reach and the dead zone under the emitter.
-        Gizmos.color = new Color(1f, 0.2f, 0.1f, 0.5f);
-        Gizmos.DrawWireSphere(origin, beamLength);
-        Gizmos.color = new Color(0.2f, 1f, 0.4f, 0.6f);
-        Gizmos.DrawWireSphere(origin, innerSafeRadius);
+        // Resolved the same way the cast will, so what you're looking at while you
+        // pick an anchor is where the beams will actually come from.
+        Vector3 origin = pivotMode == PivotMode.ExplicitTransform && beamPivot != null
+            ? beamPivot.position
+            : ResolveAutoPivotWorld();
 
-        // One line per beam at its authored height, so the jump/crouch heights are
-        // visible in the scene view without entering play mode.
-        float groundY = origin.y;
-        if (Physics.Raycast(origin + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 50f, groundMask, QueryTriggerInteraction.Ignore))
-            groundY = hit.point.y;
+        // Same self-hit filter as the runtime path, so the gizmo shows the heights
+        // the attack will actually use rather than ones measured off the chassis.
+        float groundY = GroundYUnder(origin);
 
-        Gizmos.color = beamColor;
-        for (int i = 0; i < Mathf.Max(1, beamCount); i++)
+        Vector3 groundOrigin = new Vector3(origin.x, groundY + 0.02f, origin.z);
+
+        // The emitter itself — a plumb line from the floor up to the anchor point,
+        // so you can see the pivot is on the mech's centre line and read off how
+        // high the chosen anchor put it.
+        Gizmos.color = MechGizmos.Laser;
+        Gizmos.DrawLine(groundOrigin, origin);
+        Gizmos.DrawWireSphere(origin, 0.25f);
+        MechGizmos.Label(origin + Vector3.up * 0.4f,
+                         pivotMode == PivotMode.ExplicitTransform && beamPivot != null
+                             ? $"emitter: {beamPivot.name} (explicit)"
+                             : $"emitter: {pivotAnchor} @ {origin.y - groundY:0.##}m",
+                         MechGizmos.Laser);
+
+        // Reach, the dead zone under the emitter, and the band the selector will
+        // actually pick this from — all flat on the floor the player stands on.
+        MechGizmos.GroundRing(groundOrigin, EffectiveOuterRadius, MechGizmos.Laser, "beam reach", 225f);
+        MechGizmos.GroundRing(groundOrigin, EffectiveInnerRadius, MechGizmos.Safe, "safe", 240f);
+        MechGizmos.GroundBand(groundOrigin, minRange, maxRange, MechGizmos.Laser * 0.55f, "Laser range", 255f);
+
+        bool drones = emitterMode == EmitterMode.Drones;
+        if (drones)
+            MechGizmos.GroundRing(groundOrigin, droneOrbitRadius, MechGizmos.Gatling,
+                                  $"{ActiveBeamCount} drones orbit here", 195f, true);
+
+        // The dodge language of the whole attack: one bar per beam at its real
+        // height, labelled with what the player has to do about it. This is the
+        // number that's impossible to tune blind, so it gets spelled out.
+        for (int i = 0; i < ActiveBeamCount; i++)
         {
-            float y = (beamHeights != null && beamHeights.Length > 0)
-                ? groundY + beamHeights[i % beamHeights.Length]
-                : origin.y;
+            float above = (beamHeights != null && beamHeights.Length > 0)
+                ? beamHeights[i % beamHeights.Length]
+                : origin.y - groundY;
 
-            Vector3 from = new Vector3(origin.x, y, origin.z);
             Vector3 dir = Quaternion.AngleAxis(transform.eulerAngles.y + BeamAngleOffset(i), Vector3.up) * Vector3.forward;
-            Gizmos.DrawLine(from, from + dir * beamLength);
+
+            // In drone mode the beam doesn't start at the mech — it starts out at
+            // the drone on the orbit, so the marker starts there too.
+            Vector3 barOrigin = drones ? groundOrigin + dir * droneOrbitRadius : groundOrigin;
+
+            MechGizmos.HeightMarker(barOrigin, groundY + above, dir, beamLength, beamColor,
+                                    $"beam {i}: {above:0.##}m — {DodgeHint(above)}");
+
+            if (!drones) continue;
+
+            // The drone itself, and its tether back to the boss, so the formation is
+            // legible without pressing play.
+            Vector3 station = new Vector3(barOrigin.x, groundY + above, barOrigin.z);
+            Gizmos.color = MechGizmos.Gatling;
+            Gizmos.DrawWireCube(station, Vector3.one * 0.5f);
+            Gizmos.DrawLine(origin, station);
         }
+    }
+
+    /// <summary>How a beam at this height is meant to be survived. Naming it in the
+    /// gizmo is what turns an arbitrary number into a design decision you can see.</summary>
+    private static string DodgeHint(float heightAboveGround)
+    {
+        if (heightAboveGround <= 1.0f) return "jump it";
+        if (heightAboveGround >= 1.9f) return "crouch under";
+        return "cover only";
     }
 }

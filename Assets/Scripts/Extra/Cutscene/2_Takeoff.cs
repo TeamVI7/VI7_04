@@ -179,6 +179,85 @@ public class TakeoffCutscene : MonoBehaviour
         }
     }
 
+#if UNITY_EDITOR
+    [Header("Gizmos")]
+    public bool drawGizmos = true;
+
+    private void OnDrawGizmos()
+    {
+        if (!drawGizmos || plane == null) return;
+
+        Vector3 start = plane.position;
+        Vector3 right = plane.right;   // the model's forward axis
+
+        // ── TAKEOFF TRAJECTORY ────────────────────────────────
+        // Replicates the runtime formula exactly, including its use of only the
+        // X and Z components of plane.right, so the preview cannot lie.
+        const int steps = 48;
+        Vector3 prev = start;
+
+        for (int i = 1; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            Vector3 p = SampleTakeoff(start, right, t);
+
+            // Fades toward the nacelle conversion point so the shape of the
+            // acceleration is readable, not just the path
+            Gizmos.color = Color.Lerp(new Color(0.3f, 0.8f, 1f), Color.white, t);
+            Gizmos.DrawLine(prev, p);
+            prev = p;
+        }
+
+        // Nacelle conversion happens at t = 0.3
+        Vector3 convert = SampleTakeoff(start, right, 0.3f);
+        Gizmos.color = new Color(1f, 0.65f, 0f);
+        Gizmos.DrawWireSphere(convert, 1.5f);
+        UnityEditor.Handles.Label(convert, "  nacelles convert");
+
+        // Cruise continues past the curve at climbSpeed
+        Gizmos.color = new Color(1f, 1f, 1f, 0.35f);
+        Gizmos.DrawLine(prev, prev + right * climbSpeed * 2f);
+
+        // ── CAMERA RIG ────────────────────────────────────────
+        // Sampled at a few points so the framing can be judged across the shot
+        // rather than only at the start.
+        foreach (float t in new[] { 0f, 0.35f, 1f })
+        {
+            Vector3 planePos = SampleTakeoff(start, right, t);
+            Vector3 camPos = planePos + plane.TransformDirection(followOffset);
+            Vector3 aim = planePos + right * aimLead;
+
+            Gizmos.color = new Color(1f, 0.9f, 0.2f, t > 0f ? 0.5f : 1f);
+            Gizmos.DrawWireSphere(camPos, 0.8f);
+            Gizmos.DrawLine(camPos, aim);
+
+            if (t == 0f)
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(aim, 0.5f);
+                UnityEditor.Handles.Label(aim, "  aim lead");
+                UnityEditor.Handles.Label(camPos, "  camera");
+            }
+        }
+
+        UnityEditor.Handles.Label(
+            start,
+            $"  Takeoff\n  {takeoffDuration:0.0}s climb / {sceneDuration:0.0}s shot");
+    }
+
+    /// Mirrors the position write in MovePlane so the gizmo tracks the real path.
+    private Vector3 SampleTakeoff(Vector3 start, Vector3 right, float t)
+    {
+        float height = liftCurve != null ? liftCurve.Evaluate(t) : 0f;
+        float forward = forwardCurve != null ? forwardCurve.Evaluate(t) : 0f;
+
+        return new Vector3(
+            start.x + right.x * forward,
+            start.y + height,
+            start.z + right.z * forward);
+    }
+#endif
+
     IEnumerator FollowCamera()
     {
         // Smoothing runs against private state rather than the transform, so the

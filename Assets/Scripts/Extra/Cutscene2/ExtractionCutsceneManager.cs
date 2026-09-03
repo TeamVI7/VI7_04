@@ -23,9 +23,28 @@ public class ExtractionCutsceneManager : MonoBehaviour
     public float cutToBlackDuration = 0.4f;
     public float fadeInDuration = 0.25f;
 
+    [Header("Instant Cuts")]
+    // A dip to black puts a beat between two shots — useful when the shots are
+    // unrelated in space and the audience needs a moment to re-orient. It is
+    // exactly wrong for a cause-and-effect pair: the missile is in the air, then
+    // the sky is on fire. Cutting straight between two live frames is what makes
+    // that land, and any black at all softens it into two separate events.
+    //
+    // A shot flagged here skips both the black hold and the fade in.
+    public bool instantCutToExtraction;
+    public bool instantCutToBomberAscent;
+    public bool instantCutToMissilePayload;
+    public bool instantCutToMissileFlight;
+    public bool instantCutToNukeDetonation = true;
+
     [Header("Scene Transition Configuration")]
     public string nextSceneName;
     public SceneTransitionConfig nextTransition;
+
+    [Header("Atmosphere")]
+    [Tooltip("Optional. Drives the volumetric cloud wind per shot so the sky is " +
+             "not a static backdrop behind a climbing aircraft.")]
+    public CutsceneAtmosphere atmosphere;
 
     [Header("Global Fade Overlay")]
     public Image fadeImage;
@@ -42,6 +61,14 @@ public class ExtractionCutsceneManager : MonoBehaviour
     public float skipHoldDuration = 1.5f;
     public GameObject skipPromptRoot;       // Optional "Hold E to skip" UI
     public Image skipFillImage;             // Optional radial/bar fill driven by hold progress
+
+    [Header("Persistent Gameplay Objects")]
+    // The player is not authored in the gameplay scene — it rides a
+    // DontDestroyOnLoad root, so loading this scene does not take it with the
+    // level. It arrives here with its camera, its HUD canvas and its input all
+    // still live, drawing and listening over the top of the cutscene.
+    public bool disablePersistentPlayer = true;
+    public string playerTag = "Player";
 
     [Header("Audio Listener")]
     // Every shot camera ships its own AudioListener, so several are live at once
@@ -70,6 +97,13 @@ public class ExtractionCutsceneManager : MonoBehaviour
             musicAudioSource.clip = musicClip;
             musicAudioSource.volume = 0f;
             musicAudioSource.loop = true;
+
+            // Forced 2D. This source is left standing in world space while the
+            // AudioListener is teleported from shot camera to shot camera, and
+            // those are kilometres apart — any spatial blend at all and the
+            // music drops out of rolloff range on the first cut, which reads as
+            // the track cutting off exactly when the camera changes.
+            musicAudioSource.spatialBlend = 0f;
             musicAudioSource.Play();
             musicAudioSource.DOFade(targetMusicVolume, musicFadeInDuration);
 
@@ -82,9 +116,40 @@ public class ExtractionCutsceneManager : MonoBehaviour
         if (skipFillImage != null) skipFillImage.fillAmount = 0f;
         SetSkipArmed(true);
 
+        // Before CacheListeners: the player carries an AudioListener, and a
+        // listener belonging to an object we are about to switch off must not be
+        // the one the fallback lands on.
+        DisablePersistentPlayer();
+
         CacheListeners();
 
         StartCoroutine(PlayMasterSequence());
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // GAMEPLAY TEARDOWN
+    // ───────────────────────────────────────────────────────────────
+
+    /// Switches off the persistent player root that followed us in from the
+    /// gameplay scene.
+    ///
+    /// Deactivated rather than destroyed: PauseMenuController and the restart
+    /// bookkeeping share that root, and a cutscene is not the thing that gets to
+    /// decide they are gone for good. Deactivating is also reversible, which
+    /// matters if this sequence is ever reused mid-campaign rather than as an
+    /// outro.
+    private void DisablePersistentPlayer()
+    {
+        if (!disablePersistentPlayer) return;
+
+        GameObject player = GameObject.FindGameObjectWithTag(playerTag);
+        if (player == null) return;
+
+        // The HUD sits NEXT TO the player on that root rather than under it, so
+        // switching off the player alone leaves the health bar and the crosshair
+        // drawn over the cutscene. Taking the root takes both, plus the pause
+        // menu that would otherwise still answer the Escape key mid-shot.
+        player.transform.root.gameObject.SetActive(false);
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -102,6 +167,14 @@ public class ExtractionCutsceneManager : MonoBehaviour
         foreach (var listener in allListeners)
         {
             if (listener == null) continue;
+
+            // Shot cameras start disabled and are legitimately skipped below.
+            // Anything else that is inactive is inactive on purpose — the player
+            // root we just switched off — and picking it would leave the opening
+            // of the sequence with a listener that cannot hear anything.
+            if (!listener.gameObject.activeInHierarchy &&
+                listener.transform.root.gameObject.activeSelf == false) continue;
+
             if (IsUnder(listener, extraction      != null ? extraction.cutsceneCamera      : null)) continue;
             if (IsUnder(listener, bomberAscent    != null ? bomberAscent.cutsceneCamera    : null)) continue;
             if (IsUnder(listener, missilePayload  != null ? missilePayload.cutsceneCamera  : null)) continue;
@@ -134,7 +207,16 @@ public class ExtractionCutsceneManager : MonoBehaviour
         {
             foreach (var listener in allListeners)
             {
-                if (listener != null) { chosen = listener; break; }
+                if (listener == null) continue;
+
+                // Skip anything sitting on a root we switched off — the player.
+                // Enabling a listener on an inactive object satisfies the "one
+                // listener" rule on paper and produces total silence in practice,
+                // which is the worst of both outcomes.
+                if (!listener.transform.root.gameObject.activeSelf) continue;
+
+                chosen = listener;
+                break;
             }
         }
         if (chosen == null) return;
@@ -166,50 +248,59 @@ public class ExtractionCutsceneManager : MonoBehaviour
         // ── SHOT 1: EXTRACTION ────────────────────────────────
         if (extraction != null)
         {
-            UseListenerFor(extraction.cutsceneCamera);
-            yield return StartCoroutine(FadeIn(0.75f));
+            // Opens from the black Start() already left on screen, so there is
+            // no beat to hold first — just the reveal.
+            if (!BeginShotInstant(extraction.cutsceneCamera, instantCutToExtraction))
+                yield return StartCoroutine(DipCut(0f, 0.75f));
+
+            if (atmosphere != null) atmosphere.EnterShot(1);
             yield return StartCoroutine(extraction.Play());
-            yield return StartCoroutine(HardCut());
         }
 
         // ── SHOT 2: BOMBER CLIMBING OUT ───────────────────────
         if (bomberAscent != null)
         {
-            UseListenerFor(bomberAscent.cutsceneCamera);
-            yield return StartCoroutine(FadeIn(fadeInDuration));
+            if (!BeginShotInstant(bomberAscent.cutsceneCamera, instantCutToBomberAscent))
+                yield return StartCoroutine(DipCut(cutToBlackDuration, fadeInDuration));
+
+            if (atmosphere != null) atmosphere.EnterShot(2);
             yield return StartCoroutine(bomberAscent.Play());
-            yield return StartCoroutine(HardCut());
         }
 
         // ── SHOT 3: THE PAYLOAD ───────────────────────────────
         if (missilePayload != null)
         {
-            UseListenerFor(missilePayload.cutsceneCamera);
-            yield return StartCoroutine(FadeIn(fadeInDuration));
+            if (!BeginShotInstant(missilePayload.cutsceneCamera, instantCutToMissilePayload))
+                yield return StartCoroutine(DipCut(cutToBlackDuration, fadeInDuration));
+
+            if (atmosphere != null) atmosphere.EnterShot(3);
             yield return StartCoroutine(missilePayload.Play());
-            yield return StartCoroutine(HardCut());
         }
 
         // ── SHOT 4: RUN TO THE TARGET ─────────────────────────
         if (missileFlight != null)
         {
-            UseListenerFor(missileFlight.cutsceneCamera);
-            yield return StartCoroutine(FadeIn(fadeInDuration));
+            if (!BeginShotInstant(missileFlight.cutsceneCamera, instantCutToMissileFlight))
+                yield return StartCoroutine(DipCut(cutToBlackDuration, fadeInDuration));
+
+            if (atmosphere != null) atmosphere.EnterShot(4);
             yield return StartCoroutine(missileFlight.Play());
 
             // Hand the real impact position to the detonation so the fireball
-            // lands where the missile actually ended up.
+            // lands where the missile actually ended up. On an instant cut the
+            // detonation begins on this same frame, so this has to be set before
+            // anything yields.
             if (nukeDetonation != null)
                 nukeDetonation.OverridePoint = missileFlight.ImpactPoint;
-
-            yield return StartCoroutine(HardCut());
         }
 
         // ── SHOT 5: DETONATION ────────────────────────────────
         if (nukeDetonation != null)
         {
-            UseListenerFor(nukeDetonation.cutsceneCamera);
-            yield return StartCoroutine(FadeIn(fadeInDuration));
+            if (!BeginShotInstant(nukeDetonation.cutsceneCamera, instantCutToNukeDetonation))
+                yield return StartCoroutine(DipCut(cutToBlackDuration, fadeInDuration));
+
+            if (atmosphere != null) atmosphere.EnterShot(5);
             yield return StartCoroutine(nukeDetonation.Play());
         }
 
@@ -226,14 +317,46 @@ public class ExtractionCutsceneManager : MonoBehaviour
         if (cam != null) cam.gameObject.SetActive(false);
     }
 
-    /// Black frame between shots, with skip disarmed so a hold cannot build
-    /// progress against a screen that has nothing on it.
-    IEnumerator HardCut()
+    /// Straight cut into the next shot. Deliberately NOT a coroutine: it must
+    /// not cost a frame.
+    ///
+    /// The outgoing shot's Play() has just switched its own camera off, and the
+    /// incoming shot's Play() switches its own on. Between those two points
+    /// nothing may yield, or Unity renders a frame with no camera live and the
+    /// "instant" cut shows a black flash — the exact thing it exists to avoid.
+    /// Hence the camera is also switched on here rather than waiting for Play(),
+    /// which covers the frame boundary that yielding on a nested coroutine can
+    /// introduce.
+    ///
+    /// Returns false when this join is a dip, leaving the caller to run DipCut.
+    private bool BeginShotInstant(Transform cameraRoot, bool instant)
+    {
+        UseListenerFor(cameraRoot);
+
+        if (!instant) return false;
+
+        // A fade still in flight would keep writing alpha over a cut that is
+        // supposed to already be clear.
+        if (fadeImage != null) DOTween.Kill(fadeImage);
+
+        SetFadeInstant(false);
+        if (cameraRoot != null) cameraRoot.gameObject.SetActive(true);
+        SetSkipArmed(true);
+
+        return true;
+    }
+
+    /// Black between shots, then back up. Skip is disarmed across the black so a
+    /// hold cannot build progress against a screen with nothing on it.
+    IEnumerator DipCut(float blackHold, float fadeDuration)
     {
         SetFadeInstant(true);
         SetSkipArmed(false);
-        yield return new WaitForSeconds(cutToBlackDuration);
+
+        if (blackHold > 0f) yield return new WaitForSeconds(blackHold);
+
         SetSkipArmed(true);
+        yield return StartCoroutine(FadeIn(fadeDuration));
     }
 
     void Update()

@@ -157,6 +157,38 @@ public class InFlightCutscene : MonoBehaviour
         if (_cam != null && _baseFov > 0f) _cam.fieldOfView = _baseFov;
     }
 
+#if UNITY_EDITOR
+    [Header("Gizmos")]
+    public bool drawGizmos = true;
+
+    private void OnDrawGizmos()
+    {
+        if (!drawGizmos || cutsceneCamera == null) return;
+
+        Vector3 p = cutsceneCamera.position;
+
+        Gizmos.color = new Color(1f, 0.9f, 0.2f);
+        Gizmos.DrawWireSphere(p, 0.15f);
+        Gizmos.DrawRay(p, cutsceneCamera.forward * 2f);
+
+        // Turbulence envelope: the extremes of the roll and pitch swing, drawn as
+        // the frame corners the shot will actually reach at full jolt.
+        Gizmos.color = new Color(1f, 0.4f, 0.2f, 0.7f);
+        foreach (int sign in new[] { 1, -1 })
+        {
+            Quaternion extreme = cutsceneCamera.rotation * Quaternion.Euler(
+                turbulenceAngles.x * sign,
+                turbulenceAngles.y * sign,
+                turbulenceAngles.z * sign);
+            Gizmos.DrawRay(p, extreme * Vector3.forward * 2f);
+        }
+
+        UnityEditor.Handles.Label(
+            p,
+            $"  In-flight\n  {sceneDuration:0.0}s\n  turb ±{turbulenceAngles.z:0.0}° roll");
+    }
+#endif
+
     IEnumerator Turbulence()
     {
         while (_playing)

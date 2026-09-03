@@ -31,6 +31,10 @@ public class EarthSpike : MonoBehaviour
     [Header("FX")]
     [Tooltip("Optional debris/dust burst spawned at the base as the pillar breaks through.")]
     public GameObject burstVfxPrefab;
+    [Tooltip("Optional rock-crack one-shot as this pillar erupts. Played by the pillar itself rather than the boss, so a line of them crackles outward from the mech towards the player instead of all sounding from its feet.")]
+    public AudioClip eruptClip;
+    [Tooltip("Kept well below 1 by default — a pattern is eight of these inside half a second, and they stack.")]
+    [Range(0f, 1f)] public float eruptVolume = 0.5f;
 
     private Vector3 _surfacePoint;
     private float _rise;
@@ -57,6 +61,7 @@ public class EarthSpike : MonoBehaviour
         transform.position = groundPoint - groundNormal * _rise;
 
         if (burstVfxPrefab != null) Destroy(Instantiate(burstVfxPrefab, groundPoint, transform.rotation), 3f);
+        if (eruptClip != null) AudioSource.PlayClipAtPoint(eruptClip, groundPoint, eruptVolume);
 
         StartCoroutine(Co_Life(groundPoint, groundNormal));
     }

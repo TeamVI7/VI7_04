@@ -32,6 +32,16 @@ public class PlayerHealth : MonoBehaviour
     public static event System.Action<float, float> OnHealthChanged; // (current, max)
     public static event System.Action OnDied;
 
+    /// <summary>
+    /// Raised with the world position the damage came from, for DamageDirectionHUD.
+    ///
+    /// Only fires for damage that actually has a direction. Sources with no meaningful
+    /// bearing — killzones, the wire-puzzle shock, debug damage, bleed damage-over-time —
+    /// call the one-argument TakeDamage and deliberately raise nothing, so the player
+    /// never gets an arc pointing at something they cannot turn to face.
+    /// </summary>
+    public static event System.Action<Vector3> OnDamagedFrom;
+
     void Awake()
     {
         Transform = transform;
@@ -57,7 +67,21 @@ public class PlayerHealth : MonoBehaviour
         OnHealthChanged?.Invoke(_hp, maxHP);
     }
 
-    public void TakeDamage(float dmg)
+    /// <summary>Damage with no direction — traps, hazards, bleed. Fires no damage-direction arc.</summary>
+    public void TakeDamage(float dmg) => TakeDamage(dmg, null);
+
+    /// <summary>
+    /// Damage from a known world position — an enemy, a projectile, a blast centre.
+    /// Raises OnDamagedFrom so DamageDirectionHUD can point at it.
+    /// </summary>
+    public void TakeDamage(float dmg, Vector3 sourcePosition) => TakeDamage(dmg, (Vector3?)sourcePosition);
+
+    /// <summary>
+    /// The real implementation. sourcePosition is nullable rather than defaulting to
+    /// Vector3.zero because zero is a perfectly valid world position — a sourceless hit
+    /// defaulting to it would aim every trap and debug hit at the map origin.
+    /// </summary>
+    private void TakeDamage(float dmg, Vector3? sourcePosition)
     {
         if (_dead) return;
 
@@ -66,6 +90,8 @@ public class PlayerHealth : MonoBehaviour
 
         OnHealthChanged?.Invoke(_hp, maxHP);
         FlashOverlay(dmg);
+
+        if (sourcePosition.HasValue) OnDamagedFrom?.Invoke(sourcePosition.Value);
 
         if (_hp <= 0f) Die();
     }
@@ -102,12 +128,30 @@ public class PlayerHealth : MonoBehaviour
         OnDied?.Invoke();
     }
 
-    // Called by DeathCamera.Respawn() once checkpoint teleport completes.
-    public void Respawn()
+    // Full-heal respawn. Kept for callers that want a clean slate rather than a
+    // restored one — the checkpoint path goes through RestoreHealth instead.
+    public void Respawn() => RestoreHealth(maxHP);
+
+    /// <summary>
+    /// Puts health back to a specific value and lifts the dead flag — the restore half
+    /// of a checkpoint rewind.
+    ///
+    /// Clearing _dead here is the important part: it is what re-opens TakeDamage and
+    /// regen, both of which early-out while dead. A restore that only wrote _hp would
+    /// hand back a player at full health who could never be hurt again.
+    /// </summary>
+    public void RestoreHealth(float hp)
     {
         _dead = false;
-        _hp = maxHP;
+        _hp   = Mathf.Clamp(hp, 0f, maxHP);
+
+        // Otherwise the next tick of regen counts the entire time the player spent dead
+        // as "time since last hit" — or doesn't, depending on how long the fade ran.
+        _lastHitTime = Time.time;
+
+        _overlaySeq?.Kill();
         SetAlpha(damageOverlay, 0f);
+
         OnHealthChanged?.Invoke(_hp, maxHP);
     }
 

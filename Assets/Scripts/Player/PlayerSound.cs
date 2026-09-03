@@ -363,7 +363,11 @@ public class PlayerSoundController : MonoBehaviour
     {
         if (data == null) return;
         _loopSource.Stop();
-        PlayRandomOneShot(data.deathClips, data.deathVolume, Vector2.one);
+
+        // NOT PlayRandomOneShot: DeathCamera.Play() deactivates the player GameObject
+        // in this same frame, which stops every AudioSource on it — the death clip would
+        // be cut off before a single sample is heard. Play it on a detached object instead.
+        PlayDetachedRandomOneShot(data.deathClips, data.deathVolume);
     }
 
     #endregion
@@ -424,6 +428,34 @@ public class PlayerSoundController : MonoBehaviour
         _oneShotSource.pitch = Random.Range(pitchRange.x, pitchRange.y);
         _oneShotSource.PlayOneShot(clip, volume);
         Log($"Played '{clip.name}' vol={volume:F2} pitch={_oneShotSource.pitch:F2}");
+    }
+
+    /// <summary>
+    /// Plays a clip on a throwaway GameObject at the root of the scene, so it keeps
+    /// playing after the player GameObject is deactivated (death). 2D on purpose: the
+    /// death camera detaches and tumbles away, and this sound should not pan or fade
+    /// with it. The temp object destroys itself once the clip is done.
+    /// </summary>
+    private void PlayDetachedRandomOneShot(AudioClip[] clips, float volume)
+    {
+        if (clips == null || clips.Length == 0) return;
+
+        AudioClip clip = clips[Random.Range(0, clips.Length)];
+        if (clip == null) return;
+
+        var go  = new GameObject($"PlayerSound_OneShot_{clip.name}");
+        go.transform.position = transform.position;
+
+        var src = go.AddComponent<AudioSource>();
+        src.clip         = clip;
+        src.volume       = volume;
+        src.spatialBlend = 0f;
+        src.Play();
+
+        // Unscaled margin: the death sequence can run while timeScale is messed with,
+        // and Destroy's delay is scaled time — the extra second keeps it from being culled early.
+        Destroy(go, clip.length + 1f);
+        Log($"Played detached '{clip.name}' vol={volume:F2}");
     }
 
     #endregion

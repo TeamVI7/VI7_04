@@ -136,7 +136,7 @@ public class BIOSMainMenu : MonoBehaviour
     {
         if (fadeOverlay != null) yield return StartCoroutine(FadeOut());
 
-        if (LoadingScreenController.Instance != null)
+        if (LoadingScreenController.Instance != null && gameSceneTransition != null)
             LoadingScreenController.Instance.BeginLoad(gameSceneTransition.BuildSteps());
         else
             SceneManager.LoadScene(scene); // fallback if Bootstrap wasn't loaded

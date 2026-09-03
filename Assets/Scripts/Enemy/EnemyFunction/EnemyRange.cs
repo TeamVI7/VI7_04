@@ -258,15 +258,16 @@ public abstract class EnemyRangedAttackBehaviour : MonoBehaviour, IEnemyAimContr
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = IsAimed ? Color.red : new Color(1f, 0.6f, 0f, 0.8f);
-        Gizmos.DrawWireSphere(transform.position, AttackRange);
+        Vector3 center = EnemyGizmos.Ground(transform.position);
 
-        Vector3 origin = transform.position + Vector3.up * 1.5f;
-        Quaternion left  = Quaternion.AngleAxis(-MaxFireAngle, Vector3.up);
-        Quaternion right = Quaternion.AngleAxis( MaxFireAngle, Vector3.up);
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawRay(origin, left  * transform.forward * 3f);
-        Gizmos.DrawRay(origin, right * transform.forward * 3f);
+        // Reach ring, tinted by whether the shot is currently lined up.
+        Color reach = EnemyGizmos.Live(IsAimed, EnemyGizmos.Ranged);
+        EnemyGizmos.GroundRing(center, AttackRange, reach, $"fire {AttackRange:0.#}m", 60f);
+
+        // Fire arc drawn flat and filled out to the reach ring, so the angle gate
+        // and the range gate read as one shape instead of two loose rays.
+        EnemyGizmos.GroundCone(center, transform.forward, MaxFireAngle, AttackRange,
+                               reach * 0.8f, $"±{MaxFireAngle:0}°");
     }
 #endif
 }

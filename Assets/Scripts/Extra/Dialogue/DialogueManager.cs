@@ -87,7 +87,18 @@ public class DialogueManager : MonoBehaviour
 
     public void Play(DialogueData data)
     {
-        if (IsActive || data.lines.Length == 0) return;
+        // data comes from a DialogueTrigger's inspector slot, and an unassigned slot arrives
+        // here as null — which threw before the length check could run. A trigger nobody
+        // filled in should be a silent no-op with a name to go fix, not an exception that
+        // aborts whatever UnityEvent chain fired it.
+        if (data == null)
+        {
+            Debug.LogWarning("[DialogueManager] Play called with no DialogueData — a " +
+                             "DialogueTrigger in this scene has an empty Data slot.", this);
+            return;
+        }
+
+        if (IsActive || data.lines == null || data.lines.Length == 0) return;
 
         IsActive = true;
         queue = data.lines;

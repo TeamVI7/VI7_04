@@ -16,15 +16,15 @@ MonoBehaviour:
   - Prefab: {fileID: 6387229863345534500, guid: 78a3583a319bd314085694a23ca4c749, type: 3}
     Cost: 3
     Weight: 0.5
-    MaxConcurrent: 1
+    MaxConcurrent: 3
     MinWave: 0
   - Prefab: {fileID: 6767510391008397818, guid: 030bdb354b420024481ced8eff4cae0a, type: 3}
     Cost: 2
     Weight: 0.5
-    MaxConcurrent: 3
+    MaxConcurrent: 7
     MinWave: 0
   - Prefab: {fileID: 828108757595938155, guid: 2762e19b35727d045b1ffb0eb969500e, type: 3}
     Cost: 1
     Weight: 0.5
-    MaxConcurrent: 1
+    MaxConcurrent: 5
     MinWave: 0

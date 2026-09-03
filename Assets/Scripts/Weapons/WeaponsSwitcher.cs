@@ -227,6 +227,90 @@ public class WeaponSwitcherProcedural : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Sets a slot's unlocked flag directly. This is the save system's restore path —
+    /// unlike <see cref="PickupWeapon"/> it can re-lock a slot, which is what rewinding
+    /// to a checkpoint taken before the pickup has to do.
+    /// </summary>
+    public void SetUnlocked(int index, bool unlocked)
+    {
+        if (_unlocked == null || index < 0 || index >= _unlocked.Length) return;
+
+        // Slot 0 is the starting weapon and is never lockable — a save written before
+        // this field existed would otherwise restore a player with nothing to hold.
+        _unlocked[index] = unlocked || index == 0;
+    }
+
+    /// <summary>
+    /// Equips a slot instantly, skipping the drop/rise animation and every gate that
+    /// <see cref="TrySwitchTo"/> applies.
+    ///
+    /// Restores need this because the animated path cannot run here: it is a coroutine
+    /// that takes a third of a second the player would spend watching a rewind, it
+    /// early-outs while the Dead action lock is still up, and it refuses to run at all
+    /// when a previous switch was killed mid-flight by the death that triggered the
+    /// restore in the first place.
+    /// </summary>
+    public void ForceSwitchTo(int index)
+    {
+        if (weapons.Count == 0) return;
+        if (index < 0 || index >= weapons.Count || GetWeapon(index) == null) index = 0;
+        if (!IsUnlocked(index)) index = 0;
+
+        if (_switchCoroutine != null)
+        {
+            StopCoroutine(_switchCoroutine);
+            _switchCoroutine = null;
+        }
+        PlayerActionLock.Instance?.SetLock(PlayerActionLock.LockReason.Switching, false);
+
+        for (int i = 0; i < weapons.Count; i++)
+        {
+            WeaponsController w = GetWeapon(i);
+            if (w == null) continue;
+
+            bool active = i == index;
+
+            // ForceIdle before deactivating: a weapon disabled mid-reload leaves its
+            // Reloading lock held, and nothing re-runs its cleanup while it is off.
+            if (!active && w.gameObject.activeSelf) w.ForceIdle();
+            w.gameObject.SetActive(active);
+        }
+
+        _currentIndex = index;
+
+        WeaponsController current = GetWeapon(index);
+        if (current == null) return;
+
+        recoilModule?.RebindController(current);
+        cameraRecoil?.RebindController(current);
+        proceduralAnimator?.RebindWeaponData(current.weaponData);
+        wallHandIK?.SetIK(current.leftArmIK);
+
+        if (proceduralAnimator != null) proceduralAnimator.IsSwitching = false;
+
+        WeaponADSProfile profile = GetProfile(index);
+        proceduralAnimator?.LoadProfile(profile);
+        if (profile?.recoilProfile != null) recoilModule?.ApplyProfile(profile.recoilProfile);
+        proceduralAnimator?.SnapToHip();
+
+        // After LoadProfile, so CurrentHipPos reads the incoming weapon's hip offset
+        // rather than the outgoing one's. Co_Switch animates the pivot down and back up;
+        // killed partway through — which is what a death mid-switch does — it leaves the
+        // pivot parked at the dropped pose, and the restored weapon would sit half off
+        // the bottom of the screen.
+        if (weaponPivot != null)
+        {
+            weaponPivot.localPosition = proceduralAnimator != null
+                                      ? proceduralAnimator.CurrentHipPos
+                                      : Vector3.zero;
+            weaponPivot.localRotation = Quaternion.identity;
+        }
+
+        current.NotifyEquipped();
+        Log($"Force-equipped [{index}] {current.name}.");
+    }
+
     #endregion
 
     #region Switch Coroutine

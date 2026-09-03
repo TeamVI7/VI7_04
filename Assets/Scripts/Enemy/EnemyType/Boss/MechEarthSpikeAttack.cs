@@ -5,7 +5,6 @@
 //
 // Each pillar owns its own rise/hold/sink lifecycle (see EarthSpike), so this
 // attack only decides *where* and *when* they come up.
-using System;
 using System.Collections;
 using UnityEngine;
 
@@ -73,6 +72,10 @@ public class MechEarthSpikeAttack : MechAttackBehaviour
     public GameObject slamVfxPrefab;
     public Transform groundPoint;
 
+    /// <summary>Fires on the slam itself, carrying the pattern that erupted — audio
+    /// uses it to pick the right impact layer for a ring versus a travelling line.</summary>
+    public event System.Action<SpikePattern> OnSlam;
+
     private bool _animSignal_Slam;
     private int _animTriggerHash;
     private SpikePattern _activePattern;
@@ -96,15 +99,8 @@ public class MechEarthSpikeAttack : MechAttackBehaviour
         if (!string.IsNullOrEmpty(animatorTrigger)) _animTriggerHash = Animator.StringToHash(animatorTrigger);
     }
 
-    public override void Execute(Action onComplete)
+    protected override IEnumerator Run()
     {
-        if (IsExecuting) return;
-        StartCoroutine(Co_Execute(onComplete));
-    }
-
-    private IEnumerator Co_Execute(Action onComplete)
-    {
-        IsExecuting = true;
         _animSignal_Slam = false;
 
         // Everything about where this attack lands is decided here, before the
@@ -136,6 +132,7 @@ public class MechEarthSpikeAttack : MechAttackBehaviour
         }
 
         RaiseTelegraphResolved();
+        OnSlam?.Invoke(_activePattern);
 
         Vector3 origin = groundPoint != null ? groundPoint.position : transform.position;
         if (slamVfxPrefab != null) Destroy(Instantiate(slamVfxPrefab, origin, Quaternion.identity), 3f);
@@ -154,8 +151,6 @@ public class MechEarthSpikeAttack : MechAttackBehaviour
         }
 
         yield return new WaitForSeconds(0.4f);
-        IsExecuting = false;
-        onComplete?.Invoke();
     }
 
     private Vector3 FlatDirectionToPlayer(Vector3 from)
@@ -245,40 +240,59 @@ public class MechEarthSpikeAttack : MechAttackBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Vector3 origin = groundPoint != null ? groundPoint.position : transform.position;
+        if (!drawGizmos) return;
+
+        Vector3 origin = MechGizmos.Ground(groundPoint != null ? groundPoint.position : transform.position);
+
+        MechGizmos.GroundBand(origin, minRange, maxRange, MechGizmos.Spike * 0.6f, "Spike range", 135f);
 
         if (patternByDistance)
         {
-            // The two thresholds that decide which pattern the player gets.
-            Gizmos.color = new Color(0.9f, 0.5f, 0.2f, 0.6f);
-            Gizmos.DrawWireSphere(origin, ringDistance);
-            Gizmos.color = new Color(0.4f, 0.6f, 0.9f, 0.6f);
-            Gizmos.DrawWireSphere(origin, clusterDistance);
+            // The two thresholds that decide which pattern the player gets. Labelled
+            // with the pattern each band produces — the numbers alone don't tell you
+            // which side of the ring is which.
+            MechGizmos.GroundRing(origin, ringDistance, MechGizmos.Spike, "ring ← | → line", 150f, dashed: true);
+            MechGizmos.GroundRing(origin, clusterDistance, MechGizmos.Spike, "line ← | → cluster", 165f, dashed: true);
         }
 
-        Gizmos.color = new Color(0.6f, 0.4f, 0.2f);
         switch (Application.isPlaying && patternByDistance ? _activePattern : pattern)
         {
             case SpikePattern.RingAroundMech:
-                Gizmos.DrawWireSphere(origin, ringRadius);
+                MechGizmos.GroundRing(origin, ringRadius, MechGizmos.Spike, "pillars", 180f);
                 break;
 
             case SpikePattern.ClusterUnderPlayer:
                 if (Application.isPlaying && PlayerHealth.Transform != null)
-                    Gizmos.DrawWireSphere(PlayerHealth.Transform.position, clusterRadius);
+                {
+                    MechGizmos.GroundRing(MechGizmos.Ground(PlayerHealth.Transform.position), clusterRadius,
+                                          MechGizmos.Spike, "cluster", 0f);
+                }
                 break;
 
             default:
-                for (int i = 0; i < spikeCount; i++)
-                {
-                    // Height drawn to scale so the ramp is tunable without pressing play.
-                    float h = spikeCount > 1
-                        ? Mathf.LerpUnclamped(lineStartHeightScale, lineEndHeightScale, lineHeightCurve.Evaluate(i / (float)(spikeCount - 1)))
-                        : lineEndHeightScale;
-                    Vector3 at = origin + transform.forward * (spacing * (i + 1));
-                    Gizmos.DrawWireCube(at + Vector3.up * (h * 0.3f), new Vector3(0.6f, 0.6f * h, 0.6f));
-                }
+                DrawLinePreview(origin);
                 break;
         }
+    }
+
+    /// <summary>The line pattern drawn as the pillars it will actually produce —
+    /// each one a box at its real height, so the start/end height ramp is tunable
+    /// without entering play mode.</summary>
+    private void DrawLinePreview(Vector3 origin)
+    {
+        Gizmos.color = MechGizmos.Spike;
+
+        for (int i = 0; i < spikeCount; i++)
+        {
+            float h = spikeCount > 1
+                ? Mathf.LerpUnclamped(lineStartHeightScale, lineEndHeightScale, lineHeightCurve.Evaluate(i / (float)(spikeCount - 1)))
+                : lineEndHeightScale;
+
+            Vector3 at = MechGizmos.Ground(origin + transform.forward * (spacing * (i + 1)));
+            Gizmos.DrawWireCube(at + Vector3.up * (h * 0.3f), new Vector3(0.6f, 0.6f * h, 0.6f));
+        }
+
+        Vector3 reach = origin + transform.forward * (spacing * spikeCount);
+        MechGizmos.Label(MechGizmos.Ground(reach) + Vector3.up * 0.5f, $"line reach {spacing * spikeCount:0.#}m", MechGizmos.Spike);
     }
 }

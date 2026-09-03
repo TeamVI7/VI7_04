@@ -227,6 +227,7 @@ GameObject:
   - component: {fileID: 400024}
   - component: {fileID: 10800004}
   - component: {fileID: 9114159078862655856}
+  - component: {fileID: 5579448543332324532}
   m_Layer: 19
   m_Name: Point WHITE SMALLER
   m_TagString: Untagged
@@ -343,6 +344,21 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!114 &5579448543332324532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100024}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c8bca95f7c947b4db5fb152a0d693d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.cqf.urpvolumetricfog.runtime::VolumetricAdditionalLight
+  anisotropy: 0.25
+  scattering: 1
+  radius: 0.2
 --- !u!1 &4050691739632379677
 GameObject:
   m_ObjectHideFlags: 0
@@ -354,6 +370,7 @@ GameObject:
   - component: {fileID: 8940649056005179441}
   - component: {fileID: 7724506364440603304}
   - component: {fileID: 6759175085862485285}
+  - component: {fileID: 8123316422568835816}
   m_Layer: 19
   m_Name: Point WHITE SMALLER (1)
   m_TagString: Untagged
@@ -370,7 +387,7 @@ Transform:
   m_GameObject: {fileID: 4050691739632379677}
   serializedVersion: 2
   m_LocalRotation: {x: 0.87785864, y: -0, z: -0, w: 0.47892}
-  m_LocalPosition: {x: 0.11595459, y: -0.695, z: -0.737}
+  m_LocalPosition: {x: 0.11595459, y: -0.695, z: -0.59}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -470,6 +487,21 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!114 &8123316422568835816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4050691739632379677}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c8bca95f7c947b4db5fb152a0d693d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.cqf.urpvolumetricfog.runtime::VolumetricAdditionalLight
+  anisotropy: 0.25
+  scattering: 1
+  radius: 0.2
 --- !u!1 &7364002424804442718
 GameObject:
   m_ObjectHideFlags: 0
@@ -481,6 +513,7 @@ GameObject:
   - component: {fileID: 2246303066414795568}
   - component: {fileID: 4344382378635868772}
   - component: {fileID: 260017603479457833}
+  - component: {fileID: 4277512249538443113}
   m_Layer: 19
   m_Name: Point WHITE SMALLER (2)
   m_TagString: Untagged
@@ -497,7 +530,7 @@ Transform:
   m_GameObject: {fileID: 7364002424804442718}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0.11595459, y: -0.695, z: 0.009}
+  m_LocalPosition: {x: 0.11595459, y: -0.695, z: -0.014}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -597,3 +630,18 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!114 &4277512249538443113
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7364002424804442718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c8bca95f7c947b4db5fb152a0d693d8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.cqf.urpvolumetricfog.runtime::VolumetricAdditionalLight
+  anisotropy: 0.25
+  scattering: 1
+  radius: 0.2

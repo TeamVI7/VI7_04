@@ -69,16 +69,7 @@ public class BoardingCutscene : MonoBehaviour
         {
             float u = travelled / totalLength;
 
-            // Ease in at the start, ease out at the end, full stride in between.
-            float gait = 1f;
-            if (easeFraction > 0f)
-            {
-                gait = Mathf.Min(
-                    Mathf.SmoothStep(0f, 1f, u / easeFraction),
-                    Mathf.SmoothStep(0f, 1f, (1f - u) / easeFraction));
-            }
-            // Never let the stride reach exactly zero, or the loop cannot finish.
-            gait = Mathf.Clamp(gait, 0.05f, 1f);
+            float gait = GaitAt(u);
 
             travelled += moveSpeed * gait * Time.deltaTime;
             bobPhase += bobSpeed * gait * Time.deltaTime;
@@ -163,6 +154,22 @@ public class BoardingCutscene : MonoBehaviour
         }
     }
 
+    /// Stride envelope at normalised path position <paramref name="u"/>: eases in
+    /// over the first easeFraction, out over the last, full stride between. Shared
+    /// with the gizmo so the preview cannot drift from what actually runs.
+    private float GaitAt(float u)
+    {
+        float gait = 1f;
+        if (easeFraction > 0f)
+        {
+            gait = Mathf.Min(
+                Mathf.SmoothStep(0f, 1f, u / easeFraction),
+                Mathf.SmoothStep(0f, 1f, (1f - u) / easeFraction));
+        }
+        // Never let the stride reach exactly zero, or the walk loop cannot finish.
+        return Mathf.Clamp(gait, 0.05f, 1f);
+    }
+
     private void CacheCamera()
     {
         if (_cam == null && cutsceneCamera != null)
@@ -175,4 +182,93 @@ public class BoardingCutscene : MonoBehaviour
     {
         if (_cam != null && _baseFov > 0f) _cam.fieldOfView = _baseFov;
     }
+
+#if UNITY_EDITOR
+    [Header("Gizmos")]
+    public bool drawGizmos = true;
+    public float gizmoScale = 0.3f;
+
+    private void OnDrawGizmos()
+    {
+        if (!drawGizmos || waypoints == null || waypoints.Length < 2) return;
+
+        // Segment lengths, skipping unassigned slots so the gizmo stays usable
+        // while the path is still being authored.
+        float total = 0f;
+        for (int i = 0; i < waypoints.Length - 1; i++)
+        {
+            if (waypoints[i] == null || waypoints[i + 1] == null) continue;
+            total += Vector3.Distance(waypoints[i].position, waypoints[i + 1].position);
+        }
+        if (total <= 0f) return;
+
+        // ── PATH, COLOURED BY STRIDE ──────────────────────────
+        // Subdivided so the ease-in and ease-out zones are visible directly on the
+        // path rather than having to be imagined from the easeFraction number.
+        const int subdivisions = 12;
+        float walked = 0f;
+
+        for (int i = 0; i < waypoints.Length - 1; i++)
+        {
+            if (waypoints[i] == null || waypoints[i + 1] == null) continue;
+
+            Vector3 a = waypoints[i].position;
+            Vector3 b = waypoints[i + 1].position;
+            float segLen = Vector3.Distance(a, b);
+
+            for (int s = 0; s < subdivisions; s++)
+            {
+                float t0 = s / (float)subdivisions;
+                float t1 = (s + 1) / (float)subdivisions;
+                float u = (walked + segLen * (t0 + t1) * 0.5f) / total;
+
+                float gait = GaitAt(u);
+                // Amber where the character is starting up or slowing down,
+                // green at full stride.
+                Gizmos.color = Color.Lerp(new Color(1f, 0.65f, 0f), Color.green, gait);
+                Gizmos.DrawLine(Vector3.Lerp(a, b, t0), Vector3.Lerp(a, b, t1));
+            }
+
+            walked += segLen;
+        }
+
+        // ── WAYPOINT MARKERS ──────────────────────────────────
+        for (int i = 0; i < waypoints.Length; i++)
+        {
+            if (waypoints[i] == null) continue;
+
+            Vector3 p = waypoints[i].position;
+
+            Gizmos.color = Color.white;
+            Gizmos.DrawWireSphere(p, gizmoScale * 0.35f);
+
+            // Facing at this waypoint — the camera slerps toward it across the leg
+            Gizmos.color = new Color(0.3f, 0.6f, 1f);
+            Gizmos.DrawRay(p, waypoints[i].forward * gizmoScale * 3f);
+
+            // Bob envelope, so the sway amplitude is judgeable in context
+            Gizmos.color = new Color(1f, 1f, 1f, 0.25f);
+            Gizmos.DrawLine(p + Vector3.up * bobHeight, p - Vector3.up * bobHeight);
+
+            UnityEditor.Handles.color = Color.white;
+            UnityEditor.Handles.Label(p + Vector3.up * gizmoScale, $"  {i}");
+        }
+
+        // ── SUMMARY ───────────────────────────────────────────
+        // Duration integrates the gait envelope rather than assuming full stride,
+        // so it matches the shot length you actually get.
+        const int steps = 200;
+        float duration = 0f;
+        for (int i = 0; i < steps; i++)
+        {
+            float u = (i + 0.5f) / steps;
+            duration += (total / steps) / (moveSpeed * GaitAt(u));
+        }
+
+        UnityEditor.Handles.color = Color.white;
+        UnityEditor.Handles.Label(
+            waypoints[0].position + Vector3.up * gizmoScale * 3f,
+            $"Boarding walk\n{total:0.0} m @ {moveSpeed:0.0} m/s\n~{duration:0.0}s");
+    }
+#endif
 }

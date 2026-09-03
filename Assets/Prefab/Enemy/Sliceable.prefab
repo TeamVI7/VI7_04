@@ -69,7 +69,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 100000, guid: 805383227dcd4bc45b10db29576b4c78, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6616496766961379333}
+    - targetCorrespondingSourceObject: {fileID: 100000, guid: 805383227dcd4bc45b10db29576b4c78, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -8344492609192341329}
   m_SourcePrefab: {fileID: 100100000, guid: 805383227dcd4bc45b10db29576b4c78, type: 3}
+--- !u!23 &3369069304020946710 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 2300000, guid: 805383227dcd4bc45b10db29576b4c78, type: 3}
+  m_PrefabInstance: {fileID: 3369069304022849398}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &3369069304022946262 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 100000, guid: 805383227dcd4bc45b10db29576b4c78, type: 3}
@@ -148,3 +156,40 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &-8344492609192341329
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3369069304022946262}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c005fec7a0cdd404d8d902e917e280dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SliceableObstacle
+  MeshesToCut:
+  - {fileID: 3369069304020946710}
+  CutFaceMaterial: {fileID: 2100000, guid: aa631c03375c24c4cbe310de744f058f, type: 2}
+  HitsToCut: 1
+  Cuttable: 1
+  BlockingColliders: []
+  ClearNavMeshObstacle: 1
+  DespawnRootAfterCut: 1
+  RootDespawnDelay: 0.25
+  PieceSeparationSpeed: 1.5
+  PieceTorque: 1
+  PieceForwardPush: 1
+  PiecesIgnorePlayer: 1
+  PlayerRoot: {fileID: 0}
+  PieceLifetime: 6
+  PieceExitDuration: 1.5
+  PieceBlink: 1
+  PieceScaleOut: 1
+  PieceScaleTo: 0.6
+  CutVFXPrefab: {fileID: 0}
+  CutVFXLifetime: 3
+  HitVFXPrefab: {fileID: 0}
+  HitVFXLifetime: 1
+  SliceFallbackDelay: 1
+  debugLog: 0

@@ -60,6 +60,11 @@ public class FalloutTerminalManager : MonoBehaviour
 
     [Header("Server Minigame Link")]
     public ServerMinigameManager serverMinigameManager;
+    [Tooltip("Chỉ bật nếu terminal NÀY là script sở hữu ServerMinigameManager. " +
+             "ServerMinigameManager chỉ khởi động được ĐÚNG MỘT LẦN — nếu scene còn có " +
+             "MinigameFlowController cũng trỏ vào cùng manager đó, hãy TẮT cái này, " +
+             "nếu không script nào chạy trước sẽ nuốt luôn lượt kích hoạt của script kia.")]
+    public bool triggerServerPuzzleOnSolve = true;
     public float delayBeforeServerRise = 1.5f;
     public bool closeTerminalAfterSolve = true;
     public float closeDelayAfterSolve = 2.5f;
@@ -239,7 +244,11 @@ public class FalloutTerminalManager : MonoBehaviour
     {
         if (terminalCamera == null) return;
 
-        _playerCamera = Camera.main;
+        // Camera.main chỉ trả về camera ĐANG BẬT. Nếu một minigame khác đã tắt camera
+        // player trước đó, Camera.main = null; nếu cứ để _playerCamera = null thì lúc
+        // đóng terminal sẽ không có camera nào được bật lại -> màn hình đen.
+        _playerCamera = Camera.main != null ? Camera.main : FindPlayerCameraFallback();
+
         if (_playerCamera != null)
         {
             _playerCameraWasEnabled = _playerCamera.enabled;
@@ -252,10 +261,31 @@ public class FalloutTerminalManager : MonoBehaviour
                 _playerListener.enabled = false;
             }
         }
+        else
+        {
+            _playerListener = null;
+        }
 
         terminalCamera.enabled = true;
         var termListener = terminalCamera.GetComponent<AudioListener>();
         if (termListener != null) termListener.enabled = true;
+    }
+
+    /// <summary>Tìm camera player kể cả khi nó đang bị TẮT (Camera.main bỏ qua camera tắt).
+    /// Ưu tiên object tag "MainCamera", nếu không có thì lấy camera đầu tiên tìm được.</summary>
+    private Camera FindPlayerCameraFallback()
+    {
+        var all = FindObjectsOfType<Camera>(true);
+        foreach (var c in all)
+        {
+            if (c == terminalCamera) continue;
+            if (c.CompareTag("MainCamera")) return c;
+        }
+
+        foreach (var c in all)
+            if (c != terminalCamera) return c;
+
+        return null;
     }
 
     private void RestorePlayerCamera()
@@ -269,6 +299,24 @@ public class FalloutTerminalManager : MonoBehaviour
             _playerCamera.enabled = _playerCameraWasEnabled;
             if (_playerListener != null) _playerListener.enabled = _playerListenerWasEnabled;
         }
+
+        // Lưới an toàn: nếu camera player lúc mở terminal vốn đã bị script khác tắt,
+        // khôi phục "đúng trạng thái cũ" sẽ để lại scene KHÔNG có camera nào -> màn hình đen.
+        // Trường hợp đó thì cứ bật camera player lên, thà lệch quyền sở hữu còn hơn đen màn hình.
+        if (!AnyCameraEnabled() && _playerCamera != null)
+        {
+            Debug.LogWarning("[FalloutTerminal] Không còn camera nào được bật sau khi đóng terminal — " +
+                             "bật lại camera player để tránh màn hình đen.", this);
+            _playerCamera.enabled = true;
+            if (_playerListener != null) _playerListener.enabled = true;
+        }
+    }
+
+    private bool AnyCameraEnabled()
+    {
+        foreach (var c in FindObjectsOfType<Camera>())
+            if (c.enabled && c.gameObject.activeInHierarchy) return true;
+        return false;
     }
 
     /// <summary>Mở khoá + hiện con trỏ chuột, giống bản gốc (bạn rê chuột tự do trên màn hình terminal để chọn dòng).</summary>
@@ -713,10 +761,20 @@ public class FalloutTerminalManager : MonoBehaviour
 
         yield return new WaitForSeconds(delayBeforeServerRise);
 
-        if (serverMinigameManager != null)
-            serverMinigameManager.OnPlayerEnterTrigger();
-        else
+        if (!triggerServerPuzzleOnSolve)
+        {
+            Debug.Log("[FalloutTerminal] triggerServerPuzzleOnSolve = false — để script khác kích hoạt puzzle tắt server.");
+        }
+        else if (serverMinigameManager == null)
+        {
             Debug.LogWarning("[FalloutTerminal] ServerMinigameManager not assigned in Inspector!");
+        }
+        else if (!serverMinigameManager.OnPlayerEnterTrigger())
+        {
+            Debug.LogWarning("[FalloutTerminal] ServerMinigameManager đã được script khác kích hoạt trước đó. " +
+                             "Nếu MinigameFlowController mới là chủ sở hữu, hãy tắt 'triggerServerPuzzleOnSolve' " +
+                             "trên terminal này.", this);
+        }
 
         if (autoHideBigScreen)
         {

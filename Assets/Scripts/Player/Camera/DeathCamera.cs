@@ -79,8 +79,17 @@ public class DeathCamera : MonoBehaviour
             deathFade.DOFade(1f, fadeDuration).SetDelay(fadeDelay);
     }
 
-    // Called by CheckpointManager once the screen has been black for a beat.
-    public void Respawn(Vector3 pos, Quaternion rot)
+    /// <summary>
+    /// Undoes the death presentation: the camera stops being a physics object, goes back
+    /// on its rig, and the player GameObject comes back on.
+    ///
+    /// This is deliberately only the *view*. Where the player ends up, how much health
+    /// they have and what is in their magazine all come from the checkpoint snapshot,
+    /// which CheckpointManager applies immediately after this returns. Reactivating the
+    /// player has to happen first: a disabled Rigidbody silently drops position writes,
+    /// so restoring the snapshot into a still-dead player would place them nowhere.
+    /// </summary>
+    public void BeginRespawn()
     {
         if (cam.TryGetComponent<Rigidbody>(out var rb))      Destroy(rb);
         if (cam.TryGetComponent<SphereCollider>(out var sc))  Destroy(sc);
@@ -89,34 +98,21 @@ public class DeathCamera : MonoBehaviour
         cam.transform.localPosition = _camOrigLocalPos;
         cam.transform.localRotation = _camOrigLocalRot;
 
-        if (player)
-        {
-            player.transform.SetPositionAndRotation(pos, rot);
-
-            // Rigidbody caches its own internal position separately from Transform.
-            // Setting transform alone gets overwritten by the Rigidbody's stale
-            // (pre-death) position on the next physics step — must set rb directly too.
-            if (player.TryGetComponent<Rigidbody>(out var playerRb))
-            {
-                playerRb.position         = pos;
-                playerRb.rotation         = rot;
-                playerRb.linearVelocity   = Vector3.zero;
-                playerRb.angularVelocity  = Vector3.zero;
-            }
-
-            player.SetActive(true);
-        }
+        if (player) player.SetActive(true);
 
         if (mouseLook) mouseLook.enabled = true;
-
-        PlayerHealth.Instance?.Respawn();
 
         // Hard reset, not just "release Dead" — if a coroutine got silently killed by
         // deactivation while the player was dead (weapon mid-reload, mid-switch, etc.),
         // this guarantees respawn always hands back a completely clean, unblocked state
         // instead of inheriting a stuck lock from whatever was happening at the moment of death.
         PlayerActionLock.Instance.ClearAll();
+    }
 
+    /// <summary>Fades the black screen back out. Called after the snapshot has been
+    /// applied, so the player never sees the world mid-rewind.</summary>
+    public void FinishRespawn()
+    {
         if (deathFade) deathFade.DOFade(0f, fadeDuration);
     }
 }

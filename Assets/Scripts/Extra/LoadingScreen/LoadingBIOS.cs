@@ -21,11 +21,7 @@ using UnityEngine.UI;
 ///      percentText.
 ///   3. Optional: assign spinner (AsciiSpinner, defined below in this same
 ///      file) for a "/ - \ |" spin while loading is active.
-///   4. Optional: assign injectFillBar (Image, Filled type) for the hold-E
-///      confirm bar — only shows up on transitions whose SceneTransitionConfig
-///      has requireHoldToConfirm checked. Leave unassigned if you never use
-///      that feature.
-///   5. Call controller.BeginLoad(...) from wherever you trigger a scene
+///   4. Call controller.BeginLoad(...) from wherever you trigger a scene
 ///      change (CutsceneManager, BIOSMainMenu.OnDeploy, etc).
 ///
 /// EXTEND:
@@ -50,18 +46,6 @@ public class LoadingBIOSDisplay : MonoBehaviour
     [Header("Spinner")]
     public TextMeshProUGUI spinnerText;
     public float spinnerFrameInterval = 0.1f;
-
-    [Header("Hold To Confirm (optional, per-transition)")]
-    [Tooltip("Only appears on transitions whose SceneTransitionConfig has " +
-             "requireHoldToConfirm checked. Leave unassigned if unused.")]
-    public Image injectFillBar;       // Image Type = Filled, Fill Method = Horizontal
-    public KeyCode confirmKey = KeyCode.E;
-    public bool allowMouseConfirm = false; // mirrors Input.GetMouseButton(0) if true
-    public float holdDuration = 1f;
-    public AudioClip injectHoldSound;
-    [Tooltip("How fast the hold bar drains per second (as a multiple of " +
-             "holdDuration) when the key is released early.")]
-    public float releaseDrainMultiplier = 3f;
 
     [Header("Flavour Lines")]
     [Tooltip("Random line shown above the status label, purely cosmetic.")]
@@ -108,11 +92,6 @@ public class LoadingBIOSDisplay : MonoBehaviour
     private string _currentLabel = "";
     private bool _isLoading;
 
-    // Hold-to-confirm state
-    private bool  _awaitingConfirm;
-    private bool  _injecting;
-    private float _holdTimer;
-
     // Bar smoothing: real progress can jump straight to 1 on fast loads,
     // this keeps what's ON SCREEN crawling up instead of popping.
     private float _targetProgress;
@@ -142,7 +121,6 @@ public class LoadingBIOSDisplay : MonoBehaviour
         controller.OnStepChanged     += HandleStepChanged;
         controller.OnProgressChanged += HandleProgressChanged;
         controller.OnLoadComplete    += HandleLoadComplete;
-        controller.OnReadyForConfirm += HandleReadyForConfirm;
 
         SetVisible(false);
     }
@@ -155,16 +133,12 @@ public class LoadingBIOSDisplay : MonoBehaviour
         controller.OnStepChanged     -= HandleStepChanged;
         controller.OnProgressChanged -= HandleProgressChanged;
         controller.OnLoadComplete    -= HandleLoadComplete;
-        controller.OnReadyForConfirm -= HandleReadyForConfirm;
     }
 
     private void Update()
     {
         if (_isLoading)
             TickSpinner();
-
-        if (_awaitingConfirm)
-            TickHoldToConfirm();
 
         TickProgressSmoothing();
     }
@@ -188,6 +162,10 @@ public class LoadingBIOSDisplay : MonoBehaviour
         _targetProgress = 0f;
         _displayedProgress = 0f;
         SetProgressVisual(0f);
+        // TickProgressSmoothing early-outs while target == displayed, so without
+        // this the label keeps reading 100% from the previous load until the bar
+        // actually starts moving.
+        if (percentText != null) percentText.text = "0%";
 
         _spinnerIndex = 0;
         _spinnerTimer = 0f;
@@ -246,25 +224,9 @@ public class LoadingBIOSDisplay : MonoBehaviour
             percentText.text = $"{Mathf.RoundToInt(_displayedProgress * 100f)}%";
     }
 
-    private void HandleReadyForConfirm()
-    {
-        Log("Awaiting hold-to-confirm.");
-        _awaitingConfirm = true;
-        _injecting = false;
-        _holdTimer = 0f;
-
-        if (injectFillBar != null)
-        {
-            injectFillBar.gameObject.SetActive(true);
-            injectFillBar.fillAmount = 0f;
-        }
-    }
-
     private void HandleLoadComplete()
     {
         _isLoading = false;
-        _awaitingConfirm = false;
-        if (injectFillBar != null) injectFillBar.gameObject.SetActive(false);
 
         if (_chatterCoroutine != null)
         {
@@ -299,68 +261,6 @@ public class LoadingBIOSDisplay : MonoBehaviour
             yield return new WaitForSecondsRealtime(chatterInterval);
         }
         _chatterCoroutine = null;
-    }
-
-    #endregion
-
-    // ─────────────────────────────────────────────────────────────────────────
-    #region Hold To Confirm
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void TickHoldToConfirm()
-    {
-        bool holding = Input.GetKey(confirmKey) || (allowMouseConfirm && Input.GetMouseButton(0));
-
-        if (holding)
-        {
-            if (!_injecting)
-                PlayHoldSound();
-
-            _injecting = true;
-            if (injectFillBar != null) injectFillBar.gameObject.SetActive(true);
-
-            _holdTimer += Time.unscaledDeltaTime;
-            if (injectFillBar != null)
-                injectFillBar.fillAmount = _holdTimer / holdDuration;
-
-            if (_holdTimer >= holdDuration)
-            {
-                _awaitingConfirm = false;
-                StopHoldSound();
-                if (injectFillBar != null) injectFillBar.gameObject.SetActive(false);
-                controller.ConfirmReady();
-            }
-        }
-        else
-        {
-            if (_injecting) StopHoldSound();
-            _injecting = false;
-
-            _holdTimer = Mathf.Max(0f, _holdTimer - Time.unscaledDeltaTime * releaseDrainMultiplier);
-            if (injectFillBar != null)
-            {
-                injectFillBar.fillAmount = _holdTimer / holdDuration;
-                if (_holdTimer <= 0f)
-                    injectFillBar.gameObject.SetActive(false);
-            }
-        }
-    }
-
-    private void PlayHoldSound()
-    {
-        if (audioSource == null || injectHoldSound == null) return;
-        audioSource.clip  = injectHoldSound;
-        audioSource.loop  = true;
-        audioSource.pitch = 1f;
-        audioSource.Play();
-    }
-
-    private void StopHoldSound()
-    {
-        if (audioSource == null) return;
-        if (audioSource.clip == injectHoldSound && audioSource.isPlaying)
-            audioSource.Stop();
-        audioSource.loop = false;
     }
 
     #endregion

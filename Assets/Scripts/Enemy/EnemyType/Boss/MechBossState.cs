@@ -98,6 +98,7 @@ public class MechBossBrain : MonoBehaviour
 
     private EnemyHealth _health;
     private MechIntroCutscene _cutsceneDirector;
+    private MechAttackBehaviour[] _attacks;
     private Renderer[] _bodyRenderers;
     private Animator _standInAnimator;
     private int _standInTriggerHash;
@@ -114,6 +115,7 @@ public class MechBossBrain : MonoBehaviour
     {
         _health = GetComponent<EnemyHealth>();
         _cutsceneDirector = GetComponent<MechIntroCutscene>();
+        _attacks = GetComponents<MechAttackBehaviour>();
         _health.OnDied += _ => SetState(MechBossState.Dead);
         _health.OnStaggerEntered += () => SetState(MechBossState.Staggered);
         _health.OnStaggerExpired += () => SetState(MechBossState.Idle);
@@ -352,18 +354,25 @@ public class MechBossBrain : MonoBehaviour
     private void CheckPhaseTransition(float currentHP, float maxHP)
     {
         if (!_introDone || State == MechBossState.Dead) return;
-        if (_phaseIndex >= phaseHealthThresholds.Length) return;
-        if (currentHP / maxHP > phaseHealthThresholds[_phaseIndex]) return;
+        if (phaseHealthThresholds == null || _phaseIndex >= phaseHealthThresholds.Length) return;
 
-        // Index of *this* transition (0 = the one into phase 2), captured before
-        // the coroutine runs so the per-phase trigger/hold lookups stay correct
-        // even if another threshold is crossed while the transition is playing.
-        int transitionIndex = _phaseIndex;
+        float fraction = maxHP > 0f ? currentHP / maxHP : 0f;
+        if (fraction > phaseHealthThresholds[_phaseIndex]) return;
 
-        _phaseIndex++;
+        // One big hit — an execute, a full barrage — can cross several thresholds
+        // at once. Advancing a single step per damage event left the boss sitting
+        // in phase 2 at 15% HP until it happened to be hit again.
         int prev = Phase;
+        while (_phaseIndex < phaseHealthThresholds.Length && fraction <= phaseHealthThresholds[_phaseIndex])
+            _phaseIndex++;
+
         Phase = _phaseIndex + 1;
-        Log($"Phase {prev} -> {Phase}");
+
+        // Index of the LAST transition crossed, so the animation and hold that play
+        // are the ones authored for the phase the boss actually ends up in.
+        int transitionIndex = _phaseIndex - 1;
+
+        Log($"Phase {prev} -> {Phase}" + (Phase - prev > 1 ? " (skipped a phase — big hit)" : ""));
         OnPhaseChanged?.Invoke(prev, Phase);
         StartCoroutine(Co_PhaseTransition(transitionIndex));
     }
@@ -426,11 +435,37 @@ public class MechBossBrain : MonoBehaviour
     private void SetState(MechBossState next)
     {
         if (!_introDone && next != MechBossState.Dead) return;
+        // Dead is terminal. Nothing should be able to walk the boss back out of it.
+        if (State == MechBossState.Dead && next != MechBossState.Dead) return;
         if (State == next) return;
+
         var prev = State;
         State = next;
+
+        // Set the state *before* aborting, so each attack's completion callback
+        // sees Staggered/Dead and NotifyAttackEnd correctly declines to flip the
+        // boss back to Idle mid-stagger.
+        if (next == MechBossState.Staggered || next == MechBossState.Dead) AbortAttacks();
+
         OnStateChanged?.Invoke(prev, next);
         Log($"State: {prev} -> {next}");
+    }
+
+    /// <summary>Cuts short whatever the boss was in the middle of. Without this a
+    /// stagger only changed the state flag: the running attack coroutine carried on
+    /// to completion, so a staggered boss kept firing, and its late NotifyAttackEnd
+    /// dropped the boss back to Idle where the selector could start a *second*
+    /// attack on top of the first.</summary>
+    private void AbortAttacks()
+    {
+        if (_attacks == null) return;
+
+        foreach (var attack in _attacks)
+        {
+            if (attack == null || !attack.IsExecuting) continue;
+            Log($"Aborting {attack.GetType().Name}.");
+            attack.Abort();
+        }
     }
 
     [System.Diagnostics.Conditional("UNITY_EDITOR")]

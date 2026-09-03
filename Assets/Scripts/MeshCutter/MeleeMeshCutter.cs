@@ -172,13 +172,17 @@ public class MeleeMeshCutter : MonoBehaviour
         // hears "finished" once, with all the pieces, rather than once per mesh.
         var batch = new SliceBatch(sliceable, _targetBuffer.Count);
 
+        // A world-space target's vertices are already at final size, so the parent-chain
+        // correction below must not be applied to it — see ISliceable.SliceTargetsAreWorldSpace.
+        bool worldSpaceTargets = sliceable != null && sliceable.SliceTargetsAreWorldSpace;
+
         foreach (var target in _targetBuffer)
         {
             // Captured per target, now, because the cutter destroys it before the OnCreated
             // callback that needs them.
             int layer = target.gameObject.layer;
-            Vector3 localScale = target.transform.localScale;
-            Vector3 lossyScale = target.transform.lossyScale;
+            Vector3 localScale = worldSpaceTargets ? Vector3.one : target.transform.localScale;
+            Vector3 lossyScale = worldSpaceTargets ? Vector3.one : target.transform.lossyScale;
 
             _cutter.Cut(target, hitPoint, planeNormal,
                 (success, info) => OnCutResult(success, info, batch),

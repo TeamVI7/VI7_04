@@ -59,17 +59,17 @@ public class LaserBehaviour : MonoBehaviour
         if (Physics.Raycast(origin, dir, out RaycastHit hit, AttackRange, ObstacleLayers))
         {
             _laser.SetPosition(1, hit.point);
-            if (hit.collider.CompareTag("Player")) DealDamage();
+            if (hit.collider.CompareTag("Player")) DealDamage(origin);
         }
         else
         {
             _laser.SetPosition(1, target);
             if (Physics.Raycast(origin, dir, out RaycastHit ph, AttackRange))
-                if (ph.collider.CompareTag("Player")) DealDamage();
+                if (ph.collider.CompareTag("Player")) DealDamage(origin);
         }
     }
 
-    private void DealDamage() => PlayerHealth.Instance?.TakeDamage(DamagePerSecond * Time.deltaTime);
+    private void DealDamage(Vector3 origin) => PlayerHealth.Instance?.TakeDamage(DamagePerSecond * Time.deltaTime, origin);
 
     private void SetLaser(bool on)
     {

@@ -19,14 +19,7 @@ public class MinigameFlowController : MonoBehaviour
     public GameObject arrowPanel;
     public ArrowSequenceMinigame arrowMinigame;
 
-    [Header("Minigame 2 - Code Input")]
-    public GameObject codePanel;
-    public CodeInputMinigame codeMinigame;
-    public CodeClueDistributor codeClueDistributor;
-    [Tooltip("Fallback code used only if codeClueDistributor is not assigned or hasn't generated a code yet.")]
-    public string presetCode = "1234";
-
-    [Header("Minigame 3 - Voltage Calibration")]
+    [Header("Minigame 2 - Voltage Calibration")]
     public GameObject voltagePanel;
     public VoltageCalibrationMinigame voltageMinigame;
 
@@ -101,14 +94,17 @@ public class MinigameFlowController : MonoBehaviour
 
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(true);
 
+        // OnVoltageComplete tắt cái này khi vào cutscene. Một lượt chạy mới lại cần nó,
+        // nhất là khi lượt trước bị huỷ giữa chừng (xem StartServerShutdownPuzzle).
+        if (canvasCameraSync != null) canvasCameraSync.enabled = true;
+
         SetCam(playerCamera, false);
         SetCam(minigameCamera, true);
 
         if (raycastFixer) raycastFixer.FixAll();
         if (inputBlocker) inputBlocker.BlockInput();
 
-        ShowOnly(arrowPanel);
-        arrowMinigame.StartMinigame(OnArrowComplete);
+        StartArrowStage();
     }
 
     private void PauseTerminal()
@@ -140,30 +136,45 @@ public class MinigameFlowController : MonoBehaviour
     private void PauseAllMinigames()
     {
         if (arrowMinigame) arrowMinigame.Pause();
-        if (codeMinigame) codeMinigame.Pause();
         if (voltageMinigame) voltageMinigame.Pause();
     }
 
     private void ResumeAllMinigames()
     {
         if (arrowMinigame) arrowMinigame.Resume();
-        if (codeMinigame) codeMinigame.Resume();
         if (voltageMinigame) voltageMinigame.Resume();
+    }
+
+    // Every stage entry point skips itself if its component is missing rather than
+    // throwing — an unassigned field here would otherwise NRE while input is blocked
+    // and the player camera is off, leaving no way out of the terminal.
+    private void StartArrowStage()
+    {
+        if (arrowMinigame == null)
+        {
+            Debug.LogError("[MinigameFlowController] arrowMinigame chưa được gán — bỏ qua bước mũi tên.");
+            OnArrowComplete();
+            return;
+        }
+
+        ShowOnly(arrowPanel);
+        arrowMinigame.StartMinigame(OnArrowComplete);
     }
 
     private void OnArrowComplete()
     {
-        ShowOnly(codePanel);
-
-        string codeToUse = presetCode;
-        if (codeClueDistributor != null && !string.IsNullOrEmpty(codeClueDistributor.GeneratedCode))
-            codeToUse = codeClueDistributor.GeneratedCode;
-
-        codeMinigame.StartMinigame(codeToUse, OnCodeComplete);
+        StartVoltageStage();
     }
 
-    private void OnCodeComplete()
+    private void StartVoltageStage()
     {
+        if (voltageMinigame == null)
+        {
+            Debug.LogError("[MinigameFlowController] voltageMinigame chưa được gán — bỏ qua bước cân chỉnh điện áp.");
+            OnVoltageComplete();
+            return;
+        }
+
         ShowOnly(voltagePanel);
         voltageMinigame.StartMinigame(OnVoltageComplete);
     }
@@ -200,13 +211,34 @@ public class MinigameFlowController : MonoBehaviour
     private void StartServerShutdownPuzzle()
     {
         Debug.Log("[MinigameFlowController] StartServerShutdownPuzzle - waiting on ServerMinigameManager callbacks");
+
+        if (serverMinigameManager == null)
+        {
+            Debug.LogError("[MinigameFlowController] serverMinigameManager chưa được gán — không chạy được bước tắt server. " +
+                           "Kết thúc terminal để trả quyền điều khiển cho player.");
+            EndTerminal();
+            return;
+        }
+
         ShowOnly(aiShutdownPanel);
 
         serverMinigameManager.SetNoticeUI(aiShutdownPanel, aiShutdownText);
         serverMinigameManager.OnPuzzleInteractionReady = OnPuzzleInteractionReady;
         serverMinigameManager.OnCeilingExplosionTriggered = OnCeilingExplode;
         serverMinigameManager.OnAllServersShutdown = OnServersShutdownComplete;
-        serverMinigameManager.OnPlayerEnterTrigger();
+
+        // OnPlayerEnterTrigger latches on its first call. If something else in the
+        // scene (FalloutTerminalManager does this on solve) already consumed it, the
+        // callbacks assigned just above will never fire and this controller would sit
+        // in _inCutscene with input blocked and no camera on the player, forever.
+        // Bail out to the normal end state instead of hanging.
+        if (!serverMinigameManager.OnPlayerEnterTrigger())
+        {
+            Debug.LogError("[MinigameFlowController] ServerMinigameManager đã bị kích hoạt bởi script khác " +
+                           "(vd FalloutTerminalManager). Bỏ qua bước tắt server và trả quyền điều khiển cho player. " +
+                           "Chỉ nên để MỘT script sở hữu ServerMinigameManager trong scene.", this);
+            EndTerminal();
+        }
     }
 
     private void OnPuzzleInteractionReady()
@@ -334,6 +366,10 @@ public class MinigameFlowController : MonoBehaviour
         ShowOnly(null);
         if (inputBlocker) inputBlocker.UnblockInput();
         SetCam(minigameCamera, false);
+        // Also kill the cutscene cameras: EndTerminal is the bail-out path for the
+        // aborted-cutscene cases too, where one of these can still be the live camera.
+        if (serverRiseCamera != null) SetCam(serverRiseCamera, false);
+        if (ceilingMechCamera != null) SetCam(ceilingMechCamera, false);
         SetCam(playerCamera, true);
         if (minigameCanvas) minigameCanvas.gameObject.SetActive(false);
 
@@ -348,7 +384,6 @@ public class MinigameFlowController : MonoBehaviour
     private void ShowOnly(GameObject panel)
     {
         if (arrowPanel) arrowPanel.SetActive(panel == arrowPanel);
-        if (codePanel) codePanel.SetActive(panel == codePanel);
         if (voltagePanel) voltagePanel.SetActive(panel == voltagePanel);
         if (aiShutdownPanel) aiShutdownPanel.SetActive(panel == aiShutdownPanel);
     }

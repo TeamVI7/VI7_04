@@ -219,7 +219,7 @@ public class MeleeAttackBehaviour : MonoBehaviour, IEnemyAimController
         knockDir.y = 0f;
         knockDir = knockDir.sqrMagnitude > 0.001f ? knockDir.normalized : transform.forward;
 
-        PlayerHealth.Instance?.TakeDamage(Damage);
+        PlayerHealth.Instance?.TakeDamage(Damage, transform.position);
         PlayerHealth.Instance?.ApplyKnockback(knockDir * KnockbackForce);
         Log($"Attack landed — {Damage} dmg, {KnockbackForce} knockback.");
         OnAttackLanded?.Invoke();
@@ -310,8 +310,10 @@ public class MeleeAttackBehaviour : MonoBehaviour, IEnemyAimController
     private void OnDrawGizmosSelected()
     {
         if (!drawGizmos) return;
-        Gizmos.color = CanAttack ? Color.red : new Color(1f, 0.5f, 0f, 0.6f);
-        Gizmos.DrawWireSphere(transform.position, AttackRange);
+
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundRing(center, AttackRange, EnemyGizmos.Live(CanAttack, EnemyGizmos.Melee),
+                               $"melee {AttackRange:0.#}m", 90f);
     }
 #endif
 

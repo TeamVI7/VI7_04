@@ -1,5 +1,4 @@
 // MechStompAttack.cs — close-range AOE moveset
-using System;
 using System.Collections;
 using UnityEngine;
 
@@ -22,15 +21,8 @@ public class MechStompAttack : MechAttackBehaviour
     // Named to match the existing animation clip's event hookup (the clip was built for the old Kick attack).
     public void AnimEvent_KickHit() => _animSignal_Hit = true;
 
-    public override void Execute(Action onComplete)
+    protected override IEnumerator Run()
     {
-        if (IsExecuting) return; // guard against a stray double-Execute (e.g. duplicate component on the boss)
-        StartCoroutine(Co_Execute(onComplete));
-    }
-
-    private IEnumerator Co_Execute(Action onComplete)
-    {
-        IsExecuting = true;
         _animSignal_Hit = false;
         if (animator != null) animator.SetTrigger(AnimStomp);
         RaiseTelegraphStart(windup);
@@ -52,7 +44,7 @@ public class MechStompAttack : MechAttackBehaviour
         foreach (var h in Physics.OverlapSphere(origin, radius, playerLayer))
         {
             if (!h.TryGetComponent(out PlayerHealth ph)) continue;
-            ph.TakeDamage(damage);
+            ph.TakeDamage(damage, origin);
 
             if (h.attachedRigidbody != null)
             {
@@ -65,14 +57,16 @@ public class MechStompAttack : MechAttackBehaviour
         }
 
         yield return new WaitForSeconds(0.4f);
-        IsExecuting = false;
-        onComplete?.Invoke();
     }
 
     private void OnDrawGizmosSelected()
     {
-        Vector3 origin = groundPoint != null ? groundPoint.position : transform.position;
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(origin, radius);
+        if (!drawGizmos) return;
+
+        Vector3 origin = MechGizmos.Ground(groundPoint != null ? groundPoint.position : transform.position);
+
+        // The AOE that actually hits, and the band the selector will pick this from.
+        MechGizmos.GroundRing(origin, radius, MechGizmos.Stomp, "Stomp AOE", 0f);
+        MechGizmos.GroundBand(origin, minRange, maxRange, MechGizmos.Stomp * 0.6f, "Stomp range", 15f);
     }
 }

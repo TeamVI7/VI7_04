@@ -49,6 +49,7 @@ public class BookInteractable : MonoBehaviour
     void Update()
     {
         if (isUsed) return;
+        if (PauseMenuController.IsPaused) return;   // Update still runs at timeScale 0
 
         CheckLookAtBook();
 
@@ -60,6 +61,12 @@ public class BookInteractable : MonoBehaviour
 
     void CheckLookAtBook()
     {
+        // The player camera lives on the DontDestroyOnLoad root, so it is not guaranteed to
+        // exist yet when this scene's Start runs — re-resolve instead of dereferencing null
+        // every frame.
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return;
+
         Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)); // tia từ giữa màn hình
         bool nowLooking = false;
 

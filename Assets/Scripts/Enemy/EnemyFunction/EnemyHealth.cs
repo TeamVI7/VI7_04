@@ -31,6 +31,18 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float StaggerDuration             = 1.5f;
     public float StaggerWindow               = 3f;      // accumulator resets if no hit within this time
 
+    [Header("Last Stand")]
+    [Tooltip("When HP runs out, don't die — drop to a DOWNED state (a held stagger) and wait " +
+             "for the player to land a finishing melee blow. Built for the boss: it turns the " +
+             "kill into an execute, which is what triggers the katana bisect.")]
+    public bool DownedOnLethalDamage = false;
+    [Tooltip("How long the downed state holds. If the player doesn't finish it in time, see " +
+             "DieWhenDownedExpires.")]
+    public float DownedDuration = 8f;
+    [Tooltip("On timeout: true = it dies anyway (no finisher, no bisect), false = it gets back " +
+             "up on a sliver of HP and the fight continues until the next lethal hit downs it again.")]
+    public bool DieWhenDownedExpires = true;
+
     [Header("Death Sequence")]
     public float DeathImpulseScale           = 8f;
     [Tooltip("Number of explosions to play before despawning.")]
@@ -39,6 +51,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float DelayBetweenExplosions      = 0.4f;
     [Tooltip("How far apart the explosions can randomly scatter.")]
     public float ExplosionScatterRadius      = 1.2f;
+    [Tooltip("Seconds the body stays in the world after the last explosion, before it's removed. 0 despawns it on the spot — fine for rank-and-file, far too abrupt for a boss, which should leave a wreck standing for a few seconds. Ignored when something else owns despawn timing (an EnemyRagdoll, or a corpse that's been sliced apart).")]
+    [Min(0f)] public float CorpseLifetime     = 0f;
 
     [Header("Drop")]
     [Tooltip("Legacy single-drop field — used when DropTable is empty. Leave set for enemies that always drop exactly one specific thing.")]
@@ -60,6 +74,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float CurrentHP  { get; private set; }
     public bool  IsAlive    => CurrentHP > 0f && !_dead;
 
+    /// <summary>
+    /// Out of HP but not dead — kneeling, waiting to be finished. Kept "alive" on a sliver of
+    /// HP on purpose, because Execute() and the melee hit path both refuse a dead target.
+    /// </summary>
+    public bool  IsDowned   { get; private set; }
+
     // ── Events — everything else hooks here ──────────────────────────────────
     public event Action<float, float, float, Vector3, Vector3> OnDamaged; // (amount, currentHP, maxHP, hitDirection, hitPoint)
     public event Action<float>        OnHealed;         // (currentHP)
@@ -67,10 +87,16 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public event Action               OnStaggerExpired;
     public event Action<Vector3>      OnDied;           // (impulse direction)
     public event Action               OnExecuted;
+    /// <summary>Fired when HP runs out but the last stand begins instead of death. Hook UI
+    /// ("FINISH IT"), audio, or a camera push here.</summary>
+    public event Action               OnDowned;
+    /// <summary>Fired if a downed enemy gets back up (DieWhenDownedExpires off).</summary>
+    public event Action               OnDownedRecovered;
 
     // ── Internal ─────────────────────────────────────────────────────────────
     private bool  _dead;
     private bool  _staggered;
+    private Vector3 _lastHitDirection;
     private float _staggerTimer;
     private float _damageAccumulator;
     private float _damageWindowTimer;
@@ -99,6 +125,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     {
         if (!IsAlive) return;
 
+        _lastHitDirection = hitDirection;
+
+        // Already on its knees — nothing but the finisher resolves this. Shooting a downed
+        // enemy does nothing except run out its clock (see ExitStagger).
+        if (IsDowned) return;
+
         CurrentHP = Mathf.Max(0f, CurrentHP - amount);
         OnDamaged?.Invoke(amount, CurrentHP, MaxHP, hitDirection, hitPoint);
 
@@ -106,7 +138,32 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
         AccumulateStagger(amount);
 
-        if (CurrentHP <= 0f) Die(hitDirection);
+        if (CurrentHP > 0f) return;
+
+        if (DownedOnLethalDamage) EnterDowned();
+        else                      Die(hitDirection);
+    }
+
+    // ── Last stand ───────────────────────────────────────────────────────────
+    /// <summary>
+    /// Out of HP, but held one hit short of death. Enters a stagger — which is exactly what
+    /// PlayerMelee's execute check looks for — and holds it for DownedDuration.
+    /// </summary>
+    private void EnterDowned()
+    {
+        IsDowned = true;
+
+        // A sliver, not zero: IsAlive gates both TakeDamage and Execute, and a "dead" enemy
+        // can't be executed, which would make the finisher impossible.
+        CurrentHP = Mathf.Max(0.01f, MaxHP * 0.001f);
+
+        // Set directly rather than through EnterStagger(), which refuses to re-enter a stagger
+        // that's already running and would cap the hold at StaggerDuration.
+        _staggered    = true;
+        _staggerTimer = DownedDuration;
+
+        OnDowned?.Invoke();
+        OnStaggerEntered?.Invoke();   // EnemyBrain and MechBossBrain both switch to Staggered here
     }
 
     public void Heal(float amount)
@@ -156,6 +213,18 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     private void ExitStagger()
     {
         _staggered = false;
+
+        if (IsDowned)
+        {
+            IsDowned = false;
+
+            // Nobody came to finish it. Either it bleeds out on its own — no execute, so no
+            // bisect — or it gets back up on its sliver of HP and the fight continues.
+            if (DieWhenDownedExpires) { Die(_lastHitDirection); return; }
+
+            OnDownedRecovered?.Invoke();
+        }
+
         OnStaggerExpired?.Invoke();
     }
 
@@ -163,7 +232,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     private void Die(Vector3 impulse)
     {
         if (_dead) return;
-        _dead = true;
+        _dead    = true;
+        IsDowned = false;
 
         OnDied?.Invoke(impulse);
         StartCoroutine(DeathSequenceRoutine());
@@ -190,11 +260,24 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
         SpawnDrop(finalPosition);
 
-        // If this enemy has a ragdoll, IT owns despawn timing (LifetimeAfterDeath) —
-        // destroying the GameObject here would cut the ragdoll physics off before it
-        // ever gets to play out. Only self-destroy for enemies with no ragdoll to hand off to.
-        if (!TryGetComponent(out EnemyRagdoll ragdoll))
-            Destroy(gameObject);
+        // Despawn belongs to whichever component owns the corpse, and this one only
+        // takes it when nothing else has.
+        //
+        // A ragdoll owns it via LifetimeAfterDeath — destroying the root here would
+        // cut the physics off before it ever plays out.
+        if (TryGetComponent(out EnemyRagdoll _)) yield break;
+
+        // A sliced body owns it too: EnemySliceable has already scheduled its own
+        // removal around the pieces it left behind (RootDespawnMargin). This used to
+        // destroy the root first and win, which is what made a sliced boss — no
+        // ragdoll to defer to — disappear almost the moment it was cut, instead of
+        // leaving a wreck behind.
+        if (TryGetComponent(out EnemySliceable sliceable)
+            && sliceable.HasBeenSliced
+            && sliceable.DespawnRootAfterSlice) yield break;
+
+        if (CorpseLifetime > 0f) Destroy(gameObject, CorpseLifetime);
+        else Destroy(gameObject);
     }
 
     private void SpawnDrop(Vector3 spawnPosition)

@@ -32,7 +32,7 @@ public class PistolAttackBehaviour : EnemyRangedAttackBehaviour
         {
             SpawnBulletTrail(FirePoint.position, hit.point);
             if (hit.collider.CompareTag("Player"))
-                PlayerHealth.Instance?.TakeDamage(DamagePerShot);
+                PlayerHealth.Instance?.TakeDamage(DamagePerShot, FirePoint.position);
         }
         else
         {

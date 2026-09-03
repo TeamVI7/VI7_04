@@ -117,7 +117,7 @@ namespace Enemy
             }
             else
             {
-                other.GetComponentInParent<PlayerHealth>()?.TakeDamage(Damage);
+                other.GetComponentInParent<PlayerHealth>()?.TakeDamage(Damage, transform.position);
             }
 
             if (HitEffectPrefab != null)

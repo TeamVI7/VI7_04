@@ -46,6 +46,35 @@ public class EnemyAudio : MonoBehaviour
     [Tooltip("Optional — played only if the melee swing actually connects (OnAttackLanded). Leave empty to skip.")]
     public AudioClip MeleeHitClip;
 
+    [Header("Flight — Rotor Loop")]
+    [Tooltip("Continuous propeller/thruster loop for airborne enemies. Pitch and volume scale with airspeed, so a diving drone audibly winds up.")]
+    public AudioClip RotorLoopClip;
+    [Tooltip("Rotor pitch at a standstill → at full chase speed. The kamikaze dive pushes past the top of this range.")]
+    public Vector2 RotorPitchRange = new Vector2(0.8f, 1.25f);
+    [Tooltip("Rotor volume at a standstill → at full chase speed. Idling flyers should still be audible, hence the non-zero floor.")]
+    public Vector2 RotorVolumeRange = new Vector2(0.35f, 1f);
+
+    [Header("Kamikaze Drone")]
+    [Tooltip("One-shot the instant the drone locks on and starts its telegraph.")]
+    public AudioClip DroneLockOnClip;
+    [Tooltip("Looping siren from lock-on until detonation. Pitch/volume ramp with KamikazeDroneBehaviour.ThreatIntensity.")]
+    public AudioClip DroneSirenLoopClip;
+    public Vector2 DroneSirenPitchRange = new Vector2(1f, 1.7f);
+    [Tooltip("One-shot as the dive launches — the 'it's coming' cue.")]
+    public AudioClip DroneDiveClip;
+    [Tooltip("Explosion. Played on a detached source because the drone destroys itself the same frame.")]
+    public AudioClip DroneDetonateClip;
+    [Tooltip("Played when a dodged dive gives up and the drone peels away to try again.")]
+    public AudioClip DroneAbortClip;
+
+    [Header("Flying Sniper")]
+    [Tooltip("Looping charge whine while the laser tracks the player.")]
+    public AudioClip FlyingSniperChargeLoopClip;
+    [Tooltip("One-shot when the laser hardens into a lock — the last warning before the shot.")]
+    public AudioClip FlyingSniperLockClip;
+    [Tooltip("The shot itself. Falls back to SniperMuzzleClip if left empty.")]
+    public AudioClip FlyingSniperShotClip;
+
     [Header("Squad")]
     [Tooltip("Played when this enemy is alerted/enraged by a nearby squadmate dying (EnemyAvengeReaction.OnAvengeTriggered).")]
     public AudioClip AvengeClip;
@@ -57,6 +86,8 @@ public class EnemyAudio : MonoBehaviour
 
     private AudioSource _loopSource;
     private AudioSource _oneShotSource;
+    private AudioSource _rotorSource;  // airborne enemies only — always-on propeller bed
+    private AudioSource _alarmSource;  // kamikaze siren / sniper charge whine
 
     private EnemyHealth           _health;
     private EnemyBrain            _brain;
@@ -69,6 +100,9 @@ public class EnemyAudio : MonoBehaviour
     private MeleeAttackBehaviour  _melee;
     private RiotShieldBehaviour    _shield;
     private EnemyAvengeReaction    _avenge;
+    private FlyingMovement         _flight;
+    private KamikazeDroneBehaviour _drone;
+    private FlyingSniperBehaviour  _flyingSniper;
 
     private bool _isAggro;
     private EnemyState _lastState = EnemyState.Idle;
@@ -87,11 +121,25 @@ public class EnemyAudio : MonoBehaviour
         _shield  = GetComponentInChildren<RiotShieldBehaviour>(); // lives on the shield prop, not this root
         _avenge  = GetComponent<EnemyAvengeReaction>();
 
+        _flight       = GetComponent<FlyingMovement>();
+        _drone        = GetComponent<KamikazeDroneBehaviour>();
+        _flyingSniper = GetComponent<FlyingSniperBehaviour>();
+
         _loopSource = gameObject.AddComponent<AudioSource>();
         Configure3D(_loopSource, loop: true);
 
         _oneShotSource = gameObject.AddComponent<AudioSource>();
         Configure3D(_oneShotSource, loop: false);
+
+        // Only airborne enemies pay for these two extra sources.
+        if (_flight != null)
+        {
+            _rotorSource = gameObject.AddComponent<AudioSource>();
+            Configure3D(_rotorSource, loop: true);
+
+            _alarmSource = gameObject.AddComponent<AudioSource>();
+            Configure3D(_alarmSource, loop: true);
+        }
     }
 
     private void Start()
@@ -117,11 +165,35 @@ public class EnemyAudio : MonoBehaviour
             _shield.OnShieldDestroyed += PlayShieldDestroyed;
         }
         if (_avenge != null) _avenge.OnAvengeTriggered += PlayAvenge;
+
+        if (_drone != null)
+        {
+            _drone.OnLockStarted += PlayDroneLockOn;
+            _drone.OnDiveStarted += PlayDroneDive;
+            _drone.OnDiveAborted += PlayDroneAbort;
+            _drone.OnDetonated   += PlayDroneDetonation;
+        }
+
+        if (_flyingSniper != null)
+        {
+            _flyingSniper.OnChargeStarted += StartSniperChargeLoop;
+            _flyingSniper.OnLockAcquired  += PlayFlyingSniperLock;
+            _flyingSniper.OnShotFired     += PlayFlyingSniperShot;
+        }
+
+        if (RotorLoopClip != null && _rotorSource != null)
+        {
+            _rotorSource.clip = RotorLoopClip;
+            _rotorSource.time = UnityEngine.Random.Range(0f, RotorLoopClip.length); // desync a swarm
+            _rotorSource.Play();
+        }
     }
 
     private void Update()
     {
         HandleWalking();
+        HandleRotor();
+        HandleAlarmLoop();
     }
 
     private void OnDestroy()
@@ -146,6 +218,21 @@ public class EnemyAudio : MonoBehaviour
             _shield.OnShieldDestroyed -= PlayShieldDestroyed;
         }
         if (_avenge != null) _avenge.OnAvengeTriggered -= PlayAvenge;
+
+        if (_drone != null)
+        {
+            _drone.OnLockStarted -= PlayDroneLockOn;
+            _drone.OnDiveStarted -= PlayDroneDive;
+            _drone.OnDiveAborted -= PlayDroneAbort;
+            _drone.OnDetonated   -= PlayDroneDetonation;
+        }
+
+        if (_flyingSniper != null)
+        {
+            _flyingSniper.OnChargeStarted -= StartSniperChargeLoop;
+            _flyingSniper.OnLockAcquired  -= PlayFlyingSniperLock;
+            _flyingSniper.OnShotFired     -= PlayFlyingSniperShot;
+        }
     }
 
     private void HandleWalking()
@@ -162,6 +249,64 @@ public class EnemyAudio : MonoBehaviour
         {
             _loopSource.Stop();
         }
+    }
+
+    // Rotor bed for airborne enemies — the flying counterpart of HandleWalking.
+    // Unlike footsteps this plays even while idle (a hovering drone is never
+    // silent) and rides airspeed, so a dive winds the pitch up on its own.
+    private void HandleRotor()
+    {
+        if (_rotorSource == null || RotorLoopClip == null) return;
+
+        if (!_health.IsAlive)
+        {
+            if (_rotorSource.isPlaying) _rotorSource.Stop();
+            return;
+        }
+
+        // During a kamikaze dive FlyingMovement is overridden and reports no
+        // velocity, so ThreatIntensity stands in for the speed the drone is
+        // actually doing — otherwise the rotor would drop to idle mid-dive.
+        float speed01 = _flight != null
+            ? Mathf.Clamp01(_flight.Velocity.magnitude / Mathf.Max(_flight.ChaseSpeed, 0.01f))
+            : 0f;
+
+        if (_drone != null) speed01 = Mathf.Max(speed01, _drone.ThreatIntensity);
+
+        _rotorSource.pitch  = Mathf.Lerp(RotorPitchRange.x,  RotorPitchRange.y,  speed01);
+        _rotorSource.volume = Mathf.Lerp(RotorVolumeRange.x, RotorVolumeRange.y, speed01);
+    }
+
+    // One looping "something bad is about to happen" channel, shared by the
+    // kamikaze siren and the flying sniper's charge whine — no enemy carries both.
+    private void HandleAlarmLoop()
+    {
+        if (_alarmSource == null) return;
+
+        if (_drone != null)
+        {
+            bool armed = _health.IsAlive && _drone.ThreatIntensity > 0f;
+
+            if (armed && DroneSirenLoopClip != null)
+            {
+                if (!_alarmSource.isPlaying)
+                {
+                    _alarmSource.clip = DroneSirenLoopClip;
+                    _alarmSource.Play();
+                }
+                _alarmSource.pitch = Mathf.Lerp(DroneSirenPitchRange.x, DroneSirenPitchRange.y, _drone.ThreatIntensity);
+            }
+            else if (!armed && _alarmSource.isPlaying)
+            {
+                _alarmSource.Stop();
+            }
+            return;
+        }
+
+        // Polls IsAiming rather than trusting a stop event, so a shot skipped for
+        // being off-angle can't leave the charge whine looping forever.
+        if (_flyingSniper != null && _alarmSource.isPlaying && !_flyingSniper.IsAiming)
+            _alarmSource.Stop();
     }
 
     private void HandleStateChanged(EnemyState state)
@@ -255,20 +400,70 @@ public class EnemyAudio : MonoBehaviour
         }
     }
 
+    // ── Kamikaze drone ───────────────────────────────────────────────────────
+    private void PlayDroneLockOn() { if (DroneLockOnClip != null) _oneShotSource.PlayOneShot(DroneLockOnClip); }
+    private void PlayDroneDive()   { if (DroneDiveClip   != null) _oneShotSource.PlayOneShot(DroneDiveClip); }
+    private void PlayDroneAbort()  { if (DroneAbortClip  != null) _oneShotSource.PlayOneShot(DroneAbortClip); }
+
+    // The drone destroys itself on the same frame it detonates, so the explosion
+    // has to outlive it on a detached source — same trick HandleDeath uses.
+    private void PlayDroneDetonation()
+    {
+        _rotorSource?.Stop();
+        _alarmSource?.Stop();
+
+        if (DroneDetonateClip == null) return;
+        PlayDetached(DroneDetonateClip, $"{gameObject.name}_Detonation");
+    }
+
+    // ── Flying sniper ────────────────────────────────────────────────────────
+    private void StartSniperChargeLoop()
+    {
+        if (_alarmSource == null || FlyingSniperChargeLoopClip == null) return;
+
+        _alarmSource.clip  = FlyingSniperChargeLoopClip;
+        _alarmSource.pitch = 1f;
+        _alarmSource.Play();
+    }
+
+    private void PlayFlyingSniperLock()
+    {
+        if (FlyingSniperLockClip != null) _oneShotSource.PlayOneShot(FlyingSniperLockClip);
+    }
+
+    private void PlayFlyingSniperShot()
+    {
+        _alarmSource?.Stop();
+
+        var clip = FlyingSniperShotClip != null ? FlyingSniperShotClip : SniperMuzzleClip;
+        if (clip != null) _oneShotSource.PlayOneShot(clip);
+    }
+
+    private void PlayDetached(AudioClip clip, string objectName)
+    {
+        var go = new GameObject(objectName);
+        go.transform.position = transform.position;
+
+        var src = go.AddComponent<AudioSource>();
+        Configure3D(src, loop: false);
+        src.clip = clip;
+        src.Play();
+
+        Destroy(go, clip.length + 0.1f);
+    }
+
     private void HandleDeath(Vector3 impulse)
     {
         _loopSource.Stop();
         _oneShotSource.Stop();
+        _rotorSource?.Stop();
+        _alarmSource?.Stop();
+
         if (DeathClip == null) return;
 
-        var go = new GameObject($"{gameObject.name}_Death");
-        go.transform.position = transform.position;
-        var src = go.AddComponent<AudioSource>();
-        Configure3D(src, loop: false); // was spatialBlend=0f (2D) — blasted at full volume regardless of distance, drowning out everything else
-        src.clip = DeathClip;
-        src.Play();
-
-        Destroy(go, DeathClip.length + 0.1f);
+        // Detached so it survives the enemy's despawn. 3D, not 2D — a 2D source
+        // blasts at full volume regardless of distance and drowns out everything else.
+        PlayDetached(DeathClip, $"{gameObject.name}_Death");
     }
 
     private void Configure3D(AudioSource src, bool loop)

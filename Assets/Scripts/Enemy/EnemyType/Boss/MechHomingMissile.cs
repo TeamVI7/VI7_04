@@ -15,6 +15,15 @@ public class HomingMissile : MonoBehaviour, IDamageable
     public float maxHealth = 20f;
     public GameObject destroyedEffectPrefab;
 
+    [Header("Audio")]
+    [Tooltip("Optional. Looping thruster/whine while the missile flies, so the player can hear one coming from off-screen.")]
+    public AudioClip thrusterLoopClip;
+    [Tooltip("Optional. Detonation. Played detached, since the missile destroys itself the same frame.")]
+    public AudioClip explosionClip;
+    [Tooltip("Optional. Played instead when the player shoots this missile down.")]
+    public AudioClip shotDownClip;
+    [Range(0f, 1f)] public float explosionVolume = 0.8f;
+
     [Header("Layer")]
     [Tooltip("The missile's layer. Pick your 'Enemy' layer here so weapon hitscans (filtered by hitMask) can actually register hits on it.")]
     public LayerMask EnemyLayerMask = 0;
@@ -37,7 +46,25 @@ public class HomingMissile : MonoBehaviour, IDamageable
         _rb = GetComponent<Rigidbody>();
         _rb.linearVelocity = transform.forward * speed;
         _health = maxHealth;
+        StartThrusterLoop();
         Destroy(gameObject, lifeTime);
+    }
+
+    private void StartThrusterLoop()
+    {
+        if (thrusterLoopClip == null) return;
+
+        // Added rather than required on the prefab, so an existing missile prefab
+        // picks the loop up just by having a clip dropped on it.
+        var src = gameObject.AddComponent<AudioSource>();
+        src.clip = thrusterLoopClip;
+        src.loop = true;
+        src.playOnAwake = false;
+        src.spatialBlend = 1f;
+        src.rolloffMode = AudioRolloffMode.Linear;
+        src.minDistance = 4f;
+        src.maxDistance = 45f;
+        src.Play();
     }
 
     private static int LayerMaskToLayer(LayerMask mask)
@@ -83,6 +110,9 @@ public class HomingMissile : MonoBehaviour, IDamageable
 
         GameObject fx = damagePlayer ? hitEffectPrefab : (destroyedEffectPrefab != null ? destroyedEffectPrefab : hitEffectPrefab);
         if (fx != null) Destroy(Instantiate(fx, transform.position, Quaternion.identity), 2f);
+
+        AudioClip sfx = damagePlayer ? explosionClip : (shotDownClip != null ? shotDownClip : explosionClip);
+        if (sfx != null) AudioSource.PlayClipAtPoint(sfx, transform.position, explosionVolume);
 
         Destroy(gameObject);
     }

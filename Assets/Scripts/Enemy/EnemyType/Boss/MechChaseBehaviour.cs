@@ -169,4 +169,21 @@ public class MechChaseBehaviour : MonoBehaviour
     {
         if (showDebugLogs) Debug.Log($"[MechChaseBehaviour] {msg}", this);
     }
+
+    private void OnDrawGizmosSelected()
+    {
+        // The ring the mech parks on. Drawn with the attack bands because it's the
+        // distance the fight actually settles at — if no attack's range covers this
+        // radius, the boss stands there doing nothing and this is where you see it.
+        Vector3 origin = MechGizmos.Ground(transform.position);
+        MechGizmos.GroundRing(origin, preferredRange, Color.white, "holds here", 270f);
+
+        if (!Application.isPlaying || PlayerHealth.Transform == null) return;
+
+        float dist = Vector3.Distance(transform.position, PlayerHealth.Transform.position);
+        Gizmos.color = dist > preferredRange ? MechGizmos.Fail : MechGizmos.Pass;
+        Gizmos.DrawLine(origin, MechGizmos.Ground(PlayerHealth.Transform.position));
+        MechGizmos.Label(Vector3.Lerp(origin, PlayerHealth.Transform.position, 0.5f) + Vector3.up * 0.4f,
+                         $"{dist:0.#}m", Gizmos.color);
+    }
 }

@@ -111,6 +111,9 @@ public class EnemySpawnArea : MonoBehaviour
     [Tooltip("Used by PlayerProximity.")]
     public float ActivationRadius = 20f;
 
+    [Tooltip("Optional name that runtime-spawned objects can find this area by. A prefab field cannot reference a scene object, so anything instantiated during play — a boss dropped in by a flow controller — has no way to be wired to this area in the inspector, and looks it up by this id instead. Leave empty if nothing needs to find it.")]
+    public string ScriptedId;
+
     [Tooltip("Re-arm after the encounter clears so the area can run again on a later visit. Off means it fires once for the whole session.")]
     public bool CanRetrigger = false;
 
@@ -185,6 +188,12 @@ public class EnemySpawnArea : MonoBehaviour
     private float     _rearmTime;
     private bool      _hasFired;
 
+    // Scripted waves (ActivateWave) run outside the main encounter sequence and can
+    // overlap each other, so they're tracked as a set rather than a single handle —
+    // Abort has to be able to stop all of them.
+    private readonly List<Coroutine> _scriptedRoutines = new List<Coroutine>();
+    private int _scriptedWavesInFlight;
+
     // Liveness is polled rather than event-driven on purpose. Subscribing to
     // EnemyHealth.OnDied would miss an enemy that gets Destroyed without dying
     // (scene teardown, a despawn, a ragdoll lifetime racing the death sequence),
@@ -203,6 +212,9 @@ public class EnemySpawnArea : MonoBehaviour
         TriggerVolume = GetComponent<Collider>();
         if (TriggerVolume != null) TriggerVolume.isTrigger = true;
     }
+
+    private void OnEnable() => Registry.Add(this);
+    private void OnDisable() => Registry.Remove(this);
 
     private void Update()
     {
@@ -229,6 +241,64 @@ public class EnemySpawnArea : MonoBehaviour
     #region Public API
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Runtime lookup ───────────────────────────────────────────────────────
+    //
+    // Every enabled area registers itself here so objects created during play can
+    // find one. This exists because a prefab field can't hold a scene reference:
+    // a boss instantiated mid-level has no inspector link to the area it's meant
+    // to pull reinforcements from, and has to resolve it by name at runtime.
+
+    private static readonly List<EnemySpawnArea> Registry = new List<EnemySpawnArea>();
+
+    /// <summary>Every spawn area currently enabled in the scene.</summary>
+    public static IReadOnlyList<EnemySpawnArea> All => Registry;
+
+    // Statics survive between play sessions when Enter Play Mode has domain reload
+    // turned off, which would leave the registry holding destroyed areas from the
+    // last run. Cheaper to clear it than to make every reader defend against that.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRegistry() => Registry.Clear();
+
+    /// <summary>The enabled area with this <see cref="ScriptedId"/>, or null. Falls
+    /// back to matching the GameObject's name, so an area that was never given an
+    /// explicit id can still be found by what it's called in the hierarchy.</summary>
+    public static EnemySpawnArea Find(string scriptedId)
+    {
+        if (string.IsNullOrWhiteSpace(scriptedId)) return null;
+
+        foreach (EnemySpawnArea area in Registry)
+            if (area != null && string.Equals(area.ScriptedId, scriptedId, StringComparison.OrdinalIgnoreCase))
+                return area;
+
+        foreach (EnemySpawnArea area in Registry)
+            if (area != null && string.Equals(area.name, scriptedId, StringComparison.OrdinalIgnoreCase))
+                return area;
+
+        return null;
+    }
+
+    /// <summary>Closest enabled area to a point, within <paramref name="maxDistance"/>.
+    /// A last resort for scripted callers — prefer <see cref="Find"/>, since "nearest"
+    /// silently picks a different area the moment the level is rearranged.</summary>
+    public static EnemySpawnArea FindNearest(Vector3 point, float maxDistance = Mathf.Infinity)
+    {
+        EnemySpawnArea best = null;
+        float bestSqr = maxDistance * maxDistance;
+
+        foreach (EnemySpawnArea area in Registry)
+        {
+            if (area == null) continue;
+
+            float sqr = (area.transform.position - point).sqrMagnitude;
+            if (sqr > bestSqr) continue;
+
+            bestSqr = sqr;
+            best = area;
+        }
+
+        return best;
+    }
+
     /// <summary>Starts the encounter. Safe to call redundantly — ignored while one
     /// is already running or while the area is spent/cooling down.</summary>
     public void Activate()
@@ -252,11 +322,49 @@ public class EnemySpawnArea : MonoBehaviour
         _encounterRoutine = StartCoroutine(Co_Encounter());
     }
 
+    /// <summary>Runs ONE wave from <see cref="Waves"/>, right now, whatever the
+    /// activation mode says. This is the hook for scripted beats — a boss calling in
+    /// reinforcements as it changes phase — where the pacing belongs to the fight
+    /// rather than to this area's own wave sequencing.
+    ///
+    /// Differences from <see cref="Activate"/>, all deliberate:
+    /// • It doesn't gate on <see cref="CanFire"/>, so it can be called several times
+    ///   over one fight without needing Can Retrigger.
+    /// • It doesn't wait for the previous wave to die first. <see cref="MaxConcurrentAlive"/>
+    ///   still applies, so a wave called down on top of live stragglers trickles in
+    ///   rather than dogpiling.
+    /// • It leaves the player-trigger gate alone — an area used for both a scripted
+    ///   add-wave and a normal ambush isn't spent by the scripted call.
+    /// • Clear reporting (IsCleared / OnEncounterCleared) stays owned by Activate();
+    ///   this only raises OnWaveStarted.</summary>
+    public void ActivateWave(int waveIndex)
+    {
+        if (Table == null || Table.Entries == null || Table.Entries.Length == 0)
+        {
+            Debug.LogWarning($"[EnemySpawnArea] '{name}': ActivateWave({waveIndex}) — no spawn Table assigned (or it's empty).", this);
+            return;
+        }
+        if (Waves == null || waveIndex < 0 || waveIndex >= Waves.Length || Waves[waveIndex] == null)
+        {
+            Debug.LogWarning($"[EnemySpawnArea] '{name}': ActivateWave({waveIndex}) — no such wave (this area has {Waves?.Length ?? 0}).", this);
+            return;
+        }
+
+        IsCleared = false;
+        _scriptedRoutines.Add(StartCoroutine(Co_ScriptedWave(Waves[waveIndex], waveIndex)));
+    }
+
     /// <summary>Stops the encounter immediately. Spawned enemies are left alone —
     /// pass true to remove them too (used by checkpoint reloads).</summary>
     public void Abort(bool despawnLiveEnemies = false)
     {
         if (_encounterRoutine != null) { StopCoroutine(_encounterRoutine); _encounterRoutine = null; }
+
+        foreach (Coroutine routine in _scriptedRoutines)
+            if (routine != null) StopCoroutine(routine);
+        _scriptedRoutines.Clear();
+        _scriptedWavesInFlight = 0;
+
         IsRunning = false;
 
         if (despawnLiveEnemies)
@@ -275,6 +383,50 @@ public class EnemySpawnArea : MonoBehaviour
         IsCleared  = false;
         _rearmTime = 0f;
         WaveIndex  = -1;
+    }
+
+    // ── Save / restore ───────────────────────────────────────────────────────
+
+    /// <summary>Stable identity for the save file. Prefers <see cref="ScriptedId"/> so a
+    /// designer can rename the GameObject without orphaning saved state, and falls back
+    /// to the hierarchy path for the areas that never needed a scripted id.</summary>
+    public string SaveKey =>
+        !string.IsNullOrWhiteSpace(ScriptedId) ? ScriptedId : SaveableId.Resolve(this);
+
+    public SpawnAreaSaveState CaptureSaveState() => new SpawnAreaSaveState
+    {
+        id        = SaveKey,
+        hasFired  = _hasFired,
+        cleared   = IsCleared,
+        waveIndex = WaveIndex,
+    };
+
+    /// <summary>
+    /// Rewinds this area to a saved state. Pass null for an area the save does not
+    /// mention — it returns to fully untouched, which is right for an area added to the
+    /// level after that save was written.
+    ///
+    /// Live enemies are always destroyed, whatever the target state. Anything currently
+    /// on the field belongs to the timeline being discarded: leaving it alive would let
+    /// the player rewind to a checkpoint before an ambush and still be shot by it.
+    /// </summary>
+    public void RestoreSaveState(SpawnAreaSaveState state)
+    {
+        Abort(despawnLiveEnemies: true);
+        Rearm();
+
+        if (state == null) return;
+
+        _hasFired = state.hasFired;
+        IsCleared = state.cleared;
+        WaveIndex = state.waveIndex;
+
+        // A retriggerable area saved while cleared has to start its cooldown from now,
+        // not from whenever it cleared in the discarded timeline — Time.time from the
+        // old run means nothing after a scene load.
+        _rearmTime = state.cleared && CanRetrigger ? Time.time + RetriggerCooldown : 0f;
+
+        Log($"Restored — hasFired={_hasFired} cleared={IsCleared} wave={WaveIndex}");
     }
 
     #endregion
@@ -332,13 +484,38 @@ public class EnemySpawnArea : MonoBehaviour
             yield return new WaitForSeconds(LivenessPollInterval);
         }
 
-        IsRunning = false;
+        _encounterRoutine = null;
+        // A scripted wave (ActivateWave) can still be trickling in underneath the
+        // encounter, and it owns IsRunning until it's done.
+        if (_scriptedWavesInFlight == 0) IsRunning = false;
         IsCleared = true;
         _rearmTime = Time.time + RetriggerCooldown;
-        _encounterRoutine = null;
 
         Log("Encounter cleared.");
         OnEncounterCleared?.Invoke();
+    }
+
+    /// <summary>One wave, run on demand by <see cref="ActivateWave"/>. Kept separate
+    /// from Co_Encounter so a scripted wave can't disturb the encounter's own
+    /// wave-index bookkeeping or its cleared reporting.</summary>
+    private IEnumerator Co_ScriptedWave(Wave wave, int waveIndex)
+    {
+        _scriptedWavesInFlight++;
+        IsRunning = true;
+
+        if (wave.DelayBeforeStart > 0f)
+            yield return new WaitForSeconds(wave.DelayBeforeStart);
+
+        Log($"Scripted wave {waveIndex + 1} — '{wave.Label}' (budget {wave.Budget}).");
+        OnWaveStarted?.Invoke(waveIndex);
+
+        yield return Co_RunWave(wave, waveIndex);
+
+        // Counted rather than inferred from the coroutine list: scripted waves can
+        // overlap, and the main encounter can be running underneath them. IsRunning
+        // only drops when nothing at all is still spawning.
+        _scriptedWavesInFlight--;
+        if (_scriptedWavesInFlight == 0 && _encounterRoutine == null) IsRunning = false;
     }
 
     private IEnumerator Co_RunWave(Wave wave, int waveIndex)

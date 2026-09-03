@@ -156,10 +156,10 @@ public class EnemyDodgeBehaviour : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, MinTriggerRange);
-        Gizmos.color = new Color(0f, 1f, 0f, 0.4f);
-        Gizmos.DrawWireSphere(transform.position, MaxTriggerRange);
+        // Dodging only fires inside this band, so draw it as a band.
+        Vector3 center = EnemyGizmos.Ground(transform.position);
+        EnemyGizmos.GroundBand(center, MinTriggerRange, MaxTriggerRange, EnemyGizmos.Dodge,
+                               $"dodge {MinTriggerRange:0.#}–{MaxTriggerRange:0.#}m", 130f);
     }
 #endif
 }

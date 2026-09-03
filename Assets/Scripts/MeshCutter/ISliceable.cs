@@ -20,6 +20,19 @@ public interface ISliceable
     /// </summary>
     IReadOnlyList<MeshTarget> ResolveSliceTargets(Vector3 hitPoint);
 
+    /// <summary>
+    /// True when the meshes handed back by <see cref="ResolveSliceTargets"/> hold vertices
+    /// that are ALREADY in world space, rather than in their target transform's local space.
+    ///
+    /// The cutter normally rescales every piece by the parent chain's scale, because Dynamic
+    /// Mesh Cutter builds pieces from local-space vertices and drops them into the scene at
+    /// scale 1. A target that was baked to world space (EnemySliceable's combined-body proxy)
+    /// needs no correction at all — applying one anyway multiplies the halves by whatever
+    /// scale happens to sit above them, which on a rig with a 100× import scale means pieces
+    /// a hundred times too big.
+    /// </summary>
+    bool SliceTargetsAreWorldSpace { get; }
+
     /// <summary>Called once the cut has been queued (Dynamic Mesh Cutter cuts async).</summary>
     void OnSliceStarted(Vector3 hitPoint, Vector3 planeNormal);
 

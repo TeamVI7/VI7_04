@@ -1,14 +1,21 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Base class for all world pickups (weapons, ammo, health, etc).
 /// Handles trigger detection, idle spin/bob animation, pickup FX/SFX, and
-/// an optional respawn timer instead of a hard destroy.
+/// an optional respawn timer.
 ///
 /// Override TryPickup() to define what the pickup actually grants the player.
 /// Return false from TryPickup() to leave the pickup in the world uncollected
 /// (e.g. an ammo crate when the player is already at max reserve).
+///
+/// A collected pickup is hidden and its collider disabled — it is never destroyed.
+/// The save system has to be able to put it back: rewinding to a checkpoint taken
+/// before the player grabbed an ammo crate must return that crate to the world, and
+/// a destroyed GameObject cannot be un-destroyed. The cost is a hidden, collider-less
+/// object that early-outs of Update, which is nothing next to losing the rewind.
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public abstract class PickupBase : MonoBehaviour
@@ -32,7 +39,7 @@ public abstract class PickupBase : MonoBehaviour
     [SerializeField] private float respawnDelay = 0f;
 
     [Header("Despawn")]
-    [Tooltip("If > 0 and respawnDelay is 0, the pickup is destroyed after this many seconds if never collected.")]
+    [Tooltip("If > 0 and respawnDelay is 0, the pickup removes itself after this many seconds if never collected.")]
     [SerializeField] private float despawnTime = 120f;
 
     [Header("Debug")]
@@ -47,6 +54,25 @@ public abstract class PickupBase : MonoBehaviour
     private bool       _collected;
     private Coroutine  _despawnRoutine;
 
+    public bool IsCollected => _collected;
+
+    /// <summary>Stable identity for the save file — see <see cref="SaveableId"/>.</summary>
+    public string SaveId => SaveableId.Resolve(this);
+
+    #endregion
+
+    #region Save Registry
+
+    // Every live pickup registers here so the save system can ask "which of these have
+    // been taken?" without a FindObjectsOfType sweep, which would miss the ones already
+    // hidden after collection.
+    private static readonly List<PickupBase> Registry = new List<PickupBase>();
+
+    public static IReadOnlyList<PickupBase> All => Registry;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRegistry() => Registry.Clear();
+
     #endregion
 
     #region Unity Callbacks
@@ -56,6 +82,11 @@ public abstract class PickupBase : MonoBehaviour
         _collider            = GetComponent<Collider>();
         _collider.isTrigger  = true;
         _renderers           = GetComponentsInChildren<Renderer>();
+    }
+
+    protected virtual void OnEnable()
+    {
+        if (!Registry.Contains(this)) Registry.Add(this);
     }
 
     protected virtual void Start()
@@ -79,6 +110,11 @@ public abstract class PickupBase : MonoBehaviour
         }
     }
 
+    protected virtual void OnDestroy()
+    {
+        Registry.Remove(this);
+    }
+
     #endregion
 
     #region Pickup Flow
@@ -95,8 +131,6 @@ public abstract class PickupBase : MonoBehaviour
 
     private void Collect()
     {
-        _collected = true;
-
         if (_despawnRoutine != null)
         {
             StopCoroutine(_despawnRoutine);
@@ -109,21 +143,47 @@ public abstract class PickupBase : MonoBehaviour
         if (pickupSFX != null)
             AudioSource.PlayClipAtPoint(pickupSFX, transform.position, sfxVolume);
 
-        SetVisible(false);
-        _collider.enabled = false;
+        SetCollected(true);
 
-        Log($"Collected by player.");
+        Log("Collected by player.");
 
         if (respawnDelay > 0f) Invoke(nameof(Respawn), respawnDelay);
-        else Destroy(gameObject, 0.05f);
     }
 
     private void Respawn()
     {
-        _collected        = false;
-        _collider.enabled = true;
-        SetVisible(true);
+        SetCollected(false);
         Log("Respawned.");
+    }
+
+    /// <summary>
+    /// Puts this pickup back to a saved collected/uncollected state, with no FX, no
+    /// sound and no respawn timer — a rewind is not a pickup event.
+    /// </summary>
+    public void RestoreCollected(bool collected)
+    {
+        CancelInvoke(nameof(Respawn));
+
+        if (_despawnRoutine != null)
+        {
+            StopCoroutine(_despawnRoutine);
+            _despawnRoutine = null;
+        }
+
+        SetCollected(collected);
+
+        // Rewinding to before this pickup was taken puts it back in the world, and an
+        // uncollected pickup with a despawn timer is supposed to be counting down.
+        if (!collected && respawnDelay <= 0f && despawnTime > 0f && isActiveAndEnabled)
+            _despawnRoutine = StartCoroutine(DespawnCountdown());
+    }
+
+    private void SetCollected(bool collected)
+    {
+        _collected = collected;
+
+        if (_collider != null) _collider.enabled = !collected;
+        SetVisible(!collected);
     }
 
     #endregion
@@ -137,7 +197,7 @@ public abstract class PickupBase : MonoBehaviour
 
         Log($"Despawn timer expired after {despawnTime}s.");
         OnDespawn();
-        Destroy(gameObject);
+        SetCollected(true);
     }
 
     protected virtual void OnDespawn() { }
